@@ -60,6 +60,11 @@ def parse_args():
                         uncertainty and cross-validation visualizations. Here we
                         just take the "width". The height will be automatically
                         computed based on the imager aspect ratio''')
+    parser.add_argument('--hardcopy',
+                        type=str,
+                        help='''If given, we write the output plots to this
+                        path. This path is given as DIR/FILE.EXTENSION. Multiple
+                        plots will be made, to DIR/FILE-thing.EXTENSION''')
     parser.add_argument('model',
                         type=str,
                         help='''The camera model to process''')
@@ -86,7 +91,10 @@ import copy
 icam_intrinsics = 0
 
 
-
+if args.hardcopy is None:
+    filename = None
+else:
+    hardcopy_base,hardcopy_extension = os.path.splitext(args.hardcopy)
 
 
 def apply_noise(optimization_inputs,
@@ -110,12 +118,17 @@ observed_pixel_uncertainty = args.observed_pixel_uncertainty
 
 plots = []
 
+if args.hardcopy is not None:
+    filename = f"{hardcopy_base}-uncertainty-baseline{hardcopy_extension}"
 plots.append( \
     mrcal.show_projection_uncertainty(model,
                                       gridn_width = args.gridn_width,
                                       observed_pixel_uncertainty = observed_pixel_uncertainty,
                                       cbmax                      = 0.3,
-                                      title                      = f'Baseline uncertainty with {observed_pixel_uncertainty=}') )
+                                      title                      = f'Baseline uncertainty with {observed_pixel_uncertainty=}',
+                                      hardcopy = filename) )
+if args.hardcopy is not None:
+    print(f"Wrote '{filename}'")
 
 optimization_inputs_perfect = model.optimization_inputs()
 mrcal.make_perfect_observations(optimization_inputs_perfect,
@@ -133,12 +146,17 @@ def model_sample():
 model0  = model_sample()
 models1 = [model_sample() for _ in range(args.num_samples)]
 
+if args.hardcopy is not None:
+    filename = f"{hardcopy_base}-uncertainty-perfect{hardcopy_extension}"
 plots.append( \
     mrcal.show_projection_uncertainty(model0,
                                       gridn_width = args.gridn_width,
                                       observed_pixel_uncertainty = observed_pixel_uncertainty,
                                       cbmax                      = 0.3,
-                                      title                      = 'Uncertainty with perfect observations + noise; should be very close to baseline') )
+                                      title                      = 'Uncertainty with perfect observations + noise; should be very close to baseline',
+                                      hardcopy = filename) )
+if args.hardcopy is not None:
+    print(f"Wrote '{filename}'")
 
 
 def gnuplotlib_normalize_options_dict(d):
@@ -181,18 +199,30 @@ plot_options = dict()
 for o in _plot_options:
     if o not in gp.knownSubplotOptions:
         plot_options[o] = _plot_options[o]
+if args.hardcopy is not None:
+    filename = f"{hardcopy_base}-diff-samples{hardcopy_extension}"
 diff_multiplot = gp.gnuplotlib( title     = 'Simulated cross-validation diff samples comparing two perfectly-noised models',
                                 multiplot = f'layout {gridn_plot},{gridn_plot}',
+                                hardcopy = filename,
                                 **plot_options )
 diff_multiplot.plot( *diff_multiplot_args )
+if args.hardcopy is not None:
+    print(f"Wrote '{filename}'")
 plots.append(diff_multiplot)
 
+if args.hardcopy is not None:
+    filename = f"{hardcopy_base}-diff-joint-stdev{hardcopy_extension}"
 plots.append( mrcal.show_projection_diff([model0, *models1],
                                          gridn_width       = args.gridn_width,
                                          use_uncertainties = False,
                                          focus_radius      = 100,
                                          cbmax             = 1.,
-                                         title             = 'Simulated cross-validation diff: stdev of of ALL the samples')[0] )
+                                         title             = 'Simulated cross-validation diff: stdev of of ALL the samples',
+                                         hardcopy          = filename)[0])
+if args.hardcopy is not None:
+    print(f"Wrote '{filename}'")
 
-# Needs gnuplotlib >= 0.42
-gp.wait(*plots)
+
+if args.hardcopy is None:
+    # Needs gnuplotlib >= 0.42
+    gp.wait(*plots)
