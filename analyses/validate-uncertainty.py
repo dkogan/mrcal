@@ -130,24 +130,69 @@ def model_sample():
     return mrcal.cameramodel(optimization_inputs = optimization_inputs,
                              icam_intrinsics     = icam_intrinsics)
 
-models = [model_sample() for _ in range(args.num_samples+1)]
+model0  = model_sample()
+models1 = [model_sample() for _ in range(args.num_samples)]
 
 plots.append( \
-    mrcal.show_projection_uncertainty(models[0],
+    mrcal.show_projection_uncertainty(model0,
                                       gridn_width = args.gridn_width,
                                       observed_pixel_uncertainty = observed_pixel_uncertainty,
                                       cbmax                      = 0.3,
                                       title                      = 'Uncertainty with perfect observations + noise; should be very close to baseline') )
 
-for model1 in models[1:]:
-    plots.append( \
-        mrcal.show_projection_diff((models[0],model1),
+
+def gnuplotlib_normalize_options_dict(d):
+    d2 = {}
+    for key in d:
+        gp.add_plot_option(d2, key, d[key])
+    return d2
+
+gridn_plot = int( np.ceil(np.sqrt(len(models1)) ) )
+
+diff_multiplot_args = []
+for model1 in models1:
+    data_tuples,plot_options = \
+        mrcal.show_projection_diff((model0,model1),
                                    gridn_width       = args.gridn_width,
                                    use_uncertainties = False,
                                    focus_radius      = 100,
                                    cbmax             = 1.,
-                                   title             = 'Simulated cross-validation diff: comparing two perfectly-noised models')[0] )
+                                   title             = '',
+                                   unset=('key',
+                                          'xtics',
+                                          'ytics',),
+                                   contour_labels_styles = None, # no label
+                                   _set=('lmargin 0',
+                                         'tmargin 0',
+                                         'rmargin 0',
+                                         'bmargin 0',
+                                         ),
+                                   return_plot_args  = True)[0]
+    plot_options = gnuplotlib_normalize_options_dict(plot_options)
+    subplot_options = dict()
+    for o in plot_options:
+        if o in gp.knownSubplotOptions:
+            subplot_options[o] = plot_options[o]
+    diff_multiplot_args.append( (*data_tuples,subplot_options) )
 
+# massage one of the plot_options from the subplots; they're probably all the same
+_plot_options = copy.copy(plot_options)
+plot_options = dict()
+for o in _plot_options:
+    if o not in gp.knownSubplotOptions:
+        plot_options[o] = _plot_options[o]
+diff_multiplot = gp.gnuplotlib( title     = 'Simulated cross-validation diff samples comparing two perfectly-noised models',
+                                multiplot = f'layout {gridn_plot},{gridn_plot}',
+                                **plot_options )
+diff_multiplot.plot( *diff_multiplot_args )
+plots.append(diff_multiplot)
+
+plots.append( mrcal.show_projection_diff([model0, *models1],
+                                         gridn_width       = args.gridn_width,
+                                         use_uncertainties = False,
+                                         focus_radius      = 100,
+                                         cbmax             = 1.,
+                                         title             = 'Simulated cross-validation diff: stdev of of ALL the samples')[0] )
 
 # Needs gnuplotlib >= 0.42
 gp.wait(*plots)
