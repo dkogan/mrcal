@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 
+r'''Look at the extrinsics drift of a camera pair over time
+
+Described here:
+
+https://mrcal.secretsauce.net/docs-3.0/differencing.html#extrinsics-diff
+
+'''
 
 import sys
 import numpy as np
