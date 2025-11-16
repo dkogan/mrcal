@@ -700,6 +700,7 @@ def _options_heatmap_with_contours( plotoptions, # we update this on output
                                     gridn_width,
                                     gridn_height,
                                     do_contours           = True,
+                                    # None means "no labels"
                                     contour_labels_styles = 'boxed',
                                     contour_labels_font   = None):
     r'''Update plotoptions, return curveoptions for a contoured heat map'''
@@ -745,9 +746,13 @@ def _options_heatmap_with_contours( plotoptions, # we update this on output
         # - to make the heat map
         # - to make the contours
         # - to make the contour labels
-        _with = np.array(('image',
-                          'lines nosurface',
-                          f'labels {contour_labels_styles} nosurface'))
+        if contour_labels_styles is not None:
+            _with = np.array(('image',
+                              'lines nosurface',
+                              f'labels {contour_labels_styles} nosurface'))
+        else:
+            _with = np.array(('image',
+                              'lines nosurface'))
     else:
         gp.add_plot_option(plotoptions, 'unset', 'key')
         _with = 'image'
@@ -1141,7 +1146,8 @@ ARGUMENTS
 - contour_labels_styles: optional string, defaulting to 'boxed'. The style of
   the contour labels. This will be passed to gnuplot as f"with labels
   {contour_labels_styles} nosurface". Can be used to box/unbox the label, set
-  the color, etc. To change the font use contour_labels_font.
+  the color, etc. To change the font use contour_labels_font. Set to None to
+  omit the labels entirely
 
 - contour_labels_font: optional string, defaulting to None, If given, this is
   the font string for the contour labels. Will be passed to gnuplot as f'set
@@ -1754,7 +1760,8 @@ ARGUMENTS
 - contour_labels_styles: optional string, defaulting to 'boxed'. The style of
   the contour labels. This will be passed to gnuplot as f"with labels
   {contour_labels_styles} nosurface". Can be used to box/unbox the label, set
-  the color, etc. To change the font use contour_labels_font.
+  the color, etc. To change the font use contour_labels_font. Set to None to
+  omit the labels entirely
 
 - contour_labels_font: optional string, defaulting to None, If given, this is
   the font string for the contour labels. Will be passed to gnuplot as f'set
