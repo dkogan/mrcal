@@ -94,7 +94,7 @@ functions:
 
 - =mrcal_image_uint8_load()= applies stretch equalization if given a 16-bit
   image. This is a reasonable default. If more specific processing is needed,
-  call =mrcal_image_uint16_load()=
+  call =mrcal_image_uint16_load()=. And [[file:mrcal-python-api-reference.html#-load_image][=mrcal.load_image()=]]
 
 - The [[file:mrcal-cull-corners.html][=mrcal-cull-corners=]] tool has =--cull-rad-off-center-board= to throw out
   chessboard edges. Useful if we dont trust the chessboard shape

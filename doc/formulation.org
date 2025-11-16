@@ -537,7 +537,15 @@ Today, mrcal /does/ ignore this extra correction factor: the
 terms should count as "measurements" here. I /have/ seen this factor be
 required, but only when running very funky experiments. The
 [[https://www.github.com/dkogan/mrcal/blob/master/analyses/validate-input-noise.py][=analyses/validate-input-noise.py=]] tool reports whether the noise assumptions
-are valid for any given solve. Run that if in doubt.
+are valid for any given solve. For the [[file:tour-initial-calibration.org::#splined-stereographic-fit][splined-model solve in the tour of mrcal]]:
+
+#+begin_example
+$ analyses/validate-input-noise.py ../doc/data/figueroa-overpass-looking-S/splined.cameramodel
+
+Noise ratios measured/actual. Should be ~ 1.0
+  observed, by looking at the distribution of residulas: 0.981
+  predicted, by correcting the above by sqrt(1-Nstates/Nmeasurements_observed): 1.012
+#+end_example
 
 ** Noise in the measurement vector $\vec x$
 :PROPERTIES:

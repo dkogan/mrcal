@@ -61,11 +61,11 @@ explicitly measures the effects of sampling errors, so if we're too sensitive to
 input noise, the uncertainty results would clearly tell us that.
 
 ** Derivation summary
-It is a reasonable assumption that each $x$ and $y$ measurement in every
-detected chessboard corner contains independent, gaussian noise. This noise is
-hard to measure directly (there's an [[https://github.com/dkogan/mrgingham/blob/master/mrgingham-observe-pixel-uncertainty][attempt]] in mrgingham), so we estimate it
-from the solve residuals. We then have the diagonal matrix representing the
-variance our input noise: $\mathrm{Var}\left( \vec q_\mathrm{ref} \right)$.
+It is a reasonable assumption that each $x$ and $y$ measurement in every detected
+chessboard corner contains independent, gaussian noise. This noise is hard to
+measure directly (there's an [[https://github.com/dkogan/mrgingham/blob/master/mrgingham-observe-pixel-uncertainty][attempt]] in mrgingham), so we [[file:formulation.org::#estimating-input-noise][estimate it from the
+solve residuals]]. We then have the diagonal matrix representing the variance our
+input noise: $\mathrm{Var}\left( \vec q_\mathrm{ref} \right)$.
 
 We propagate this input noise through the optimization, to find out how this
 noise would affect the calibration solution. Given some perturbation of the

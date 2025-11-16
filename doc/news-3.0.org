@@ -13,9 +13,6 @@ compose_r_tinyr1_gradientr1
 75893eea: Added initialy EARLY version of mrcal-show-stereo-pair-diff (this
 needs to be tested, documented)
 
-analyses/validate-uncertainty.py script to check the uncertainty and
-cross-validation logic
-
 faster uncertainty computation:
   cecab50a CHOLMOD_factorization.solve_xt_JtJ_bt() can solve other problems
   9393ef79 Much faster uncertainty computation
