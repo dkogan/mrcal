@@ -536,8 +536,8 @@ Today, mrcal /does/ ignore this extra correction factor: the
 [[https://www.github.com/dkogan/mrcal/blob/master/mrcal/model_analysis.py][=model_analysis.py=]] uses $\sigma$ only because it's not clear if regularization
 terms should count as "measurements" here. I /have/ seen this factor be
 required, but only when running very funky experiments. The
-=analyses/validate-uncertainty.py --validate input-noise= tool reports whether
-the noise assumptions are valid for any given solve. Run that if in doubt.
+[[https://www.github.com/dkogan/mrcal/blob/master/analyses/validate-input-noise.py][=analyses/validate-input-noise.py=]] tool reports whether the noise assumptions
+are valid for any given solve. Run that if in doubt.
 
 ** Noise in the measurement vector $\vec x$
 :PROPERTIES:

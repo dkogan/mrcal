@@ -49,6 +49,10 @@ undocumented, until they're done and finally appear in mrcal 3.0:
   different-resolution cameras. In that case =--imagersize= doesn't work, and
   finding the images on disk is required
 
+- Added [[https://www.github.com/dkogan/mrcal/blob/master/analyses/validate-input-noise.py][=analyses/validate-input-noise.py=]] and
+  [[https://www.github.com/dkogan/mrcal/blob/master/analyses/validate-uncertainty.py][=analyses/validate-uncertainty.py=]] tools. These are /very/ useful to check the
+  various assumptions made by the mrcal processing
+
 ** C API 
 Some guts of the calibration machinery have been ported to C and exposed as C
 functions:

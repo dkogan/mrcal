@@ -501,9 +501,9 @@ Note that this page describes a correction factor of sqrt(1 -
 Nstates/Nmeasurements). Here I simply assume that we're very overdetermined and
 that this factor is 1.0. I think this is probably true in my case. I don't want
 to add this because I'm not sure whether regularization terms should be treated
-as "measurements" for this. We can run "analyses/validate-uncertainty.py
---validate input-noise" to see if this assumption (assuming that we're VERY
-overdetermined) is valid for any particular solve
+as "measurements" for this. We can run "analyses/validate-input-noise.py" to see
+if this assumption (assuming that we're VERY overdetermined) is valid for any
+particular solve
 
     '''
 

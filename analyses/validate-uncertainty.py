@@ -47,12 +47,11 @@ def parse_args():
 
     parser.add_argument('--validate',
                         choices=('uncertainty',
-                                 'input-noise',
                                  'noncentral'),
                         default = 'uncertainty',
                         help='''What we're testing: uncertainty predicting the
-                        cross-validation samples, the input-noise-estimation
-                        expressions, the noncentral assumption respectively''')
+                        cross-validation samples, the noncentral assumption
+                        respectively''')
 
     parser.add_argument('--uncertainty-num-samples',
                         type = int,
@@ -91,13 +90,12 @@ def parse_args():
                         type=str,
                         nargs='+',
                         help='''The camera models to process. '--validate
-                        input-noise' and '--validate uncertainty' use each of
-                        these individually. '--validate noncentral' requires an
-                        even number of models, at least 2. If we are given
-                        exactly two models, we use those two. If we are given
-                        N>2 models, we join data from the first N/2 models and
-                        the second N/2 models into two bigger sets of
-                        calibration data, and we process those''')
+                        uncertainty' use each of these individually. '--validate
+                        noncentral' requires an even number of models, at least
+                        2. If we are given exactly two models, we use those two.
+                        If we are given N>2 models, we join data from the first
+                        N/2 models and the second N/2 models into two bigger
+                        sets of calibration data, and we process those''')
 
     args = parser.parse_args()
 
@@ -190,38 +188,6 @@ def apply_noise(optimization_inputs,
 
     optimization_inputs['observations_board'][...,:2] += \
         noise_nominal / weight
-
-
-def validate_input_noise(model,
-                         *,
-                         observed_pixel_uncertainty):
-
-    optimization_inputs = model.optimization_inputs()
-    mrcal.make_perfect_observations(optimization_inputs,
-                                    observed_pixel_uncertainty = observed_pixel_uncertainty)
-
-    mrcal.optimize(**optimization_inputs)
-
-    # The ratio of observed noise to what I expected. Should be ~ 1.0
-    noise_observed_ratio = \
-        mrcal.model_analysis._observed_pixel_uncertainty_from_inputs(optimization_inputs) / observed_pixel_uncertainty
-
-    Nstates       = mrcal.num_states(**optimization_inputs)
-    Nmeasurements = mrcal.num_measurements(**optimization_inputs)
-
-
-    # This correction is documented here:
-    #   https://mrcal.secretsauce.net/docs-3.0/formulation.html#estimating-input-noise
-    # This probably should be added to
-    # _observed_pixel_uncertainty_from_inputs(). Today (2025/11/15) it has not
-    # yet been. Because very're usually VERY overdetermined, which can be
-    # validated by this script. I will add this factor later, if I discover that this is necessary
-    f = np.sqrt(1 - Nstates/Nmeasurements)
-    noise_predicted_ratio = noise_observed_ratio/f
-
-    print("Noise ratios measured/actual. Should be ~ 1.0")
-    print(f"  observed, by looking at the distribution of residulas: {noise_observed_ratio:.3f}")
-    print(f"  predicted, by correcting the above by sqrt(1-Nstates/Nmeasurements_observed): {noise_predicted_ratio:.3f}")
 
 
 def validate_uncertainty(model,
@@ -469,12 +435,6 @@ if len(models) > 2:
                                  icam_intrinsics     = 0) )
 
 
-if args.validate == 'input-noise':
-    for model in models:
-        validate_input_noise(model,
-                             observed_pixel_uncertainty = args.observed_pixel_uncertainty)
-    plots = None
-
 if args.validate == 'uncertainty':
     plots = \
         [  plot \
@@ -489,6 +449,5 @@ if args.validate == 'noncentral':
                             percentile = args.noncentral_cull_percentile,
                             mode       = args.noncentral_mode)
 
-if plots:
-    # Needs gnuplotlib >= 0.42
-    gp.wait(*plots)
+# Needs gnuplotlib >= 0.42
+gp.wait(*plots)
