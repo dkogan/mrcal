@@ -539,7 +539,8 @@ I now describe each step.
 :CUSTOM_ID: uncertainty
 :END:
 
-As described in detail in [[file:uncertainty.org][the projection-uncertainty page]], the projection
+Today I'm primarily concerned with the uncertainty in the intrinsics. As
+described in detail in [[file:uncertainty.org][the projection-uncertainty page]], the projection
 uncertainty computed by mrcal gauges the effect of sampling error. Since we
 /always/ have noise in our chessboard observations, it's important that the
 solution be insensitive to this noise. Otherwise a recalibration of the same
