@@ -224,7 +224,7 @@ def validate_input_noise(model,
     if np.abs(noise_predicted_ratio - 1) < 0.02:
         print("Predicted noise within 2%. We can predict observed_pixel_uncertainty correctly\n\n")
     else:
-        print("****** Predicted noise is NOT within 1%. We can NOT predict observed_pixel_uncertainty correctly\n\n")
+        print("****** Predicted noise is NOT within 2%. We can NOT predict observed_pixel_uncertainty correctly\n\n")
 
 
 def validate_uncertainty(model,
