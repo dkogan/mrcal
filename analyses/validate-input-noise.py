@@ -42,11 +42,7 @@ def parse_args():
                         help='''The camera models to process. Each is handled
                         individually''')
 
-    args = parser.parse_args()
-
-    Nmodels = len(args.models)
-
-    return args
+    return parser.parse_args()
 
 args = parse_args()
 
