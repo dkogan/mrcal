@@ -46,7 +46,7 @@ def parse_args():
 
     parser.add_argument('--num-samples',
                         type = int,
-                        default = 10,
+                        default = 16,
                         help='''How many noisy-data samples to process''')
 
     parser.add_argument('--observed-pixel-uncertainty',
@@ -79,6 +79,14 @@ import mrcal.model_analysis
 import numpy as np
 import numpysane as nps
 import gnuplotlib as gp
+import copy
+
+# Today I hardcode this. I'm mostly thinking of monocular chessboard solves
+# only. Presumably other behave the same way
+icam_intrinsics = 0
+
+
+
 
 
 def apply_noise(optimization_inputs,
@@ -96,56 +104,50 @@ def apply_noise(optimization_inputs,
         noise_nominal / weight
 
 
-def validate_uncertainty(model,
-                         *,
-                         Nsamples,
-                         observed_pixel_uncertainty):
-
-    plots = []
-
-    plots.append( \
-        mrcal.show_projection_uncertainty(model,
-                                          gridn_width = args.gridn_width,
-                                          observed_pixel_uncertainty = observed_pixel_uncertainty,
-                                          cbmax                      = 0.3,
-                                          title                      = 'Baseline uncertainty with a perfect-noise solve')
-                 )
-
-    optimization_inputs_perfect = model.optimization_inputs()
-    mrcal.make_perfect_observations(optimization_inputs_perfect,
-                                    observed_pixel_uncertainty = 0)
-
-    def model_sample():
-        optimization_inputs = copy.deepcopy(optimization_inputs_perfect)
-        apply_noise(optimization_inputs,
-                    observed_pixel_uncertainty = observed_pixel_uncertainty)
-        mrcal.optimize(**optimization_inputs)
-        return mrcal.cameramodel(optimization_inputs = optimization_inputs,
-                                 icam_intrinsics     = 0)
-
-
-    model0 = model_sample()
-
-    def diff_sample():
-        model1 = model_sample()
-        return \
-            mrcal.show_projection_diff((model0,model1),
-                                       gridn_width       = args.gridn_width,
-                                       use_uncertainties = False,
-                                       focus_radius      = 100,
-                                       cbmax             = 1.,
-                                       title             = 'Simulated cross-validation diff: comparing two perfectly-noised models')[0]
-
-    plots.extend([ diff_sample() for i in range(Nsamples)])
-
-    return plots
-
-
-
 
 model = mrcal.cameramodel(args.model)
-plots = validate_uncertainty(model,
-                            Nsamples                   = args.num_samples,
-                            observed_pixel_uncertainty = args.observed_pixel_uncertainty)
+observed_pixel_uncertainty = args.observed_pixel_uncertainty
+
+plots = []
+
+plots.append( \
+    mrcal.show_projection_uncertainty(model,
+                                      gridn_width = args.gridn_width,
+                                      observed_pixel_uncertainty = observed_pixel_uncertainty,
+                                      cbmax                      = 0.3,
+                                      title                      = f'Baseline uncertainty with {observed_pixel_uncertainty=}') )
+
+optimization_inputs_perfect = model.optimization_inputs()
+mrcal.make_perfect_observations(optimization_inputs_perfect,
+                                observed_pixel_uncertainty = 0)
+
+
+def model_sample():
+    optimization_inputs = copy.deepcopy(optimization_inputs_perfect)
+    apply_noise(optimization_inputs,
+                observed_pixel_uncertainty = observed_pixel_uncertainty)
+    mrcal.optimize(**optimization_inputs)
+    return mrcal.cameramodel(optimization_inputs = optimization_inputs,
+                             icam_intrinsics     = icam_intrinsics)
+
+models = [model_sample() for _ in range(args.num_samples+1)]
+
+plots.append( \
+    mrcal.show_projection_uncertainty(models[0],
+                                      gridn_width = args.gridn_width,
+                                      observed_pixel_uncertainty = observed_pixel_uncertainty,
+                                      cbmax                      = 0.3,
+                                      title                      = 'Uncertainty with perfect observations + noise; should be very close to baseline') )
+
+for model1 in models[1:]:
+    plots.append( \
+        mrcal.show_projection_diff((models[0],model1),
+                                   gridn_width       = args.gridn_width,
+                                   use_uncertainties = False,
+                                   focus_radius      = 100,
+                                   cbmax             = 1.,
+                                   title             = 'Simulated cross-validation diff: comparing two perfectly-noised models')[0] )
+
+
 # Needs gnuplotlib >= 0.42
 gp.wait(*plots)
