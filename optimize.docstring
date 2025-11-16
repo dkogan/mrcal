@@ -102,6 +102,8 @@ REQUIRED ARGUMENTS
 
   If we only have one camera, pass either None or np.zeros((0,6))
 
+- extrinsics_rt_fromref: legacy synonym for rt_cam_ref
+
 - rt_ref_frame: array of dims (Nframes, 6). The poses of the calibration
   object over time. Each pose is given as 6 values: a rodrigues rotation vector
   followed by a translation. This represents a transformation FROM the coord
@@ -112,6 +114,8 @@ REQUIRED ARGUMENTS
   MODIFIED BY THIS CALL.
 
   If we don't have any frames, pass either None or np.zeros((0,6))
+
+- frames_rt_toref: legacy synonym for "rt_ref_frame".
 
 - points: array of dims (Npoints, 3). The estimated positions of discrete points
   we're observing. These positions are represented in the reference coord
@@ -225,6 +229,12 @@ OPTIONAL ARGUMENTS
   given. These are lower, upper bounds for the distance of a point observation
   to its observing camera. Each observation outside of this range is penalized.
   This helps the solver by guiding it away from unreasonable solutions.
+
+- imagepaths: list of paths to images in this solve. This is used by the Python
+  diagnostic code, and is untouched by mrcal.optimize() and
+  mrcal.optimizer_callback()
+
+- observed_pixel_uncertainty: legacy argument. Unused.
 
 We return a dict with various metrics describing the computation we just
 performed
