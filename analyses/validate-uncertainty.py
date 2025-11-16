@@ -12,8 +12,8 @@ r'''Study the uncertainty as a predictor of cross-validation diffs
 
 SYNOPSIS
 
-  $ study-intrinsics-stability.py \
-      --validate-uncertainty      \
+  $ validate-uncertainty.py  \
+      --validate-uncertainty \
       [01].cameramodel
 
   ... plots pop up, showing the uncertainty prediction from the given models,
