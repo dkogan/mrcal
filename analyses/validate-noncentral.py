@@ -14,22 +14,15 @@ SYNOPSIS
 
   $ validate-noncentral.py [01].cameramodel
 
-  ... plots pop up, showing the uncertainty prediction from the given models,
-  ... and cross-validation diff obtained from creating perfect data corrupted
-  ... ONLY with perfect gaussian noise. If the noise on the inputs was the ONLY
-  ... source of error (what the uncertainty modeling expects), then the
-  ... uncertainty plots would predict the cross-validation plots well
+  ... plots pop up, showing the effect of removing points that are close to the
+  ... lens. If they were causing poor fits due to noncentrality, we'd see
+  improved ... cross-validation
 
-A big feature of mrcal is the ability to gauge the accuracy of the solved
-intrinsics: by computing the projection uncertainty. This measures the
-sensitivity of the solution to noise in the inputs. So using this as a measure
-of calibration accuracy makes a core assumption: this input noise is the only
-source of error. This assumption is often false, so cross-validation diffs can
-be computed to sample the full set of error sources, not just this one.
-
-Sometimes we see cross-validation results higher than what the uncertainties
-promise us, and figuring out the reason can be challenging. This tool serves to
-validate the techniques to help in that debugging.
+I take the optimization_inputs as they are, WITHOUT making perfect data, and I
+re-solve the problem after throwing out points the percentile nearest
+points. If noncentrality was an issue, this new solve would match reality
+better, and the two solves would be closer to each other than the original poor
+cross-validation
 
 '''
 
@@ -63,6 +56,24 @@ def parse_args():
                         uncertainty and cross-validation visualizations. Here we
                         just take the "width". The height will be automatically
                         computed based on the imager aspect ratio''')
+    parser.add_argument('--cbmax-diff',
+                        type=float,
+                        help='''The max-color to use for the diff plots. If
+                        omitted, we use the default in
+                        mrcal.show_projection_diff()''')
+    parser.add_argument('--cbmax-uncertainty',
+                        type=float,
+                        help='''The max-color to use for the uncertainty plots.
+                        If omitted, we use the default in
+                        mrcal.show_projection_uncertainty()''')
+    parser.add_argument('--hardcopy',
+                        type=str,
+                        help='''If given, we write the output plots to this
+                        path. This path is given as DIR/FILE.EXTENSION. Multiple
+                        plots will be made, to DIR/FILE-thing.EXTENSION''')
+    parser.add_argument('--terminal',
+                        type=str,
+                        help='''The gnuplot terminal to use for plots''')
     parser.add_argument('models',
                         type=str,
                         nargs='+',
@@ -191,6 +202,24 @@ else:
     # can't happen; checked above
     raise
 
+
+
+
+
+kwargs_show_uncertainty = dict()
+if args.cbmax_uncertainty is not None:
+    kwargs_show_uncertainty['cbmax'] = args.cbmax_uncertainty
+kwargs_show_diff = dict()
+if args.cbmax_diff is not None:
+    kwargs_show_diff['cbmax'] = args.cbmax_diff
+
+if args.hardcopy is None:
+    filename = None
+else:
+    hardcopy_base,hardcopy_extension = os.path.splitext(args.hardcopy)
+
+
+
 def reoptimize(imodel, model):
     print('')
 
@@ -268,12 +297,20 @@ def reoptimize(imodel, model):
 
 
 
+    if args.hardcopy is not None:
+        filename = f"{hardcopy_base}-histogram-measurements-cull-camera{imodel}{hardcopy_extension}"
+    else:
+        filename = None
     histogram = gp.gnuplotlib()
     histogram.plot(r.ravel(),
                    histogram = True,
                    binwidth  = binwidth,
                    _set = f'arrow from {rthreshold},graph 0 to {rthreshold},graph 1 nohead front',
-                   title = f'Histogram of {what}, with the {what_culling} points marked: camera {imodel}')
+                   title = f'Histogram of {what}, with the {what_culling} points marked: camera {imodel}',
+                   hardcopy = filename,
+                   terminal = args.terminal)
+    if args.hardcopy is not None:
+        print(f"Wrote '{filename}'")
 
     if cull_nearest:
         i_cull = r.ravel() < rthreshold
@@ -299,40 +336,67 @@ models_plots_reoptimized = [ reoptimize(i,m) for i,m in enumerate(models) ]
 models_reoptimized = [ m for (m,p) in models_plots_reoptimized ]
 plots.extend([ p for (m,p) in models_plots_reoptimized ])
 
-plots.extend( \
-    [ mrcal.show_projection_uncertainty(m,
-                                        gridn_width = args.gridn_width,
-                                        cbmax       = 0.3,
-                                        title       = f'Uncertainty after cutting the {what_culling} points: camera {i}') \
-      for i,m in enumerate(models_reoptimized) ] )
+for i,m in enumerate(models_reoptimized):
+    if args.hardcopy is not None:
+        filename = f"{hardcopy_base}-uncertainty-post-cull-camera{i}{hardcopy_extension}"
+    plots.append( \
+        mrcal.show_projection_uncertainty(
+                      m,
+                      gridn_width = args.gridn_width,
+                      title       = f'Uncertainty after cutting the {what_culling} points: camera {i}',
+                      hardcopy    = filename,
+                      terminal    = args.terminal,
+                      **kwargs_show_uncertainty) )
+    if args.hardcopy is not None:
+        print(f"Wrote '{filename}'")
 
+for i in range(len(models)):
+    if args.hardcopy is not None:
+        filename = f"{hardcopy_base}-diff-from-cull-camera{i}{hardcopy_extension}"
+    plots.append( \
+        mrcal.show_projection_diff( \
+                      (models[i],models_reoptimized[i]),
+                      gridn_width       = args.gridn_width,
+                      use_uncertainties = False,
+                      focus_radius      = 100,
+                      title             = f'Reoptimizing after cutting the {what_culling} points: resulting diff for camera {i}',
+                      hardcopy          = filename,
+                      terminal          = args.terminal,
+                      **kwargs_show_diff)[0] )
+    if args.hardcopy is not None:
+        print(f"Wrote '{filename}'")
 
-plots.extend( \
-    [ mrcal.show_projection_diff((models[i],models_reoptimized[i]),
-                                 gridn_width       = args.gridn_width,
-                                 use_uncertainties = False,
-                                 focus_radius      = 100,
-                                 cbmax             = 1.,
-                                 title             = f'Reoptimizing after cutting the {what_culling} points: resulting diff for camera {i}')[0] \
-      for i in range(len(models)) ] )
 
 if len(models) != 2:
     print("WARNING: validate_noncentral() is intended to work with exactly two models. Got something different; not showing the new cross-validation diff")
 else:
-    plots.extend( \
-        [ mrcal.show_projection_diff((models[0],models[1]),
+    if args.hardcopy is not None:
+        filename = f"{hardcopy_base}-cross-validation-pre-cull-camera{i}{hardcopy_extension}"
+    plots.append( \
+          mrcal.show_projection_diff((models[0],models[1]),
                                      gridn_width       = args.gridn_width,
                                      use_uncertainties = False,
                                      focus_radius      = 100,
-                                     cbmax             = 1.,
-                                     title             = f'Original, poor cross-validation diff')[0],
+                                     title             = f'Original, poor cross-validation diff',
+                                     hardcopy          = filename,
+                                     terminal          = args.terminal,
+                                     **kwargs_show_diff)[0])
+    if args.hardcopy is not None:
+        print(f"Wrote '{filename}'")
+
+    if args.hardcopy is not None:
+        filename = f"{hardcopy_base}-cross-validation-post-cull-camera{i}{hardcopy_extension}"
+    plots.append( \
           mrcal.show_projection_diff((models_reoptimized[0],models_reoptimized[1]),
                                      gridn_width       = args.gridn_width,
                                      use_uncertainties = False,
                                      focus_radius      = 100,
-                                     cbmax             = 1.,
-                                     title             = f'Cross-validation diff after cutting the {what_culling} points')[0]
-         ])
+                                     title             = f'Cross-validation diff after cutting the {what_culling} points',
+                                     hardcopy          = filename,
+                                     terminal          = args.terminal,
+                                     **kwargs_show_diff)[0])
+    if args.hardcopy is not None:
+        print(f"Wrote '{filename}'")
 
 # Needs gnuplotlib >= 0.42
 gp.wait(*plots)
