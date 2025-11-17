@@ -597,7 +597,9 @@ solves, and the resulting differences will be in-line with what the
 uncertainties predict: $\mathrm{difference} \approx \mathrm{uncertainty}_0 +
 \mathrm{uncertainty}_1$. Otherwise, we have an extra source of error not present
 in the uncertainty estimates, which would cause the cross-validation diffs to be
-significantly higher. That would suggest a deeper look is necessary.
+significantly higher. That would suggest a deeper look is necessary. See the
+[[file:tour-cross-validation.org::#cross-validation-comparing-with-uncertainty][tour of mrcal]] for more about the connection between uncertainty and
+cross-validation.
 
 To get the data, we can do two separate dances, or we can split the dataset into
 odd/even images, as described [[#calibration][above]]. Note: if the chessboard is moved very

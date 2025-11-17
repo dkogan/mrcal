@@ -4,8 +4,7 @@
 * Previous
 We just [[file:tour-uncertainty.org][computed the projection uncertainties of the models]]
 
-* Cross-validation
-
+* Overview
 We now have a good method to evaluate the quality of a calibration: the
 [[file:uncertainty.org][projection uncertainty]]. Is that enough? If we run a calibration and see a low
 projection uncertainty, can we assume that the computed model is good, and use
@@ -38,31 +37,35 @@ ignore them. To do that, we need the ability to detect the presense of model
 errors. The [[file:tour-initial-calibration.org::#opencv8-solve-diagnostics][solve diagnostics we talked about earlier]] are a good start. An even
 more powerful technique is computing a /cross-validation diff/:
 
-- We gather not one, but two sets of chessboard observations
-- We compute two completely independent calibrations of these cameras using the
-  two independent sets of observations
-- We use the [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]] tool to compute the difference.
+- We gather not one, but two (or more) sets of chessboard observations
+- We compute multiple independent calibrations of these cameras using these
+  independent sets of observations
+- We use the [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]] tool to compute the difference
 
 The two separate calibrations sample the input noise /and/ the model noise. This
 is, in effect, an empirical measure of uncertainty. If we gathered lots and lots
 of calibration datasets (many more than just two), the resulting empirical
 distribution of projections would conclusively tell us about the calibration
-quality. Here we try to get away with just two empirical samples and the
-computed projection uncertainty to quantify the response to input noise.
+quality. Usually we can quantify the response to input noise by computing just
+two empirical calibration samples and evaluating the projection uncertainty.
 
-If the model noise is negligible, as we would like it to be, then the
-cross-validation diff contains sampling noise only, and the computed uncertainty
-becomes the authoritative gauge of calibration quality. In this case we would
-see a difference on the order of $\mathrm{difference} \approx
-\mathrm{uncertainty}_0 + \mathrm{uncertainty}_1$. It would be good to define
-this more rigorously, but in my experience, even this loose definition is
-sufficient, and this technique works quite well.
+We want the model noise to be negligible; if it is, then the cross-validation
+diff contains sampling noise only, and the computed uncertainty becomes the
+authoritative gauge of calibration quality. In this case we would see a
+difference on the order of $\mathrm{difference} \approx \mathrm{uncertainty}_0 +
+\mathrm{uncertainty}_1$. This is far from exact, and it would be good to define
+this more rigorously. But in practice, even this very loose definition is
+sufficient, and this technique works well. See [[#cross-validation-comparing-with-uncertainty][below]] for more detail.
 
-For the Downtown LA dataset I /did/ gather more than one set of images, so let's
-compute the cross-validation diff using our data.
+* =LENSMODEL_OPENCV8=
+For the Downtown LA dataset I /did/ gather more than one set of images, so we
+can compute the cross-validation diff using this data. As a reminder, the
+computed dance-2 /uncertainty/ (response to sampling error) looks like this:
 
-We already saw evidence that =LENSMODEL_OPENCV8= doesn't fit well. What does its
-cross-validation diff look like?
+[[file:external/figures/uncertainty/uncertainty-opencv8.png]]
+
+The dance-3 uncertainty looks similar. The cross-validation diff looks like
+this:
 
 #+begin_src sh
 mrcal-show-projection-diff           \
@@ -93,17 +96,78 @@ pdfcrop ~/projects/mrcal-doc-external/figures/cross-validation/diff-cross-valida
 
 [[file:external/figures/cross-validation/diff-cross-validation-opencv8.png]]
 
-A reminder, the computed dance-2 uncertainty (response to sampling error) looks
-like this:
+We already saw earlier evidence that =LENSMODEL_OPENCV8= doesn't fit well, and
+this confirms it. If we had low model errors, the cross-validation diff whould
+be within ~0.2 pixels in most of the image. Clearly this model does /far/ worse
+than that, and we conclude that =LENSMODEL_OPENCV8= doesn't fit well.
 
-[[file:external/figures/uncertainty/uncertainty-opencv8.png]]
+* Comparing the uncertainty and the cross-validation
+:PROPERTIES:
+:CUSTOM_ID: cross-validation-comparing-with-uncertainty
+:END:
 
-The dance-3 uncertainty looks similar. So if we have low model errors, the
-cross-validation diff whould be within ~0.2 pixels in most of the image. Clearly
-this model does /far/ worse than that. So we can conclude that
-=LENSMODEL_OPENCV8= doesn't fit well.
+As noted above, we're looking for cross-validation on the order of
+$\mathrm{difference} \approx \mathrm{uncertainty}_0 + \mathrm{uncertainty}_1$.
+This is crude for multiple reasons:
 
-We expect the splined model to do better. Let's see. The cross-validation diff:
+- Where in the imager are we looking?
+- Where should the diff focus region be?
+- How big should the focus region be?
+
+And others. mrcal provides the [[https://www.github.com/dkogan/mrcal/blob/master/analyses/validate-uncertainty.py][=analyses/validate-uncertainty.py=]] tool to give
+us a sense of how this behaves in practice. Given a solve, it adjusts the
+observations to make the computed model fit /exactly/. Then it injects perfect
+noise, resolves and computes a diff. This is precisely what computing the
+cross-validation does in the case where the model error is zero. Let's run it on
+this =LENSMODEL_OPENCV8= solve:
+
+#+begin_src sh
+analyses/validate-uncertainty.py \
+  --cbmax-uncertainty 1          \
+  --cbmax-diff 2                 \
+  --num-samples 25               \
+  2-f22-infinity.opencv8.cameramodel
+#+end_src
+#+begin_src sh :exports none :eval no-export
+mkdir -p ~/projects/mrcal-doc-external/figures/cross-validation/
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/
+analyses/validate-uncertainty.py \
+  --cbmax-uncertainty 1          \
+  --cbmax-diff 2                 \
+  --num-samples 25               \
+  $D/2-f22-infinity/opencv8.cameramodel \
+  --hardcopy ~/projects/mrcal-doc-external/figures/cross-validation/perfect-data-opencv8.png \
+  --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
+analyses/validate-uncertainty.py \
+  --cbmax-uncertainty 1          \
+  --cbmax-diff 2                 \
+  --num-samples 25               \
+  $D/2-f22-infinity/opencv8.cameramodel \
+  --hardcopy ~/projects/mrcal-doc-external/figures/cross-validation/perfect-data-opencv8.pdf \
+  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",16"'
+echo ~/projects/mrcal-doc-external/figures/cross-validation/perfect-data-opencv8*.pdf | xargs -n1 pdfcrop
+#+end_src
+
+We get a whole lot of cross-validation samples:
+
+[[file:external/figures/cross-validation/perfect-data-opencv8-diff-samples.png]]
+
+And we can average them:
+
+[[file:external/figures/cross-validation/perfect-data-opencv8-diff-joint-stdev.png]]
+
+This is about double the uncertainty, as claimed. So if we see a
+cross-validation sample that's /far/ above double the uncertainty, either we got
+really unlucky or we have model errors.
+
+* =LENSMODEL_SPLINED_STEREOGRAPHIC=
+Back to evaluating the models. We just got confirmation that =LENSMODEL_OPENCV8=
+doesn't fit well. We expect the splined model to do better. The dance-2
+uncertainty from before:
+
+[[file:external/figures/uncertainty/uncertainty-splined.png]]
+
+And the cross-validation diff:
 
 #+begin_src sh
 mrcal-show-projection-diff           \
@@ -134,16 +198,50 @@ pdfcrop ~/projects/mrcal-doc-external/figures/cross-validation/diff-cross-valida
 
 [[file:external/figures/cross-validation/diff-cross-validation-splined.png]]
 
-And the dance-2 uncertainty (from before):
-
-[[file:external/figures/uncertainty/uncertainty-splined.png]]
-
-Much better. It's an improvement over =LENSMODEL_OPENCV8=, but it's still
+Much better. It's a big improvement =LENSMODEL_OPENCV8=, but it's still
 noticeably not fitting. So we can explain ~0.2-0.4 pixels of the error away from
-the edges (twice the uncertainty), but the other 0.5-1.0 pixels of error (or
-more if considering the data at the edges) is unexplained. Thus any application
-that requires an accuracy of <1 pixel would have problems with this calibration.
+the edges (twice the uncertainty), but the rest is unexplained. Thus any
+application that requires an accuracy of <1 pixel would have problems with this
+calibration.
 
+For completeness, the simulated mean cross-validation diff for this model:
+
+#+begin_src sh
+analyses/validate-uncertainty.py \
+  --cbmax-uncertainty 1          \
+  --cbmax-diff 2                 \
+  --num-samples 25               \
+  2-f22-infinity.splined.cameramodel
+#+end_src
+#+begin_src sh :exports none :eval no-export
+mkdir -p ~/projects/mrcal-doc-external/figures/cross-validation/
+D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/
+analyses/validate-uncertainty.py \
+  --cbmax-uncertainty 1          \
+  --cbmax-diff 2                 \
+  --num-samples 25               \
+  $D/2-f22-infinity/splined.cameramodel \
+  --hardcopy ~/projects/mrcal-doc-external/figures/cross-validation/perfect-data-splined.png \
+  --terminal 'pngcairo size 1024,768 transparent noenhanced crop font ",12"'
+analyses/validate-uncertainty.py \
+  --cbmax-uncertainty 1          \
+  --cbmax-diff 2                 \
+  --num-samples 25               \
+  $D/2-f22-infinity/splined.cameramodel \
+  --hardcopy ~/projects/mrcal-doc-external/figures/cross-validation/perfect-data-splined.pdf \
+  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",16"'
+echo ~/projects/mrcal-doc-external/figures/cross-validation/perfect-data-splined*.pdf | xargs -n1 pdfcrop
+#+end_src
+
+[[file:external/figures/cross-validation/perfect-data-splined-diff-samples.png]]
+
+[[file:external/figures/cross-validation/perfect-data-splined-diff-joint-stdev.png]]
+
+Here the empirical expected cross-validation is higher that 2x the uncertainty.
+I do not know why at this time, but the overall idea holds: cross-validations
+higher-than-2x-uncertainty should warrant a deeper look.
+
+* Improving it further
 I know from past experience with this lens that the biggest problem here is
 caused by [[file:formulation.org::#lens-behavior][mrcal assuming a central projection in its models]]: it assumes that all
 rays intersect at a single point. This is an assumption made by more or less
