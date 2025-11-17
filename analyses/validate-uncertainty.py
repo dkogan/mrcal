@@ -75,6 +75,9 @@ def parse_args():
                         help='''If given, we write the output plots to this
                         path. This path is given as DIR/FILE.EXTENSION. Multiple
                         plots will be made, to DIR/FILE-thing.EXTENSION''')
+    parser.add_argument('--terminal',
+                        type=str,
+                        help='''The gnuplot terminal to use for plots''')
     parser.add_argument('model',
                         type=str,
                         help='''The camera model to process''')
@@ -150,6 +153,7 @@ plots.append( \
                                       observed_pixel_uncertainty = observed_pixel_uncertainty,
                                       title                      = f'Baseline uncertainty with {observed_pixel_uncertainty=}',
                                       hardcopy = filename,
+                                      terminal = args.terminal,
                                       **kwargs_show_uncertainty) )
 if args.hardcopy is not None:
     print(f"Wrote '{filename}'")
@@ -178,6 +182,7 @@ plots.append( \
                                       observed_pixel_uncertainty = observed_pixel_uncertainty,
                                       title                      = 'Uncertainty with perfect observations + noise; should be very close to baseline',
                                       hardcopy = filename,
+                                      terminal = args.terminal,
                                       **kwargs_show_uncertainty) )
 if args.hardcopy is not None:
     print(f"Wrote '{filename}'")
@@ -228,6 +233,7 @@ if args.hardcopy is not None:
 diff_multiplot = gp.gnuplotlib( title     = 'Simulated cross-validation diff samples comparing two perfectly-noised models',
                                 multiplot = f'layout {gridn_plot},{gridn_plot}',
                                 hardcopy = filename,
+                                terminal = args.terminal,
                                 **plot_options )
 diff_multiplot.plot( *diff_multiplot_args )
 if args.hardcopy is not None:
@@ -242,6 +248,7 @@ plots.append( mrcal.show_projection_diff([model0, *models1],
                                          focus_radius      = 100,
                                          title             = 'Simulated cross-validation diff: stdev of of ALL the samples',
                                          hardcopy          = filename,
+                                         terminal          = args.terminal,
                                          **kwargs_show_diff)[0])
 if args.hardcopy is not None:
     print(f"Wrote '{filename}'")
