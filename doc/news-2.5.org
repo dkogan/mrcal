@@ -153,6 +153,9 @@ functions:
   view is allowed to get to $\mathrm{az}=\pm 90^\circ$. The legacy function
   still exists. It's hardcoded to use =az_edge_margin_deg=20=
 
+- Similarly the Python [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]] function now takes this
+  =az_edge_margin_deg= argument also
+
 * Migration notes 2.4 -> 2.5
 
 2024-12-06 compose_r(), compose_rt(), compose_Rt() have new args:

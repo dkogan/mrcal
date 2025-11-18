@@ -230,6 +230,8 @@ def rectified_system(models,
                      el_fov_deg,
                      az0_deg             = None,
                      el0_deg             = 0,
+                     # we refuse to create a view this close to az=90 or az=-90
+                     az_edge_margin_deg  = 20.,
                      pixels_per_deg_az   = -1.,
                      pixels_per_deg_el   = -1.,
                      rectification_model = 'LENSMODEL_LATLON',
@@ -370,6 +372,10 @@ ARGUMENTS
 - el0_deg: optional value for the elevation center of the rectified system.
   Defaults to 0.
 
+- az_edge_margin_deg: optional angle, the nearest the rectified view is allowed
+  to approach az = -90 or az = +90. Defaults to 20deg, for a maximum az field of
+  view of 140deg. Applies ONLY to LENSMODEL_LATLON rectification
+
 - pixels_per_deg_az: optional value for the azimuth resolution of the rectified
   image. If a resolution of >0 is requested, the value is used as is. If a
   resolution of <0 is requested, we use this as a scale factor on the resolution
@@ -450,6 +456,7 @@ else:                   we return this tuple of models, dict of metadata
                                        el_fov_deg          = el_fov_deg,
                                        az0_deg             = az0_deg if az0_deg is not None else 1e7,
                                        el0_deg             = el0_deg,
+                                       az_edge_margin_deg  = az_edge_margin_deg,
                                        pixels_per_deg_az   = pixels_per_deg_az,
                                        pixels_per_deg_el   = pixels_per_deg_el,
                                        rectification_model = rectification_model)

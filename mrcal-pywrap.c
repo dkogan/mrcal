@@ -3922,6 +3922,7 @@ PyObject* _rectified_system(PyObject* NPY_UNUSED(self),
     mrcal_point2_t azel0_deg;
 
     // input
+    double            az_edge_margin_deg;
     mrcal_lensmodel_t mrcal_lensmodel0;
     char*             rectification_model_string;
     mrcal_lensmodel_t rectification_model;
@@ -3952,6 +3953,7 @@ PyObject* _rectified_system(PyObject* NPY_UNUSED(self),
 
     char* keywords[] = { LENSMODEL_ONE_ARGUMENTS(NAMELIST, 0)
                          RECTIFIED_SYSTEM_ARGUMENTS(NAMELIST)
+                         "az_edge_margin_deg",
                          "az_fov_deg",
                          "el_fov_deg",
                          "az0_deg",
@@ -3964,12 +3966,13 @@ PyObject* _rectified_system(PyObject* NPY_UNUSED(self),
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
                                      LENSMODEL_ONE_ARGUMENTS(PARSECODE, 0)
                                      RECTIFIED_SYSTEM_ARGUMENTS(PARSECODE)
-                                     "dddddds:mrcal.rectified_system",
+                                     "ddddddds:mrcal.rectified_system",
 
                                      keywords,
 
                                      LENSMODEL_ONE_ARGUMENTS(PARSEARG, 0)
                                      RECTIFIED_SYSTEM_ARGUMENTS(PARSEARG)
+                                     &az_edge_margin_deg,
                                      &azel_fov_deg.x,
                                      &azel_fov_deg.y,
                                      &azel0_deg.x,
@@ -3994,7 +3997,7 @@ PyObject* _rectified_system(PyObject* NPY_UNUSED(self),
                                        NULL))
         goto done;
 
-    if(!mrcal_rectified_system( // output
+    if(!mrcal_rectified_system2( // output
                                 imagersize_rectified,
                                 PyArray_DATA(fxycxy_rectified),
                                 PyArray_DATA(rt_rect0_ref),
@@ -4009,6 +4012,7 @@ PyObject* _rectified_system(PyObject* NPY_UNUSED(self),
                                 &azel0_deg,
 
                                 // input
+                                az_edge_margin_deg,
                                 &mrcal_lensmodel0,
                                 PyArray_DATA(intrinsics0),
                                 PyArray_DATA(rt_cam0_ref),
