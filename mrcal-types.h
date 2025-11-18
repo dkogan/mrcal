@@ -390,20 +390,20 @@ typedef struct
 } mrcal_cameramodel_t;
 
 
-#define DEFINE_mrcal_cameramodel_MODEL_t(s,n)           \
+#define DEFINE_mrcal_cameramodel_NAME_t(name,Nintrinsics)       \
 typedef union                                           \
 {                                                       \
     mrcal_cameramodel_t m;                              \
     struct                                              \
     {                                                   \
         MRCAL_CAMERAMODEL_ELEMENTS_NO_INTRINSICS;       \
-        double intrinsics[n];                           \
+        double intrinsics[Nintrinsics];                 \
     };                                                  \
-} mrcal_cameramodel_ ## s ## _t;
+} mrcal_cameramodel_ ## name ## _t;
 
 
-MRCAL_LENSMODEL_NOCONFIG_LIST(                 DEFINE_mrcal_cameramodel_MODEL_t)
-MRCAL_LENSMODEL_WITHCONFIG_STATIC_NPARAMS_LIST(DEFINE_mrcal_cameramodel_MODEL_t)
+MRCAL_LENSMODEL_NOCONFIG_LIST(                 DEFINE_mrcal_cameramodel_NAME_t)
+MRCAL_LENSMODEL_WITHCONFIG_STATIC_NPARAMS_LIST(DEFINE_mrcal_cameramodel_NAME_t)
 
 #ifdef __cplusplus
 }
