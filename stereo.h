@@ -40,6 +40,40 @@ bool mrcal_rectified_resolution( // output and input
 //
 // The Python wrapper is mrcal.rectified_system(), and the documentation is in
 // the docstring of that function
+bool mrcal_rectified_system2(// output
+                            unsigned int*     imagersize_rectified,
+                            double*           fxycxy_rectified,
+                            double*           rt_rect0_ref,
+                            double*           baseline,
+
+                            // input, output
+                            // > 0: use given value
+                            // < 0: autodetect and scale
+                            double* pixels_per_deg_az,
+                            double* pixels_per_deg_el,
+
+                            // input, output
+                            // if(..._autodetect) { the results are returned here }
+                            mrcal_point2_t* azel_fov_deg,
+                            mrcal_point2_t* azel0_deg,
+
+                            // input
+                            // we refuse to create a view this close to az=90 or az=-90
+                            const double             az_edge_margin_deg,
+                            // Intrinsics used only for pixels_per_deg detection
+                            const mrcal_lensmodel_t* lensmodel0,
+                            const double*            intrinsics0,
+
+                            const double*            rt_cam0_ref,
+                            const double*            rt_cam1_ref,
+
+                            const mrcal_lensmodel_type_t rectification_model_type,
+
+                            bool   az0_deg_autodetect,
+                            bool   el0_deg_autodetect,
+                            bool   az_fov_deg_autodetect,
+                            bool   el_fov_deg_autodetect);
+// legacy function. Uses az_edge_margin_deg=20.0 without providing an argument
 bool mrcal_rectified_system(// output
                             unsigned int*     imagersize_rectified,
                             double*           fxycxy_rectified,
@@ -58,7 +92,7 @@ bool mrcal_rectified_system(// output
                             mrcal_point2_t* azel0_deg,
 
                             // input
-                            // for pixels_per_deg detection only
+                            // Intrinsics used only for pixels_per_deg detection
                             const mrcal_lensmodel_t* lensmodel0,
                             const double*            intrinsics0,
 

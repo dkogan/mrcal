@@ -148,6 +148,11 @@ functions:
 - All headers have C++ =extern "C"= wrappers for direct =#include= in C++
   projects
 
+- =mrcal_rectified_system2()= is a new flavor of =mrcal_rectified_system()= to
+  provide a new =az_edge_margin_deg= argument, to set the closest the rectified
+  view is allowed to get to $\mathrm{az}=\pm 90^\circ$. The legacy function
+  still exists. It's hardcoded to use =az_edge_margin_deg=20=
+
 * Migration notes 2.4 -> 2.5
 
 2024-12-06 compose_r(), compose_rt(), compose_Rt() have new args:
