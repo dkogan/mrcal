@@ -8,6 +8,11 @@
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 // mrcal images. These are completely uninteresting, and don't do anything
 // better that other image read/write APIS. If you have image libraries running,
 // use those. If not, the ones defined here should be light and painless
@@ -135,3 +140,7 @@ bool mrcal_image_anytype_load(// output
                               int* channels,
                               // input
                               const char* filename);
+
+#ifdef __cplusplus
+}
+#endif

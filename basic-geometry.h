@@ -8,6 +8,11 @@
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 
 // Old g++ doesn't work for some of this. Let's say I have this:
 //
@@ -174,3 +179,7 @@ static mrcal_point3_t mrcal_point3_cross(const mrcal_point3_t a, const mrcal_poi
                                            (Rt)[0],(Rt)[1],(Rt)[2],(Rt)[3],(Rt)[4],(Rt)[5],(Rt)[6],(Rt)[7],(Rt)[8],(Rt)[9],(Rt)[10],(Rt)[11]); } while(0)
 #define mrcal_rt_print(rt)    do { printf( #rt " = (%f %f %f;  %f %f %f\n", \
                                            (rt)[0],(rt)[1],(rt)[2],(rt)[3],(rt)[4],(rt)[5]); } while(0)
+
+#ifdef __cplusplus
+}
+#endif

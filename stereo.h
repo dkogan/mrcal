@@ -8,6 +8,11 @@
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #include "mrcal-types.h"
 #include "mrcal-image.h"
 
@@ -128,3 +133,7 @@ bool mrcal_stereo_range_dense(// output
                               const mrcal_lensmodel_type_t rectification_model_type,
                               const double*                fxycxy_rectified,
                               const double                 baseline);
+
+#ifdef __cplusplus
+}
+#endif

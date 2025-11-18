@@ -8,6 +8,11 @@
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 void
 mrcal_stereo_matching_libelas( // output
                                float* disparity0,
@@ -47,3 +52,7 @@ mrcal_stereo_matching_libelas( // output
                                bool    filter_adaptive_mean,
                                bool    postprocess_only_left,
                                bool    subsampling );
+
+#ifdef __cplusplus
+}
+#endif

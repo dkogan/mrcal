@@ -8,6 +8,11 @@
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #include <stdbool.h>
 
 // Unless specified all arrays stored in contiguous matrices in row-major order.
@@ -604,3 +609,7 @@ void mrcal_R_aligned_to_vector(// out
                                double* R,
                                // in
                                const double* v);
+
+#ifdef __cplusplus
+}
+#endif

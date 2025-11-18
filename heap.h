@@ -1,5 +1,10 @@
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 /*
 A simple min-priority-queue implementation. Uses STL internally
 
@@ -37,3 +42,7 @@ bool     mrcal_heap_empty (mrcal_heap_t* heap, mrcal_heap_node_t* nodes);
 void     mrcal_heap_push  (mrcal_heap_t* heap, mrcal_heap_node_t* nodes, uint16_t x);
 uint16_t mrcal_heap_pop   (mrcal_heap_t* heap, mrcal_heap_node_t* nodes);
 void     mrcal_heap_resort(mrcal_heap_t* heap, mrcal_heap_node_t* nodes);
+
+#ifdef __cplusplus
+}
+#endif

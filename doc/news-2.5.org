@@ -145,6 +145,9 @@ functions:
   invalid disparities reliably in the common case where the disparity is a
   16-bit signed integer
 
+- All headers have C++ =extern "C"= wrappers for direct =#include= in C++
+  projects
+
 * Migration notes 2.4 -> 2.5
 
 2024-12-06 compose_r(), compose_rt(), compose_Rt() have new args:

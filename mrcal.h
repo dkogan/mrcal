@@ -8,6 +8,11 @@
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -920,3 +925,7 @@ bool mrcal_traverse_sensor_links(const uint16_t Nsensors,
 // Public ABI stuff, that's not for end-user consumption
 #include "mrcal-internal.h"
 
+
+#ifdef __cplusplus
+}
+#endif

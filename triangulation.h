@@ -8,6 +8,11 @@
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #include "basic-geometry.h"
 
 // All of these return (0,0,0) if the rays are parallel or divergent, or if the
@@ -155,3 +160,7 @@ _mrcal_triangulate_leecivera_mid2_is_convergent(// inputs
                                                 const mrcal_point3_t* _v0,
                                                 const mrcal_point3_t* _v1,
                                                 const mrcal_point3_t* _t01);
+
+#ifdef __cplusplus
+}
+#endif

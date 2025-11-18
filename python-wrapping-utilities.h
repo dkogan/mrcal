@@ -1,5 +1,10 @@
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #define IS_NULL(x) ((x) == NULL || (PyObject*)(x) == Py_None)
 
 #define BARF(fmt, ...) PyErr_Format(PyExc_RuntimeError, "%s:%d %s(): "fmt, __FILE__, __LINE__, __func__, ## __VA_ARGS__)
@@ -107,3 +112,7 @@ static bool _check_layout(const char*    name,
     }
     return true;
 }
+
+#ifdef __cplusplus
+}
+#endif
