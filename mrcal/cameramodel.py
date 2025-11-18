@@ -1556,6 +1556,10 @@ tuple where
             self._optimization_inputs_string = None
             self._icam_intrinsics            = None
 
+        # New intrinsics. Previous valid-intrinsics region is no longer
+        # meaningful
+        self.valid_intrinsics_region_reset()
+
 
     def rt_ref_cam(self, rt=None):
         r'''Get or set the extrinsics in this model
