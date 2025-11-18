@@ -346,7 +346,7 @@ bool mrcal_rectified_system(// output
     // Done with the geometry! Now to get the az/el grid. I need to figure
     // out the resolution and the extents
 
-    const double angle_margin_deg = 10.0;
+    const double angle_margin_deg = 20.0;
     // I loosen the checks a bit, so that the checks pass after the correction
     // despite any float error that might exist
     const double angle_margin_deg_loose = angle_margin_deg - 1e-3;
