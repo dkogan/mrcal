@@ -1,9 +1,9 @@
 // mrcal_cameramodel_converter is a "converter" function that can be used with
 // "O&" conversions in PyArg_ParseTupleAndKeywords() calls. Can interpret either
-// path strings or mrcal.cameramodel objects as mrcal_cameramodel_t structures
+// path strings or mrcal.cameramodel objects as mrcal_cameramodel_VOID_t structures
 //
 // This isn't a part of the mrcal Python wrapping, but helps other python
-// wrapping programs work with mrcal_cameramodel_t. I link this into
+// wrapping programs work with mrcal_cameramodel_VOID_t. I link this into
 // libmrcal.so, but libmrcal.so does NOT link with libpython. 99% of the usage
 // of libmrcal.so will not use this, so it should work without libpython. People
 // using this function will be doing so as part of
@@ -35,7 +35,7 @@
 #define BARF_AND_GOTO_DONE(fmt, ...) do { BARF(fmt, ##__VA_ARGS__); goto done; } while(0)
 
 int mrcal_cameramodel_converter(PyObject*             py_model,
-                                mrcal_cameramodel_t** model)
+                                mrcal_cameramodel_VOID_t** model)
 {
     // Define the PyArray_API. See here:
     //   https://numpy.org/doc/stable/reference/c-api/array.html#c.import_array
@@ -60,7 +60,7 @@ int mrcal_cameramodel_converter(PyObject*             py_model,
             BARF_AND_GOTO_DONE("The model argument claims to be a string, but I could not get this string out of it");
         *model = mrcal_read_cameramodel_file(filename);
         if(*model == NULL)
-            BARF_AND_GOTO_DONE("Couldn't read mrcal_cameramodel_t from '%s'", filename);
+            BARF_AND_GOTO_DONE("Couldn't read mrcal_cameramodel_VOID_t from '%s'", filename);
     }
     else
     {
@@ -80,7 +80,7 @@ int mrcal_cameramodel_converter(PyObject*             py_model,
             BARF_AND_GOTO_DONE("The lensmodel claims to be a string, but I could not get this string out of it");
         CHECK_LAYOUT3(intrinsics, NPY_DOUBLE, {-1});
         int Nparams = PyArray_SIZE((PyArrayObject*)intrinsics);
-        *model = malloc(sizeof(mrcal_cameramodel_t) +
+        *model = malloc(sizeof(mrcal_cameramodel_VOID_t) +
                         Nparams*sizeof(double));
         if(NULL == *model)
             BARF_AND_GOTO_DONE("Couldn't allocate cameramodel with %d intrinsics", Nparams);

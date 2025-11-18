@@ -10,7 +10,7 @@
 #define CAMERAMODEL_T(Nintrinsics)         \
 struct                                     \
 {                                          \
-    mrcal_cameramodel_t cameramodel;       \
+    mrcal_cameramodel_VOID_t cameramodel;       \
     double intrinsics[Nintrinsics];        \
 }
 
@@ -18,7 +18,7 @@ struct                                     \
 typedef CAMERAMODEL_T(Nintrinsics_CAHVORE) cameramodel_cahvore_t;
 
 #define check(string, ref, len) do {                                    \
-    mrcal_cameramodel_t* m = mrcal_read_cameramodel_string(string, len);\
+    mrcal_cameramodel_VOID_t* m = mrcal_read_cameramodel_string(string, len);\
     confirm(m != NULL);                                                 \
     if(m != NULL)                                                       \
     {                                                                   \
@@ -40,7 +40,7 @@ typedef CAMERAMODEL_T(Nintrinsics_CAHVORE) cameramodel_cahvore_t;
 } while(0)
 
 #define check_fail(string,len) do{                                      \
-    mrcal_cameramodel_t* m = mrcal_read_cameramodel_string(string,len); \
+    mrcal_cameramodel_VOID_t* m = mrcal_read_cameramodel_string(string,len); \
     confirm(m == NULL);                                                 \
     if(m != NULL)                                                       \
       mrcal_free_cameramodel(&m);                                       \
@@ -48,7 +48,7 @@ typedef CAMERAMODEL_T(Nintrinsics_CAHVORE) cameramodel_cahvore_t;
 
 int main(int argc, char* argv[])
 {
-    mrcal_cameramodel_t cameramodel;
+    mrcal_cameramodel_VOID_t cameramodel;
 
     cameramodel_cahvore_t cameramodel_ref =
         (cameramodel_cahvore_t)
@@ -68,7 +68,7 @@ int main(int argc, char* argv[])
           "    'intrinsics': [ 4, 3, 4, 5, 0, 1, 3, 5, 4, 10, 11, 12 ],\n"
           "    'imagersize': [110, 400],\n"
           "}\n",
-          (mrcal_cameramodel_t*)&cameramodel_ref,
+          (mrcal_cameramodel_VOID_t*)&cameramodel_ref,
           0);
     // different spacing, different quote, paren
     check("{\n"
@@ -77,7 +77,7 @@ int main(int argc, char* argv[])
           "    \"intrinsics\": (4, 3, 4, 5, 0, 1, 3, 5, 4, 10, 11, 12 ),    'imagersize': [110, 400],\n"
           "\n"
           "}\n",
-          (mrcal_cameramodel_t*)&cameramodel_ref,
+          (mrcal_cameramodel_VOID_t*)&cameramodel_ref,
           0);
     // comments, weird spacing
     check(" # f {\n"
@@ -94,7 +94,7 @@ int main(int argc, char* argv[])
           "# }\n"
           "}  \n"
           " # }\n",
-          (mrcal_cameramodel_t*)&cameramodel_ref,
+          (mrcal_cameramodel_VOID_t*)&cameramodel_ref,
           0);
 
     // extra keys
@@ -107,7 +107,7 @@ int main(int argc, char* argv[])
           "    'intrinsics': [ 4, 3, 4, 5, 0, 1, 3, 5, 4, 10, 11, 12 ],\n"
           "    'imagersize': [110, 400],\n"
           "}\n",
-          (mrcal_cameramodel_t*)&cameramodel_ref,
+          (mrcal_cameramodel_VOID_t*)&cameramodel_ref,
           0);
 
     // trailing garbage
@@ -199,7 +199,7 @@ int main(int argc, char* argv[])
     // Roundtrip write/read
     bool write_cameramodel_succeeded =
         mrcal_write_cameramodel_file("/tmp/test-parser-cameramodel.cameramodel",
-                                     (mrcal_cameramodel_t*)&cameramodel_ref);
+                                     (mrcal_cameramodel_VOID_t*)&cameramodel_ref);
     confirm(write_cameramodel_succeeded);
     if(write_cameramodel_succeeded)
     {
@@ -215,7 +215,7 @@ int main(int argc, char* argv[])
             // must deal with
             buf[Nbytes_read] = '5';
             check(buf,
-                  (mrcal_cameramodel_t*)&cameramodel_ref,
+                  (mrcal_cameramodel_VOID_t*)&cameramodel_ref,
                   Nbytes_read);
         }
     }

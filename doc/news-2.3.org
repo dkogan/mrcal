@@ -33,10 +33,10 @@ behaves centrally
 - =mrcal_image_..._crop()= is now =static inline=. This fixes linker errors on
   some compilers
 
-- =mrcal_cameramodel_t= now has =double intrinsics[0]= instead of =double
+- =mrcal_cameramodel_VOID_t= now has =double intrinsics[0]= instead of =double
   intrinsics[]=. This allows =#include <mrcal.h>= to work inside C++ code
 
-- =mrcal_cameramodel_t= has a size unknown at compile time, so it cannot be
+- =mrcal_cameramodel_VOID_t= has a size unknown at compile time, so it cannot be
   allocated on the stack. To resolve this we now have
   [[https://github.com/dkogan/mrcal/blob/88e4c1df1c8cf535516719c5d4257ef49c9df1da/mrcal-types.h#L338][=mrcal_cameramodel_LENSMODEL_XXXX_t= structures]] for models that have
   known-at-compile-time size. These can be allocated on the stack, so they are

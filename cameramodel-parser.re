@@ -354,7 +354,7 @@ static bool read_balanced_list( const char** pYYCURSOR, const char* start_file )
 
 // if len>0, the string doesn't need to be 0-terminated. If len<=0, the end of
 // the buffer IS indicated by a 0 byte
-mrcal_cameramodel_t* mrcal_read_cameramodel_string(const char *string, int len)
+mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_string(const char *string, int len)
 {
     // This is lame. If the end of the buffer is indicated by the buffer length
     // only, I allocate a new padded buffer, and copy into it. Then this code
@@ -379,11 +379,11 @@ mrcal_cameramodel_t* mrcal_read_cameramodel_string(const char *string, int len)
 
 
     // Set the output structure to invalid values that I can check later
-    mrcal_cameramodel_t cameramodel_core =
+    mrcal_cameramodel_VOID_t cameramodel_core =
         {.rt_cam_ref[0]   = DBL_MAX,
          .imagersize      = {},
          .lensmodel.type  = MRCAL_LENSMODEL_INVALID };
-    mrcal_cameramodel_t* cameramodel_full = NULL;
+    mrcal_cameramodel_VOID_t* cameramodel_full = NULL;
     bool finished = false;
 
     const char* YYMARKER;
@@ -466,7 +466,7 @@ mrcal_cameramodel_t* mrcal_read_cameramodel_string(const char *string, int len)
             }
 
             int Nparams = mrcal_lensmodel_num_params(&cameramodel_core.lensmodel);
-            cameramodel_full = malloc(sizeof(mrcal_cameramodel_t) +
+            cameramodel_full = malloc(sizeof(mrcal_cameramodel_VOID_t) +
                                       Nparams*sizeof(double));
             if(NULL == cameramodel_full)
             {
@@ -587,11 +587,11 @@ mrcal_cameramodel_t* mrcal_read_cameramodel_string(const char *string, int len)
     return cameramodel_full;
 }
 
-mrcal_cameramodel_t* mrcal_read_cameramodel_file(const char* filename)
+mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_file(const char* filename)
 {
     int   fd     = -1;
     char* string = NULL;
-    mrcal_cameramodel_t* result = NULL;
+    mrcal_cameramodel_VOID_t* result = NULL;
 
     fd = open(filename, O_RDONLY);
     if(fd < 0)
@@ -649,7 +649,7 @@ mrcal_cameramodel_t* mrcal_read_cameramodel_file(const char* filename)
     return result;
 }
 
-void mrcal_free_cameramodel(mrcal_cameramodel_t** cameramodel)
+void mrcal_free_cameramodel(mrcal_cameramodel_VOID_t** cameramodel)
 {
     free(*cameramodel);
     *cameramodel = NULL;

@@ -22,7 +22,7 @@ Each camera model object /may/ also contain:
   a valid-intrinsics contour is often convenient to have and to visualize.
 
 * C interface
-The [[file:c-api.org::#cameramodel-io-in-c][C API]] uses the [[https://github.com/dkogan/mrcal/blob/88e4c1df1c8cf535516719c5d4257ef49c9df1da/mrcal-types.h#L326][=mrcal_cameramodel_t= structure]] to represent a model. This
+The [[file:c-api.org::#cameramodel-io-in-c][C API]] uses the [[https://github.com/dkogan/mrcal/blob/88e4c1df1c8cf535516719c5d4257ef49c9df1da/mrcal-types.h#L326][=mrcal_cameramodel_VOID_t= structure]] to represent a model. This
 contains just the bare minimum:
 
 - intrinsics (=mrcal_lensmodel_t lensmodel=, =double intrinsics[0]=)
@@ -37,7 +37,7 @@ So it is an error to define this on the stack. *Do not do this*:
 #+begin_src c
 void f(void)
 {
-    mrcal_cameramodel_t model; // ERROR
+    mrcal_cameramodel_VOID_t model; // ERROR
 }
 #+end_src
 
@@ -54,17 +54,17 @@ void f(void)
 This only exists for models that have a constant number of parameters; notably
 there is no =mrcal_cameramodel_LENSMODEL_SPLINED_STEREOGRAPHIC_t=. When reading
 a model from disk, mrcal dynamically allocates the right amount of memory, and
-returns a =mrcal_cameramodel_t*=.
+returns a =mrcal_cameramodel_VOID_t*=.
 
 The [[file:c-api.org::#cameramodel-io-in-c][C API]] has a simple interface for reading/writing =.cameramodel= data:
 
 #+begin_src c
-mrcal_cameramodel_t* mrcal_read_cameramodel_string(const char* string, int len);
-mrcal_cameramodel_t* mrcal_read_cameramodel_file  (const char* filename);
-void                 mrcal_free_cameramodel(mrcal_cameramodel_t** cameramodel);
+mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_string(const char* string, int len);
+mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_file  (const char* filename);
+void                 mrcal_free_cameramodel(mrcal_cameramodel_VOID_t** cameramodel);
 
 bool mrcal_write_cameramodel_file(const char* filename,
-                                  const mrcal_cameramodel_t* cameramodel);
+                                  const mrcal_cameramodel_VOID_t* cameramodel);
 #+end_src
 
 * File formats

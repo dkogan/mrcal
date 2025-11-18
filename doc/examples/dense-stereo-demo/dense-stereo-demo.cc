@@ -92,7 +92,7 @@ int main(int argc, char* argv[])
 
 
 
-    mrcal_cameramodel_t* models[2];
+    mrcal_cameramodel_VOID_t* models[2];
     mrcal_image_uint8_t images[2];
 
 

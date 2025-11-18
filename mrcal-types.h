@@ -355,26 +355,28 @@ typedef struct
 } mrcal_stats_t;
 
 
-// mrcal_cameramodel_t works for all lensmodels, so its intrinsics count is not
-// known at compile time. mrcal_cameramodel_t is thus usable only as part of a
-// larger structure or as a mrcal_cameramodel_t* argument to functions. To
-// allocate new mrcal_cameramodel_t objects, use
-// mrcal_cameramodel_LENSMODEL_XXX_t or malloc() with the proper intrinsics size
-// taken into account. This is given by mrcal_lensmodel_num_params()
+// mrcal_cameramodel_VOID_t* is a generic type for ALL lensmodels. It has
+// sizeof(intrinsics)==0, so it should not be allocated on the stack, and it
+// should be used as a pointer or as part of a larger structure only. To
+// allocate new objects, use mrcal_cameramodel_LENSMODEL_XXX_t or malloc() with
+// the proper intrinsics size taken into account. This size is given by
+// mrcal_lensmodel_num_params()
 
-#define DEFINE_mrcal_cameramodel_NAMEt(name,Nintrinsics)        \
+#define DEFINE_mrcal_cameramodel_NAME_t(name,Nintrinsics)       \
 typedef struct  {                                               \
     double            rt_cam_ref[6];                            \
     unsigned int      imagersize[2];                            \
     mrcal_lensmodel_t lensmodel;                                \
     double            intrinsics[Nintrinsics];                  \
-} mrcal_cameramodel_ ## name ## t;
+} mrcal_cameramodel_ ## name ## _t;
 
-// mrcal_cameramodel_t has sizeof(intrinsics)==0
-DEFINE_mrcal_cameramodel_NAMEt(,0)
+// mrcal_cameramodel_VOID_t has sizeof(intrinsics)==0
+DEFINE_mrcal_cameramodel_NAME_t(VOID,0)
 
-// mrcal_cameramodel_LENSMODEL_XXXX_t has the appropriate sizeof(intrinsics)
-#define DEFINE_mrcal_cameramodel_NAME_t(name,Nintrinsics) DEFINE_mrcal_cameramodel_NAMEt(name ## _, Nintrinsics)
+// Legacy alias. Please use mrcal_cameramodel_VOID_t for new code
+#define mrcal_cameramodel_t mrcal_cameramodel_VOID_t
+
+// mrcal_cameramodel_LENSMODEL_XXX_t has the appropriate sizeof(intrinsics)
 MRCAL_LENSMODEL_NOCONFIG_LIST(                 DEFINE_mrcal_cameramodel_NAME_t)
 MRCAL_LENSMODEL_WITHCONFIG_STATIC_NPARAMS_LIST(DEFINE_mrcal_cameramodel_NAME_t)
 

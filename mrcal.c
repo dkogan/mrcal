@@ -6830,7 +6830,7 @@ mrcal_optimize( // out
 }
 
 bool mrcal_write_cameramodel_file(const char* filename,
-                                  const mrcal_cameramodel_t* cameramodel)
+                                  const mrcal_cameramodel_VOID_t* cameramodel)
 {
     bool result = false;
     FILE* fp = fopen(filename, "w");

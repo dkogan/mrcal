@@ -116,9 +116,9 @@ functions:
 
 - Added =mrcal_cameramodel_converter()= "converter" function that can be used
   with =O&= conversions in [[https://docs.python.org/3/c-api/arg.html#c.PyArg_ParseTupleAndKeywords][=PyArg_ParseTupleAndKeywords()=]] calls. Can interpret
-  either path strings or [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]] objects as =mrcal_cameramodel_t= C
+  either path strings or [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]] objects as =mrcal_cameramodel_VOID_t= C
   structures. Useful for writing Python extension modules for C code that uses
-  =mrcal_cameramodel_t=.
+  =mrcal_cameramodel_VOID_t=.
 
 - Added =mrcal_image_void_t= image type for generic functions that aren't meant
   to interface with any particular image type.
@@ -155,6 +155,10 @@ functions:
 
 - Similarly the Python [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]] function now takes this
   =az_edge_margin_deg= argument also
+
+- Renamed =mrcal_cameramodel_t= -> =mrcal_cameramodel_VOID_t= to clarify that
+  the specific lensmodel type is unknown here. The legacy alias
+  =mrcal_cameramodel_t= is still available for backwards-compatibility
 
 * Migration notes 2.4 -> 2.5
 

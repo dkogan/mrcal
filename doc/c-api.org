@@ -137,7 +137,7 @@ typedef struct
     unsigned int      imagersize[2];
     mrcal_lensmodel_t lensmodel;
     double            intrinsics[0];
-} mrcal_cameramodel_t;
+} mrcal_cameramodel_VOID_t;
 
 typedef union
 {
@@ -151,7 +151,7 @@ typedef union
 
 #+end_src
 
-Note that =mrcal_cameramodel_t.intrinsics= has size 0 because the size of this
+Note that =mrcal_cameramodel_VOID_t.intrinsics= has size 0 because the size of this
 array depends on the specific lens model being used, and is unknown at compile
 time.
 
@@ -160,7 +160,7 @@ So it is an error to define this on the stack. *Do not do this*:
 #+begin_src c
 void f(void)
 {
-    mrcal_cameramodel_t model; // ERROR
+    mrcal_cameramodel_VOID_t model; // ERROR
 }
 #+end_src
 
@@ -177,7 +177,7 @@ void f(void)
 This only exists for models that have a constant number of parameters; notably
 there is no =mrcal_cameramodel_LENSMODEL_SPLINED_STEREOGRAPHIC_t=. When reading
 a model from disk, mrcal dynamically allocates the right amount of memory, and
-returns a =mrcal_cameramodel_t*=.
+returns a =mrcal_cameramodel_VOID_t*=.
 
 * Projections
 The fundamental functions for projection and unprojection are defined here.
@@ -440,15 +440,15 @@ A simple interface for reading/writing [[file:cameramodels.org][=.cameramodel=]]
 #+begin_src c
 // if len>0, the string doesn't need to be 0-terminated. If len<=0, the end of
 // the buffer IS indicated by a '\0' byte
-mrcal_cameramodel_t* mrcal_read_cameramodel_string(const char* string, int len);
-mrcal_cameramodel_t* mrcal_read_cameramodel_file  (const char* filename);
-void                 mrcal_free_cameramodel(mrcal_cameramodel_t** cameramodel);
+mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_string(const char* string, int len);
+mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_file  (const char* filename);
+void                      mrcal_free_cameramodel(mrcal_cameramodel_VOID_t** cameramodel);
 
 bool mrcal_write_cameramodel_file(const char* filename,
-                                  const mrcal_cameramodel_t* cameramodel);
+                                  const mrcal_cameramodel_VOID_t* cameramodel);
 #+end_src
 
-This reads and write the [[#cameramodel-in-c][=mrcal_cameramodel_t= structures]]. Only the
+This reads and write the [[#cameramodel-in-c][=mrcal_cameramodel_VOID_t= structures]]. Only the
 =.cameramodel= file format is supported by these C functions. The Python API
 supports more formats.
 
