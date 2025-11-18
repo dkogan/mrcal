@@ -249,25 +249,20 @@ int main(int argc, char* argv[] )
         Ndistortion -= 4;
     double intrinsics[Ncameras_intrinsics][Nintrinsics];
 
-    mrcal_intrinsics_core_t* intrinsics_core;
+    intrinsics[0][0] = 2000.3; // focal_xy [0]
+    intrinsics[0][1] = 1900.5; // focal_xy [1]
+    intrinsics[0][2] = 1800.3; // center_xy[0]
+    intrinsics[0][3] = 1790.2; // center_xy[1]
 
-    intrinsics_core = (mrcal_intrinsics_core_t*)(&intrinsics[0][0]);
-    intrinsics_core->focal_xy [0] = 2000.3;
-    intrinsics_core->focal_xy [1] = 1900.5;
-    intrinsics_core->center_xy[0] = 1800.3;
-    intrinsics_core->center_xy[1] = 1790.2;
+    intrinsics[1][0] = 2100.2; // focal_xy [0]
+    intrinsics[1][1] = 2130.4; // focal_xy [1]
+    intrinsics[1][2] = 1830.3; // center_xy[0]
+    intrinsics[1][3] = 1810.2; // center_xy[1]
 
-    intrinsics_core = (mrcal_intrinsics_core_t*)(&intrinsics[1][0]);
-    intrinsics_core->focal_xy [0] = 2100.2;
-    intrinsics_core->focal_xy [1] = 2130.4;
-    intrinsics_core->center_xy[0] = 1830.3;
-    intrinsics_core->center_xy[1] = 1810.2;
-
-    intrinsics_core = (mrcal_intrinsics_core_t*)(&intrinsics[2][0]);
-    intrinsics_core->focal_xy [0] = 2503.8;
-    intrinsics_core->focal_xy [1] = 2730.4;
-    intrinsics_core->center_xy[0] = 1730.3;
-    intrinsics_core->center_xy[1] = 1610.2;
+    intrinsics[2][0] = 2503.8; // focal_xy [0]
+    intrinsics[2][1] = 2730.4; // focal_xy [1]
+    intrinsics[2][2] = 1730.3; // center_xy[0]
+    intrinsics[2][3] = 1610.2; // center_xy[1]
 
     if(Ncameras_intrinsics != 3)
     {

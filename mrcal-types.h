@@ -354,22 +354,6 @@ typedef struct
     MRCAL_STATS_ITEM(MRCAL_STATS_ITEM_DEFINE)
 } mrcal_stats_t;
 
-////////////////////////////////////////////////////////////////////////////////
-//////////////////// Layout of the measurement and state vectors
-////////////////////////////////////////////////////////////////////////////////
-
-// The "intrinsics core" of a camera. This defines the final step of a
-// projection operation. For instance with a pinhole model we have
-//
-//   q[0] = focal_xy[0] * x/z + center_xy[0]
-//   q[1] = focal_xy[1] * y/z + center_xy[1]
-typedef struct
-{
-    double focal_xy [2];
-    double center_xy[2];
-} mrcal_intrinsics_core_t;
-
-
 // structure containing a camera pose + lens model. Used for .cameramodel
 // input/output
 #define MRCAL_CAMERAMODEL_ELEMENTS_NO_INTRINSICS        \

@@ -3329,11 +3329,10 @@ static int pack_solver_state_intrinsics( // out
     {
         if( problem_selections.do_optimize_intrinsics_core && Ncore )
         {
-            const mrcal_intrinsics_core_t* intrinsics_core = (const mrcal_intrinsics_core_t*)intrinsics;
-            b[i_state++] = intrinsics_core->focal_xy [0] / SCALE_INTRINSICS_FOCAL_LENGTH;
-            b[i_state++] = intrinsics_core->focal_xy [1] / SCALE_INTRINSICS_FOCAL_LENGTH;
-            b[i_state++] = intrinsics_core->center_xy[0] / SCALE_INTRINSICS_CENTER_PIXEL;
-            b[i_state++] = intrinsics_core->center_xy[1] / SCALE_INTRINSICS_CENTER_PIXEL;
+            b[i_state++] = intrinsics[0] / SCALE_INTRINSICS_FOCAL_LENGTH;
+            b[i_state++] = intrinsics[1] / SCALE_INTRINSICS_FOCAL_LENGTH;
+            b[i_state++] = intrinsics[2] / SCALE_INTRINSICS_CENTER_PIXEL;
+            b[i_state++] = intrinsics[3] / SCALE_INTRINSICS_CENTER_PIXEL;
         }
 
         if( problem_selections.do_optimize_intrinsics_distortions )
