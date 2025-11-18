@@ -400,13 +400,11 @@ bool mrcal_rectified_system(// output
             {
                 // We're off on this side
                 azel0_deg->x = -90.+angle_margin_deg + azel_fov_deg->x/2.;
-                MSG("adjusting left");
             }
             else
             {
                 // Off on the other side
                 azel0_deg->x = 90.-angle_margin_deg - azel_fov_deg->x/2.;
-                MSG("adjusting right");
             }
 
             azel0.x = azel0_deg->x /180.*M_PI;
