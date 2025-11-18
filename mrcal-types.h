@@ -354,38 +354,27 @@ typedef struct
     MRCAL_STATS_ITEM(MRCAL_STATS_ITEM_DEFINE)
 } mrcal_stats_t;
 
-// structure containing a camera pose + lens model. Used for .cameramodel
-// input/output
-#define MRCAL_CAMERAMODEL_ELEMENTS_NO_INTRINSICS        \
-    double            rt_cam_ref[6];                    \
-    unsigned int      imagersize[2];                    \
-    mrcal_lensmodel_t lensmodel                         \
 
-typedef struct
-{
-    MRCAL_CAMERAMODEL_ELEMENTS_NO_INTRINSICS;
-    // mrcal_cameramodel_t works for all lensmodels, so its intrinsics count is
-    // not known at compile time. mrcal_cameramodel_t is thus usable only as
-    // part of a larger structure or as a mrcal_cameramodel_t* argument to
-    // functions. To allocate new mrcal_cameramodel_t objects, use
-    // mrcal_cameramodel_LENSMODEL_XXX_t or malloc() with the proper intrinsics
-    // size taken into account. This is given by mrcal_lensmodel_num_params()
-    double            intrinsics[0];
-} mrcal_cameramodel_t;
+// mrcal_cameramodel_t works for all lensmodels, so its intrinsics count is not
+// known at compile time. mrcal_cameramodel_t is thus usable only as part of a
+// larger structure or as a mrcal_cameramodel_t* argument to functions. To
+// allocate new mrcal_cameramodel_t objects, use
+// mrcal_cameramodel_LENSMODEL_XXX_t or malloc() with the proper intrinsics size
+// taken into account. This is given by mrcal_lensmodel_num_params()
 
+#define DEFINE_mrcal_cameramodel_NAMEt(name,Nintrinsics)        \
+typedef struct  {                                               \
+    double            rt_cam_ref[6];                            \
+    unsigned int      imagersize[2];                            \
+    mrcal_lensmodel_t lensmodel;                                \
+    double            intrinsics[Nintrinsics];                  \
+} mrcal_cameramodel_ ## name ## t;
 
-#define DEFINE_mrcal_cameramodel_NAME_t(name,Nintrinsics)       \
-typedef union                                           \
-{                                                       \
-    mrcal_cameramodel_t m;                              \
-    struct                                              \
-    {                                                   \
-        MRCAL_CAMERAMODEL_ELEMENTS_NO_INTRINSICS;       \
-        double intrinsics[Nintrinsics];                 \
-    };                                                  \
-} mrcal_cameramodel_ ## name ## _t;
+// mrcal_cameramodel_t has sizeof(intrinsics)==0
+DEFINE_mrcal_cameramodel_NAMEt(,0)
 
-
+// mrcal_cameramodel_LENSMODEL_XXXX_t has the appropriate sizeof(intrinsics)
+#define DEFINE_mrcal_cameramodel_NAME_t(name,Nintrinsics) DEFINE_mrcal_cameramodel_NAMEt(name ## _, Nintrinsics)
 MRCAL_LENSMODEL_NOCONFIG_LIST(                 DEFINE_mrcal_cameramodel_NAME_t)
 MRCAL_LENSMODEL_WITHCONFIG_STATIC_NPARAMS_LIST(DEFINE_mrcal_cameramodel_NAME_t)
 

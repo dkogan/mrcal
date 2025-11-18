@@ -141,14 +141,10 @@ typedef struct
 
 typedef union
 {
-    mrcal_cameramodel_t m;
-    struct
-    {
-        double            rt_cam_ref[6];
-        unsigned int      imagersize[2];
-        mrcal_lensmodel_t lensmodel;
-        double intrinsics[4];
-    };
+    double            rt_cam_ref[6];
+    unsigned int      imagersize[2];
+    mrcal_lensmodel_t lensmodel;
+    double intrinsics[4];
 } mrcal_cameramodel_LENSMODEL_LATLON_t;
 
 ...
