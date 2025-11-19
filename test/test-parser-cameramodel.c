@@ -17,24 +17,49 @@ struct                                     \
 #define Nintrinsics_CAHVORE (4+5+3)
 typedef CAMERAMODEL_T(Nintrinsics_CAHVORE) cameramodel_cahvore_t;
 
+static void confirm_models_equal(const mrcal_cameramodel_VOID_t* a,
+                                 const mrcal_cameramodel_VOID_t* b)
+{
+    confirm_eq_double_max_array(a->rt_cam_ref,
+                                b->rt_cam_ref,
+                                6,
+                                1e-6);
+    confirm_eq_int_max_array((const int*)a->imagersize,
+                             (const int*)b->imagersize,
+                             2);
+
+    if(!confirm_eq_int(a->lensmodel.type,
+                       b->lensmodel.type))
+        return;
+
+    char modelname_a[1024];
+    char modelname_b[1024];
+    if(!( confirm(mrcal_lensmodel_name( modelname_a, sizeof(modelname_a),
+                                        &a->lensmodel)) &&
+          confirm(mrcal_lensmodel_name( modelname_b, sizeof(modelname_b),
+                                        &b->lensmodel)) ))
+        return;
+
+    if(!confirm(0 == strcmp(modelname_a,modelname_b)))
+        return;
+
+    const int Nintrinsics_a = mrcal_lensmodel_num_params(&a->lensmodel);
+    const int Nintrinsics_b = mrcal_lensmodel_num_params(&b->lensmodel);
+    if(!confirm_eq_int(Nintrinsics_a, Nintrinsics_b))
+        return;
+
+    confirm_eq_double_max_array(a->intrinsics,
+                                b->intrinsics,
+                                Nintrinsics_a,
+                                1e-6);
+}
+
 #define check(string, ref, len) do {                                    \
     mrcal_cameramodel_VOID_t* m = mrcal_read_cameramodel_string(string, len);\
     confirm(m != NULL);                                                 \
     if(m != NULL)                                                       \
     {                                                                   \
-      confirm_eq_int(m->    lensmodel.type,                             \
-                     (ref)->lensmodel.type);                            \
-      confirm_eq_double_max_array(m->    intrinsics,                    \
-                                  (ref)->intrinsics,                    \
-                                  Nintrinsics_CAHVORE,                  \
-                                  1e-6);                                \
-      confirm_eq_double_max_array(m->    rt_cam_ref,                    \
-                                  (ref)->rt_cam_ref,                    \
-                                  6,                                    \
-                                  1e-6);                                \
-      confirm_eq_int_max_array((int*)m->    imagersize,                 \
-                               (int*)(ref)->imagersize,                 \
-                               2);                                      \
+      confirm_models_equal(m,ref);                                      \
       mrcal_free_cameramodel(&m);                                       \
     }                                                                   \
 } while(0)
