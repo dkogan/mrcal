@@ -171,6 +171,11 @@ functions:
   dt01/dt0. The mrcal_compose_r(), mrcal_compose_rt() macros and the Python
   functions maintain the same interface
 
+- The C types =mrcal_cameramodel_XXX_t= no longer have a generic member
+  =mrcal_cameramodel_t m=. If you need a generic alias of
+  =mrcal_cameramodel_XXX_t* model= you now need to
+  =(mrcal_cameramodel_VOID_t*)model= instead of =&model->m=
+
 * todo
   #+end_example
 
