@@ -847,7 +847,7 @@ int mrcal_num_states_calobject_warp(mrcal_problem_selections_t problem_selection
 mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_string(const char* string,
                                                         const int len);
 mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_file  (const char* filename);
-void                 mrcal_free_cameramodel(mrcal_cameramodel_VOID_t** cameramodel);
+void                      mrcal_free_cameramodel(mrcal_cameramodel_VOID_t** cameramodel);
 
 bool mrcal_write_cameramodel_file(const char* filename,
                                   const mrcal_cameramodel_VOID_t* cameramodel);
