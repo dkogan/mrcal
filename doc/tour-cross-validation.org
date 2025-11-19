@@ -237,9 +237,10 @@ echo ~/projects/mrcal-doc-external/figures/cross-validation/perfect-data-splined
 
 [[file:external/figures/cross-validation/perfect-data-splined-diff-joint-stdev.png]]
 
-Here the empirical expected cross-validation is higher that 2x the uncertainty.
-I do not know why at this time, but the overall idea holds: cross-validations
-higher-than-2x-uncertainty should warrant a deeper look.
+Once again we see the average diff being ~ 2x the uncertainty. This is a
+empirical mean of not a huge number of samples, so it's crude, but supports the
+overall idea: seeing a cross-validations higher-than-2x-uncertainty should
+warrant a deeper look.
 
 * Improving it further
 I know from past experience with this lens that the biggest problem here is
