@@ -844,7 +844,8 @@ int mrcal_num_states_calobject_warp(mrcal_problem_selections_t problem_selection
 // the buffer IS indicated by a '\0' byte
 //
 // return NULL on error. Must mrcal_free_cameramodel(&model) when done
-mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_string(const char* string, int len);
+mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_string(const char* string,
+                                                        const int len);
 mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_file  (const char* filename);
 void                 mrcal_free_cameramodel(mrcal_cameramodel_VOID_t** cameramodel);
 
