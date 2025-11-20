@@ -362,30 +362,31 @@ typedef struct
 // the proper intrinsics size taken into account. This size is given by
 // mrcal_lensmodel_num_params()
 
-#define DEFINE_mrcal_intrinsics_NAME_t(name,Nintrinsics)        \
-typedef struct  {                                               \
-    unsigned int      imagersize[2];                            \
-    mrcal_lensmodel_t lensmodel;                                \
-    double            intrinsics[Nintrinsics];                  \
-} mrcal_intrinsics_ ## name ## _t;
 #define DEFINE_mrcal_cameramodel_NAME_t(name,Nintrinsics)       \
 typedef struct  {                                               \
-    double            rt_cam_ref[6];                            \
     unsigned int      imagersize[2];                            \
     mrcal_lensmodel_t lensmodel;                                \
     double            intrinsics[Nintrinsics];                  \
+} mrcal_intrinsics_ ## name ## _t;                              \
+typedef struct  {                                               \
+    double            rt_cam_ref[6];                            \
+    union {                                                     \
+        mrcal_intrinsics_ ## name ## _t i;                      \
+        struct {                                                \
+            unsigned int      imagersize[2];                    \
+            mrcal_lensmodel_t lensmodel;                        \
+            double            intrinsics[Nintrinsics];          \
+        };                                                      \
+    };                                                          \
 } mrcal_cameramodel_ ## name ## _t;
 
 // mrcal_intrinsics_VOID_t and mrcal_cameramodel_VOID_t have sizeof(intrinsics)==0
-DEFINE_mrcal_intrinsics_NAME_t(VOID,0)
 DEFINE_mrcal_cameramodel_NAME_t(VOID,0)
 
 // Legacy alias. Please use mrcal_cameramodel_VOID_t for new code
 #define mrcal_cameramodel_t mrcal_cameramodel_VOID_t
 
 // mrcal_cameramodel_LENSMODEL_XXX_t has the appropriate sizeof(intrinsics)
-MRCAL_LENSMODEL_NOCONFIG_LIST(                 DEFINE_mrcal_intrinsics_NAME_t)
-MRCAL_LENSMODEL_WITHCONFIG_STATIC_NPARAMS_LIST(DEFINE_mrcal_intrinsics_NAME_t)
 MRCAL_LENSMODEL_NOCONFIG_LIST(                 DEFINE_mrcal_cameramodel_NAME_t)
 MRCAL_LENSMODEL_WITHCONFIG_STATIC_NPARAMS_LIST(DEFINE_mrcal_cameramodel_NAME_t)
 
