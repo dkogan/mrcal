@@ -113,6 +113,7 @@ mrcal_lensmodel_metadata_t mrcal_lensmodel_metadata( const mrcal_lensmodel_t* le
 // depends on the configuration. For instance, splined models use the model
 // parameters as the spline control points, so the spline density (specified in
 // the configuration) directly affects how many parameters such a model requires
+// Returns <0 on error
 int mrcal_lensmodel_num_params( const mrcal_lensmodel_t* lensmodel );
 
 
