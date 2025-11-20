@@ -163,6 +163,26 @@ functions:
 - Added =mrcal_intrinsics_XXX_t= structures to represent camera intrinsics.
   These are exactly like =mrcal_cameramodel_XXX_t= but without the extrinsics
 
+- The C API can read models into a preallocated buffer intead of forcing
+  allocation, as before. New functions:
+  #+begin_src c
+  bool mrcal_read_cameramodel_string_into(// out
+                                          mrcal_cameramodel_VOID_t* model,
+                                          // in,out
+                                          int* Nintrinsics_max,
+                                          // in
+                                          const char* string,
+                                          const int len);
+
+  bool mrcal_read_cameramodel_file_into  (// out
+                                          mrcal_cameramodel_VOID_t* model,
+                                          // in,out
+                                          int* Nintrinsics_max,
+                                          // in
+                                          const char* filename);
+  #+end_src
+
+
 * Migration notes 2.4 -> 2.5
 
 2024-12-06 compose_r(), compose_rt(), compose_Rt() have new args:

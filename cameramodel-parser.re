@@ -352,24 +352,60 @@ static bool read_balanced_list( const char** pYYCURSOR, const char* start_file )
     return false;
 }
 
-// if len>0, the string doesn't need to be 0-terminated. If len<=0, the end of
-// the buffer IS indicated by a 0 byte
-mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_string(const char *string,
-                                                        const int len)
+// Internal routine that does all the work
+static
+bool read_cameramodel_from_string(// output buffer. If it should be allocated,
+                                  // *model == NULL at the start. Otherwise
+                                  // *model is the preallocated buffer
+                                  mrcal_cameramodel_VOID_t** model,
+                                  // if the buffer is preallocated
+                                  // (*model!=NULL), the number of the
+                                  // intrinsics available in this buffer is in
+                                  // *Nintrinsics_max. If this is insufficient,
+                                  // we fail, set the number of intrinsics
+                                  // needed in *Nintrinsics_max, and return
+                                  // false. If we fail for any other reason, we
+                                  // set *Nintrinsics_max=0. If the buffer
+                                  // should be allocated, this isn't used
+                                  int* Nintrinsics_max,
+
+                                  // in
+
+                                  // if len>0, the string doesn't need to be
+                                  // 0-terminated. If len<=0, the end of the
+                                  // buffer IS indicated by a 0 byte
+                                  const char* string,
+                                  const int len)
 {
+    bool model_need_dealloc      = false;
+    bool did_read_intrinsics     = false;
+    bool did_set_Nintrinsics_max = false;
+
+    // Set the output structure to invalid values that I can check later
+    // Everything except the intrinsics will be read here, and moved to *model
+    // at the end. The intrinsics are read directly into *model. This allows us
+    // to read in non-intrinsics before the full array is allocated
+    mrcal_cameramodel_VOID_t model_not_intrinsics =
+        {.rt_cam_ref[0]   = DBL_MAX,
+         .imagersize      = {},
+         .lensmodel.type  = MRCAL_LENSMODEL_INVALID };
+    bool finished = false;
+    const char* YYMARKER;
+    const char* start_file = NULL;
+
     // This is lame. If the end of the buffer is indicated by the buffer length
     // only, I allocate a new padded buffer, and copy into it. Then this code
     // looks for a terminated 0 always. I should instead use the re2c logic for
     // fixed-length buffers (YYLIMIT), but that looks complicated
-    const char* YYCURSOR     = NULL;
-    char*       malloced_buf = NULL;
+    const char* YYCURSOR = NULL;
+    char* malloced_buf = NULL;
     if(len > 0)
     {
         malloced_buf = malloc(len+1);
         if(malloced_buf == NULL)
         {
             MSG("malloc() failed");
-            return NULL;
+            goto done;
         }
         memcpy(malloced_buf, string, len);
         malloced_buf[len] = '\0';
@@ -379,16 +415,7 @@ mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_string(const char *string,
         YYCURSOR = string;
 
 
-    // Set the output structure to invalid values that I can check later
-    mrcal_cameramodel_VOID_t cameramodel_core =
-        {.rt_cam_ref[0]   = DBL_MAX,
-         .imagersize      = {},
-         .lensmodel.type  = MRCAL_LENSMODEL_INVALID };
-    mrcal_cameramodel_VOID_t* cameramodel_full = NULL;
-    bool finished = false;
-
-    const char* YYMARKER;
-    const char* start_file = YYCURSOR;
+    start_file = YYCURSOR;
 
     ///////// leading {
     while(true)
@@ -430,7 +457,7 @@ mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_string(const char *string,
 
         if( string_is("lensmodel", key) )
         {
-            if(cameramodel_core.lensmodel.type >= 0)
+            if(model_not_intrinsics.lensmodel.type >= 0)
             {
                 MSG("lensmodel defined more than once");
                 goto done;
@@ -446,7 +473,7 @@ mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_string(const char *string,
             memcpy(lensmodel_string, lensmodel.s, lensmodel.len);
             lensmodel_string[lensmodel.len] = '\0';
 
-            if( !mrcal_lensmodel_from_name(&cameramodel_core.lensmodel, lensmodel_string) )
+            if( !mrcal_lensmodel_from_name(&model_not_intrinsics.lensmodel, lensmodel_string) )
             {
                 MSG("Could not parse lensmodel '%s'", lensmodel_string);
                 goto done;
@@ -454,52 +481,70 @@ mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_string(const char *string,
         }
         else if(string_is("intrinsics", key))
         {
-            if( cameramodel_full != NULL )
+            if(did_read_intrinsics)
             {
                 MSG("intrinsics defined more than once");
                 goto done;
             }
 
-            if(cameramodel_core.lensmodel.type < 0)
+            if(model_not_intrinsics.lensmodel.type < 0)
             {
                 MSG("Saw 'intrinsics' key, before a 'lensmodel' key. Make sure that a 'lensmodel' key exists, and that it appears in the file before the 'intrinsics'");
                 goto done;
             }
 
-            int Nparams = mrcal_lensmodel_num_params(&cameramodel_core.lensmodel);
-            cameramodel_full = malloc(sizeof(mrcal_cameramodel_VOID_t) +
-                                      Nparams*sizeof(double));
-            if(NULL == cameramodel_full)
+            const int Nintrinsics = mrcal_lensmodel_num_params(&model_not_intrinsics.lensmodel);
+            if(*model == NULL)
             {
-                MSG("malloc() failed");
-                goto done;
+                // we need to allocate the model
+                *model = malloc(sizeof(mrcal_cameramodel_VOID_t) +
+                                Nintrinsics*sizeof(double));
+                if(NULL == *model)
+                {
+                    MSG("malloc() failed");
+                    goto done;
+                }
+                model_need_dealloc = true;
             }
-            if( !read_list_values_generic(cameramodel_full->intrinsics,
+            else
+            {
+                // we read the data into a static buffer
+                if(Nintrinsics > *Nintrinsics_max)
+                {
+                    *Nintrinsics_max = Nintrinsics;
+                    did_set_Nintrinsics_max = true;
+                    goto done;
+                }
+            }
+
+            if( !read_list_values_generic((*model)->intrinsics,
                                           ingest_double_consume_ignorable,
                                           &YYCURSOR, start_file,
-                                          "intrinsics", Nparams) )
+                                          "intrinsics", Nintrinsics) )
                 goto done;
+
+            did_read_intrinsics = true;
         }
         else if(string_is("extrinsics", key))
         {
-            if(cameramodel_core.rt_cam_ref[0] != DBL_MAX)
+            if(model_not_intrinsics.rt_cam_ref[0] != DBL_MAX)
             {
                 MSG("extrinsics defined more than once");
                 goto done;
             }
-            if( !read_list_values_generic(cameramodel_core.rt_cam_ref,
+            if( !read_list_values_generic(model_not_intrinsics.rt_cam_ref,
                                           ingest_double_consume_ignorable,
                                           &YYCURSOR, start_file, "extrinsics", 6) )
                 goto done;
         }
         else if(string_is("imagersize", key))
         {
-            if(cameramodel_core.imagersize[0] > 0)
+            if(model_not_intrinsics.imagersize[0] > 0)
             {
                 MSG("imagersize defined more than once");
                 goto done;
             }
-            if( !read_list_values_generic(cameramodel_core.imagersize,
+            if( !read_list_values_generic(model_not_intrinsics.imagersize,
                                           ingest_uint_consume_ignorable,
                                           &YYCURSOR, start_file, "imagersize", 2) )
                 goto done;
@@ -564,35 +609,62 @@ mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_string(const char *string,
 
  done:
 
-    if(malloced_buf)
-        free(malloced_buf);
+    if(Nintrinsics_max != NULL && !did_set_Nintrinsics_max)
+        *Nintrinsics_max = 0;
+
+    free(malloced_buf);
 
     if(!finished)
     {
-        free(cameramodel_full);
-        return NULL;
+        if(model_need_dealloc)
+        {
+            free(*model);
+            *model = NULL;
+        }
+        return false;
     }
 
     // Done parsing everything! Validate and finalize
-    if(!(cameramodel_core.lensmodel.type >= 0 &&
-         cameramodel_full != NULL &&
-         cameramodel_core.rt_cam_ref[0] != DBL_MAX &&
-         cameramodel_core.imagersize[0] > 0))
+    if(!(model_not_intrinsics.lensmodel.type >= 0 &&
+         did_read_intrinsics &&
+         model_not_intrinsics.rt_cam_ref[0] != DBL_MAX &&
+         model_not_intrinsics.imagersize[0] > 0))
     {
         MSG("Incomplete cameramodel. Need keys: lensmodel, intrinsics, extrinsics, imagersize");
-        free(cameramodel_full);
-        return NULL;
+        if(model_need_dealloc)
+        {
+            free(*model);
+            *model = NULL;
+        }
+        return false;
     }
 
-    memcpy(cameramodel_full, &cameramodel_core, sizeof(cameramodel_core));
-    return cameramodel_full;
+    memcpy(*model, &model_not_intrinsics, sizeof(model_not_intrinsics));
+    return true;
 }
 
-mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_file(const char* filename)
+static
+bool read_cameramodel_from_file(// output buffer. If it should be allocated,
+                                // *model == NULL at the start. Otherwise *model
+                                // is the preallocated buffer
+                                mrcal_cameramodel_VOID_t** model,
+                                // if the buffer is preallocated (*model!=NULL),
+                                // the number of the intrinsics available in
+                                // this buffer is in *Nintrinsics_max. If this
+                                // is insufficient, we fail, set the number of
+                                // intrinsics needed in *Nintrinsics_max, and
+                                // return false. If we fail for any other
+                                // reason, we set *Nintrinsics_max=0. If the
+                                // buffer should be allocated, this isn't used
+                                int* Nintrinsics_max,
+
+                                // in
+                                const char* filename)
 {
-    int   fd     = -1;
-    char* string = NULL;
-    mrcal_cameramodel_VOID_t* result = NULL;
+    int   fd                      = -1;
+    char* string                  = NULL;
+    bool  result                  = false;
+    bool  did_set_Nintrinsics_max = false;
 
     fd = open(filename, O_RDONLY);
     if(fd < 0)
@@ -637,21 +709,71 @@ mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_file(const char* filename)
         goto done;
     }
 
-    result = mrcal_read_cameramodel_string(string,
-                                           // 0 indicates EOF, not the file size
-                                           0);
+    did_set_Nintrinsics_max = true;
+    result = read_cameramodel_from_string(model, Nintrinsics_max,
+                                          string,
+                                          // passing len==0 to use the \0 as the
+                                          // EOF marker. This is the more
+                                          // efficient path in
+                                          // read_cameramodel_from_string()
+                                          0);
 
  done:
     if(string != NULL && string != MAP_FAILED)
         munmap(string, st.st_size+1);
     if(fd >= 0)
         close(fd);
+    if(Nintrinsics_max != NULL && !did_set_Nintrinsics_max)
+        *Nintrinsics_max = 0;
 
     return result;
+}
+
+// if len>0, the string doesn't need to be 0-terminated. If len<=0, the end of
+// the buffer IS indicated by a 0 byte
+mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_string(const char *string,
+                                                        const int len)
+{
+    mrcal_cameramodel_VOID_t* model = NULL;
+    bool result = read_cameramodel_from_string(&model, NULL,
+                                               string, len);
+    if(result) return model;
+    else       return NULL;
+}
+
+mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_file(const char* filename)
+{
+    mrcal_cameramodel_VOID_t* model = NULL;
+    bool result = read_cameramodel_from_file(&model, NULL,
+                                             filename);
+    if(result) return model;
+    else       return NULL;
 }
 
 void mrcal_free_cameramodel(mrcal_cameramodel_VOID_t** cameramodel)
 {
     free(*cameramodel);
     *cameramodel = NULL;
+}
+
+bool mrcal_read_cameramodel_string_into(// out
+                                   mrcal_cameramodel_VOID_t* model,
+                                   // in,out
+                                   int* Nintrinsics_max,
+                                   // in
+                                   const char* string,
+                                   const int len)
+{
+    return read_cameramodel_from_string(&model, Nintrinsics_max,
+                                        string, len);
+}
+bool mrcal_read_cameramodel_file_into  (// out
+                                   mrcal_cameramodel_VOID_t* model,
+                                   // in,out
+                                   int* Nintrinsics_max,
+                                   // in
+                                   const char* filename)
+{
+    return read_cameramodel_from_file(&model, Nintrinsics_max,
+                                      filename);
 }

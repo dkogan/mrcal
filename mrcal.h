@@ -839,15 +839,39 @@ int mrcal_state_index_calobject_warp(int Ncameras_intrinsics, int Ncameras_extri
 int mrcal_num_states_calobject_warp(mrcal_problem_selections_t problem_selections,
                                     int Nobservations_board);
 
-
+/////// Model-reading functions
+//
+//// These allocate memory for the model; the caller MUST
+//// mrcal_free_cameramodel(&model) when done. Return NULL on error
+//
 // if len>0, the string doesn't need to be 0-terminated. If len<=0, the end of
 // the buffer IS indicated by a '\0' byte
-//
-// return NULL on error. Must mrcal_free_cameramodel(&model) when done
 mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_string(const char* string,
                                                         const int len);
 mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_file  (const char* filename);
 void                      mrcal_free_cameramodel(mrcal_cameramodel_VOID_t** cameramodel);
+
+//// These read the model into a preallocated buffer *model. The given buffer is
+//// big-enough for a model with *Nintrinsics_max intrinsics. Return true on
+//// success. On failure, return false. If the error was a too-small
+//// Nintrinsics_max, a big-enough value will be reported in *Nintrinsics_max.
+//// Otherwise *Nintrinsics_max will be <= 0.
+//
+// if len>0, the string doesn't need to be 0-terminated. If len<=0, the end of
+// the buffer IS indicated by a '\0' byte
+bool mrcal_read_cameramodel_string_into(// out
+                                   mrcal_cameramodel_VOID_t* model,
+                                   // in,out
+                                   int* Nintrinsics_max,
+                                   // in
+                                   const char* string,
+                                   const int len);
+bool mrcal_read_cameramodel_file_into  (// out
+                                   mrcal_cameramodel_VOID_t* model,
+                                   // in,out
+                                   int* Nintrinsics_max,
+                                   // in
+                                   const char* filename);
 
 bool mrcal_write_cameramodel_file(const char* filename,
                                   const mrcal_cameramodel_VOID_t* cameramodel);

@@ -1,8 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <libgen.h>
 
 #include "../mrcal.h"
+#include "../util.h"
 
 #include "test-harness.h"
 
@@ -13,9 +16,6 @@ struct                                     \
     mrcal_cameramodel_VOID_t cameramodel;       \
     double intrinsics[Nintrinsics];        \
 }
-
-#define Nintrinsics_CAHVORE (4+5+3)
-typedef CAMERAMODEL_T(Nintrinsics_CAHVORE) cameramodel_cahvore_t;
 
 static void confirm_models_equal(const mrcal_cameramodel_VOID_t* a,
                                  const mrcal_cameramodel_VOID_t* b)
@@ -71,18 +71,93 @@ static void confirm_models_equal(const mrcal_cameramodel_VOID_t* a,
       mrcal_free_cameramodel(&m);                                       \
 } while(0)
 
+
+static void check_read_from_disk(void)
+{
+    char self_exe[1024];
+    const size_t bufsize_self_exe = sizeof(self_exe);
+    ssize_t len_readlink = readlink("/proc/self/exe", self_exe, bufsize_self_exe);
+    if(!confirm(len_readlink > 0))
+        return;
+    if(!confirm((int)len_readlink < (int)bufsize_self_exe))
+        return;
+
+    self_exe[len_readlink] = '\0';
+    const char* self_dir = dirname(self_exe);
+
+    char path_model[1024];
+    const int snprintf_bytes_would_write =
+        snprintf(path_model, sizeof(path_model),
+                 "%s/data/cam0.opencv8.cameramodel",
+                self_dir);
+    if(!confirm(snprintf_bytes_would_write < (int)sizeof(path_model)))
+        return;
+
+    const mrcal_cameramodel_LENSMODEL_OPENCV8_t cameramodel_ref =
+        (mrcal_cameramodel_LENSMODEL_OPENCV8_t)
+        {.lensmodel  = {.type = MRCAL_LENSMODEL_OPENCV8},
+         .imagersize = {4000,2200},
+         .rt_cam_ref = {2e-2, -3e-1, -1e-2,  1., 2, -3.},
+         .intrinsics = {1761.181055, 1761.250444, 1965.706996, 1087.518797, -0.01266096516, 0.03590794372, -0.0002547045941, 0.0005275929652, 0.01968883397, 0.01482863541, -0.0562239888, 0.0500223357}
+        };
+
+    mrcal_cameramodel_LENSMODEL_OPENCV8_t m;
+    int Nintrinsics_max = 8+4;
+    if(!confirm(mrcal_read_cameramodel_file_into((mrcal_cameramodel_VOID_t*)&m, &Nintrinsics_max, path_model)))
+        return;
+    confirm_models_equal((mrcal_cameramodel_VOID_t*)&m,
+                         (mrcal_cameramodel_VOID_t*)&cameramodel_ref);
+    int Nintrinsics_max_too_small = 8+4 - 1;
+    if(!confirm(!mrcal_read_cameramodel_file_into((mrcal_cameramodel_VOID_t*)&m, &Nintrinsics_max_too_small, path_model)))
+        return;
+
+    confirm_eq_int(Nintrinsics_max_too_small, 8+4);
+
+    // and reading into a buffer from a string
+    char buf[16384];
+    FILE* fp = fopen(path_model, "r");
+    if(!confirm(fp != NULL))
+        return;
+    int nbytes = fread(buf,1,sizeof(buf)-1,fp);
+    confirm(nbytes>0);
+    buf[nbytes] = '\0';
+    fclose(fp);
+
+    Nintrinsics_max = 8+4;
+    if(!confirm(mrcal_read_cameramodel_string_into((mrcal_cameramodel_VOID_t*)&m, &Nintrinsics_max,
+                                                   buf, 0)))
+        return;
+    confirm_models_equal((mrcal_cameramodel_VOID_t*)&m,
+                         (mrcal_cameramodel_VOID_t*)&cameramodel_ref);
+    Nintrinsics_max_too_small = 8+4 - 1;
+    if(!confirm(!mrcal_read_cameramodel_string_into((mrcal_cameramodel_VOID_t*)&m, &Nintrinsics_max_too_small,
+                                                    buf, 0)))
+        return;
+
+    // And again, giving it the buffer size instead of '\0' termination
+    buf[nbytes] = 'x';
+    Nintrinsics_max = 8+4;
+    if(!confirm(mrcal_read_cameramodel_string_into((mrcal_cameramodel_VOID_t*)&m, &Nintrinsics_max,
+                                                   buf, nbytes)))
+        return;
+    confirm_models_equal((mrcal_cameramodel_VOID_t*)&m,
+                         (mrcal_cameramodel_VOID_t*)&cameramodel_ref);
+    Nintrinsics_max_too_small = 8+4 - 1;
+    if(!confirm(!mrcal_read_cameramodel_string_into((mrcal_cameramodel_VOID_t*)&m, &Nintrinsics_max_too_small,
+                                                    buf, nbytes)))
+        return;
+}
+
 int main(int argc, char* argv[])
 {
     mrcal_cameramodel_VOID_t cameramodel;
 
-    cameramodel_cahvore_t cameramodel_ref =
-        (cameramodel_cahvore_t)
-        { .cameramodel =
-          {.lensmodel  = {.type = MRCAL_LENSMODEL_CAHVORE,
-                          .LENSMODEL_CAHVORE__config.linearity = 0.34},
-           .imagersize = {110,400},
-           .rt_cam_ref = {0,1,2,33,44e4,-55.3e-3},
-          },
+    mrcal_cameramodel_LENSMODEL_CAHVORE_t cameramodel_ref =
+        (mrcal_cameramodel_LENSMODEL_CAHVORE_t)
+        { .lensmodel  = {.type = MRCAL_LENSMODEL_CAHVORE,
+                         .LENSMODEL_CAHVORE__config.linearity = 0.34},
+          .imagersize = {110,400},
+          .rt_cam_ref = {0,1,2,33,44e4,-55.3e-3},
           .intrinsics = {4, 3, 4, 5, 0, 1, 3, 5, 4, 10, 11, 12}
         };
 
@@ -245,6 +320,7 @@ int main(int argc, char* argv[])
         }
     }
 
+    check_read_from_disk();
+
     TEST_FOOTER();
 }
-
