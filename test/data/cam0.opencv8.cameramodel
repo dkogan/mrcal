@@ -1,5 +1,5 @@
 {
-    'lens_model':  'LENSMODEL_OPENCV8',
+    'lensmodel':  'LENSMODEL_OPENCV8',
 
     # intrinsics are fx,fy,cx,cy,distortion0,distortion1,....
     'intrinsics': [ 1761.181055, 1761.250444, 1965.706996, 1087.518797, -0.01266096516, 0.03590794372, -0.0002547045941, 0.0005275929652, 0.01968883397, 0.01482863541, -0.0562239888, 0.0500223357,],
