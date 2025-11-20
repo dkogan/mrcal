@@ -7,7 +7,7 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 #include <FreeImage.h>
-#include <malloc.h>
+#include <stdlib.h>
 #include <string.h>
 #include <stdlib.h>
 
