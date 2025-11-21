@@ -427,7 +427,8 @@ def parse_args():
                         file. Each point is reported in the reference coordinate
                         system, colored with the nearest-neighbor color of the
                         camera0 image. This is disabled by default because this
-                        is potentially a very large file''')
+                        is potentially a very large file. The interactive button
+                        in the tool ALWAYS writes the point cloud''')
     parser.add_argument('--jobs', '-j',
                         type=int,
                         required=False,
@@ -680,7 +681,8 @@ def write_output_all(args,
                      disparity_colored,
                      ranges,
                      ranges_colored,
-                     force_override = False):
+                     force_override = False,
+                     write_point_cloud = False):
 
     image_filenames_base = \
         [os.path.splitext(os.path.split(f)[1])[0] for f in image_filenames]
@@ -729,7 +731,7 @@ def write_output_all(args,
                      image_filenames_base[0] + '-range.png')
 
 
-    if not args.write_point_cloud:
+    if not write_point_cloud:
         return
 
 
@@ -1029,7 +1031,8 @@ def process(i_image):
                          disparity_scale,
                          disparity_colored,
                          ranges,
-                         ranges_colored)
+                         ranges_colored,
+                         write_point_cloud = args.write_point_cloud)
     return True
 
 
@@ -1093,7 +1096,8 @@ def gui_stereo(images,
                          disparity_scale,
                          disparity_colored,
                          ranges, ranges_colored,
-                         force_override = True)
+                         force_override = True,
+                         write_point_cloud = True)
 
         # window.cursor(FL_CURSOR_DEFAULT)
 
