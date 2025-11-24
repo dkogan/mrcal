@@ -224,6 +224,13 @@ def parse_args():
                         "0" means "the vertical center of the rectified system
                         lies along the mean forward direction of the two
                         cameras" Defaults to 0.''')
+    parser.add_argument('--az-edge-margin-deg',
+                        default = 20.,
+                        type=float,
+                        help='''The nearest the rectified view is allowed to
+                        approach az = -90 or az = +90. Defaults to 20deg, for a
+                        maximum az field of view of 140deg. Applies ONLY to
+                        LENSMODEL_LATLON rectification.''')
     parser.add_argument('--pixels-per-deg',
                         help='''The resolution of the rectified images. This is
                         either a whitespace-less, comma-separated list of two
@@ -570,6 +577,7 @@ if not args.already_rectified:
                                el_fov_deg          = args.el_fov_deg,
                                az0_deg             = args.az0_deg,
                                el0_deg             = args.el0_deg,
+                               az_edge_margin_deg  = args.az_edge_margin_deg,
                                pixels_per_deg_az   = pixels_per_deg_az,
                                pixels_per_deg_el   = pixels_per_deg_el,
                                rectification_model = args.rectification)

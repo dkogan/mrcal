@@ -151,7 +151,8 @@ functions:
 - =mrcal_rectified_system2()= is a new flavor of =mrcal_rectified_system()= to
   provide a new =az_edge_margin_deg= argument, to set the closest the rectified
   view is allowed to get to $\mathrm{az}=\pm 90^\circ$. The legacy function
-  still exists. It's hardcoded to use =az_edge_margin_deg=20=
+  still exists. It's hardcoded to use =az_edge_margin_deg=20=. [[file:mrcal-stereo.html][=mrcal-stereo=]]
+  controls this via =--az-edge-margin-deg=
 
 - Similarly the Python [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]] function now takes this
   =az_edge_margin_deg= argument also
