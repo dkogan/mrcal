@@ -328,10 +328,12 @@ def get_imagersize_one(icamera, indices_frame_camera, paths, wh_args, seedmodels
     wh_image    = None
     wh_seed     = None
     if seedmodels is not None:
-        wh_seed = list(seedmodels[icamera].imagersize())
+        wh_seed = np.array(seedmodels[icamera].imagersize())
+    if wh_args is not None:
+        wh_args = np.array(wh_args)
 
     if wh_args is not None and seedmodels is not None:
-        if wh_args != wh_seed:
+        if not np.all(wh_args == wh_seed):
             print(f"Both --seed and --imagersize were given, so they must match exactly. But I had --imagersize {wh_args} and one model has imagersize() = {wh_seed}",
                   file=sys.stderr)
             sys.exit(1)
@@ -354,15 +356,15 @@ def get_imagersize_one(icamera, indices_frame_camera, paths, wh_args, seedmodels
 
     if image is not None:
         h,w = image.shape[:2]
-        wh_image = (w,h)
+        wh_image = np.array((w,h))
 
         if wh_args is not None and \
-           wh_image != wh_args:
+           not np.all(wh_image == wh_args):
             print(f"--imagersize is given, and its dimensions do NOT match THOSE of the images in --corners-cache: --imagersize is {wh_args} and {path=} has dimensions {wh_image}",
                   file=sys.stderr)
             sys.exit(1)
         if wh_seed is not None and \
-           wh_image != wh_seed:
+           not np.all(wh_image == wh_seed):
             print(f"--seed is given, and those image dimensions do NOT match THOSE of the images in --corners-cache: --seed model for {icamera=} has imagersize {wh_seed} and {path=} has dimensions {wh_image}",
                   file=sys.stderr)
             sys.exit(1)
