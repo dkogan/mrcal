@@ -92,12 +92,12 @@ def test_geometry( Rt01, p, whatgeometry,
     R01 = Rt01[:3,:]
     t01 = Rt01[ 3,:]
 
-    # p now has shape (Np,3). The leading dims have been flattened
+    # p now has shape (Npoints,3). The leading dims have been flattened
     p = p.reshape( p.size // 3, 3)
-    Np = len(p)
+    Npoints = len(p)
 
-    # p has shape (Np,3)
-    # v has shape (Np,2)
+    # p has shape (Npoints,3)
+    # v has shape (Npoints,2)
     v0local_noisy, v1local_noisy,v0_noisy,v1_noisy,q0_ref,q1_ref,q0_noisy,q1_noisy = \
         [v[...,0,:] for v in \
          mrcal.synthetic_data.
@@ -128,8 +128,8 @@ def test_geometry( Rt01, p, whatgeometry,
         what = f"{whatgeometry} {f.__name__}"
 
         def do_check_gradient(*grads):
-            for ip in range(Np):
-                args_cut = (args[0][ip], args[1][ip], args[2])
+            for ipoint in range(Npoints):
+                args_cut = (args[0][ipoint], args[1][ipoint], args[2])
                 for ivar in range(len(args)):
                     if grads[ivar] is not None:
                         grad_empirical  = \
@@ -138,10 +138,10 @@ def test_geometry( Rt01, p, whatgeometry,
                                                *args_cut[ivar+1:]),
                                   args_cut[ivar],
                                   step = 1e-6)
-                        testutils.confirm_equal( grads[ivar][ip], grad_empirical,
+                        testutils.confirm_equal( grads[ivar][ipoint], grad_empirical,
                                                  relative  = True,
                                                  worstcase = True,
-                                                 msg = f"{what}: grad(ip={ip}, ivar = {ivar})",
+                                                 msg = f"{what}: grad(ipoint={ipoint}, ivar = {ivar})",
                                                  eps = 2e-2)
 
         if f is mrcal.triangulated_error:
@@ -194,12 +194,12 @@ def test_geometry( Rt01, p, whatgeometry,
                 # routine is supposed to be optimizing, and then I compare
                 p_optimized = \
                     nps.cat(*[ scipy.optimize.minimize(callback,
-                                                       p_reported[ip], # seed from the "right" value
-                                                       args   = (args[0][ip], args[1][ip], args[2]),
+                                                       p_reported[ipoint], # seed from the "right" value
+                                                       args   = (args[0][ipoint], args[1][ipoint], args[2]),
                                                        method = 'Nelder-Mead',
                                                        # options = dict(disp  = True)
                                                        )['x'] \
-                               for ip in range(Np) ])
+                               for ipoint in range(Npoints) ])
 
                 # print( f"{what} p reported,optimized:\n{nps.cat(p_reported, p_optimized)}" )
                 # print( f"{what} p_err: {p_reported - p_optimized}" )
