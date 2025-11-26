@@ -585,9 +585,6 @@ static bool chirality(// output
                       const vec_withgrad_t<NGRAD,3>& v1,
                       const vec_withgrad_t<NGRAD,3>& t01)
 {
-    double len2_nominal = 0.0;
-    double len2;
-
     improvement0  = val_withgrad_t<NGRAD>();
     improvement1  = val_withgrad_t<NGRAD>();
     improvement01 = val_withgrad_t<NGRAD>();
