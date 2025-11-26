@@ -574,9 +574,9 @@ mrcal_triangulate_leecivera_linf(// outputs
 // This is called "cheirality" in Lee and Civera's papers
 template <int NGRAD>
 static bool chirality(// output
-                      val_withgrad_t<NGRAD  >& improvement0,
-                      val_withgrad_t<NGRAD  >& improvement1,
-                      val_withgrad_t<NGRAD  >& improvement01,
+                      val_withgrad_t<NGRAD  >& worsening0,
+                      val_withgrad_t<NGRAD  >& worsening1,
+                      val_withgrad_t<NGRAD  >& worsening01,
 
                       // input
                       const val_withgrad_t<NGRAD  >& l0,
@@ -585,9 +585,19 @@ static bool chirality(// output
                       const vec_withgrad_t<NGRAD,3>& v1,
                       const vec_withgrad_t<NGRAD,3>& t01)
 {
-    improvement0  = val_withgrad_t<NGRAD>();
-    improvement1  = val_withgrad_t<NGRAD>();
-    improvement01 = val_withgrad_t<NGRAD>();
+    // I'm looking at points in space l0*v0 and t01+l1*v1. These SHOULD estimate
+    // the SAME point p, so their difference should be small. I want to make
+    // sure I have the sign of l0 and l1 right. If flipping the sign on either
+    // of these makes the estimate of p tighter, I return false
+
+    // x are separations between l0*v0 and t01+l1*v1. These estimate the same
+    // point p, so x should be small
+    //
+    // worsening = norm2(xflip) - norm2(x). If l0 or l1 were flipped, and that
+    // created a tighter fit, I would see norm2(xflip)<norm2(x) and worsening<0
+    worsening0  = val_withgrad_t<NGRAD>();
+    worsening1  = val_withgrad_t<NGRAD>();
+    worsening01 = val_withgrad_t<NGRAD>();
 
     for(int i=0; i<3; i++)
     {
@@ -596,18 +606,20 @@ static bool chirality(// output
         val_withgrad_t<NGRAD> x1        = (-l1*v1.v[i] + t01.v[i]) - l0*v0.v[i];
         val_withgrad_t<NGRAD> x01       = (-l1*v1.v[i] + t01.v[i]) + l0*v0.v[i];
 
-        improvement0  += x0 *x0  - x_nominal*x_nominal;
-        improvement1  += x1 *x1  - x_nominal*x_nominal;
-        improvement01 += x01*x01 - x_nominal*x_nominal;
+        worsening0  += x0 *x0  - x_nominal*x_nominal;
+        worsening1  += x1 *x1  - x_nominal*x_nominal;
+        worsening01 += x01*x01 - x_nominal*x_nominal;
     }
 
+    // if flipping l in ALL possible directions made the fit worse, then the
+    // current l is the best, and I return true
     return
-      improvement0.x  > 0.0 &&
-      improvement1.x  > 0.0 &&
-      improvement01.x > 0.0;
+      worsening0.x  > 0.0 &&
+      worsening1.x  > 0.0 &&
+      worsening01.x > 0.0;
 }
 
-// version without reporting the improvement values
+// version without reporting the worsening values
 template <int NGRAD>
 static bool chirality(const val_withgrad_t<NGRAD  >& l0,
                       const vec_withgrad_t<NGRAD,3>& v0,
@@ -615,10 +627,10 @@ static bool chirality(const val_withgrad_t<NGRAD  >& l0,
                       const vec_withgrad_t<NGRAD,3>& v1,
                       const vec_withgrad_t<NGRAD,3>& t01)
 {
-    val_withgrad_t<NGRAD> improvement0;
-    val_withgrad_t<NGRAD> improvement1;
-    val_withgrad_t<NGRAD> improvement01;
-    return chirality(improvement0, improvement1, improvement01,
+    val_withgrad_t<NGRAD> worsening0;
+    val_withgrad_t<NGRAD> worsening1;
+    val_withgrad_t<NGRAD> worsening01;
+    return chirality(worsening0, worsening1, worsening01,
                      l0,v0,l1,v1,t01);
 }
 
@@ -1015,18 +1027,18 @@ _mrcal_triangulated_error(// outputs
 #else
 
     // new method
-    val_withgrad_t<6> improvement0;
-    val_withgrad_t<6> improvement1;
-    val_withgrad_t<6> improvement01;
-    if(!chirality(improvement0, improvement1, improvement01,
+    val_withgrad_t<6> worsening0;
+    val_withgrad_t<6> worsening1;
+    val_withgrad_t<6> worsening01;
+    if(!chirality(worsening0, worsening1, worsening01,
                   l0, v0, l1, v1, t01))
     {
         val_withgrad_t<6> err_to_vanishing_point = angle_error__assume_small(v0, v1);
 
         err +=
-            err_to_vanishing_point * (sigmoid(-improvement0,  3.0) +
-                                      sigmoid(-improvement1,  3.0) +
-                                      sigmoid(-improvement01, 3.0));
+            err_to_vanishing_point * (sigmoid(-worsening0,  3.0) +
+                                      sigmoid(-worsening1,  3.0) +
+                                      sigmoid(-worsening01, 3.0));
     }
 
 #endif
