@@ -100,8 +100,7 @@ def relative_scale(a,b,
         f = np.ones((d,),) / d
         a = np.convolve(a, f, mode='same')
         b = np.convolve(b, f, mode='same')
-    return (np.abs(a) + \
-            np.abs(b)) / 2 + eps
+    return (np.abs(a) + np.abs(b)) / 2 + eps
 
 def relative_diff(a,b,
                   *,
