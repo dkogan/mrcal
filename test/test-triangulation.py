@@ -122,8 +122,12 @@ def test_geometry( Rt01, p, whatgeometry,
         f, callback = scenario[:2]
         args        = scenario[2:]
 
-        result     = f(*args, get_gradients = True)
-        p_reported = result[0]
+        result         = f(*args, get_gradients = True)
+        p_reported     = result[0]
+        if f is mrcal.triangulated_error:
+            de_dv1,de_dt01 = result[1:]
+        else:
+            dp_dv0,dp_dv1,dp_dt01 = result[1:]
 
         what = f"{whatgeometry} {f.__name__}"
 
@@ -171,8 +175,9 @@ def test_geometry( Rt01, p, whatgeometry,
 
             # I do this regardless of if check_gradients. Because I want to
             # check the divergent cases too
-            do_check_gradient(None, # no derr/dv0 gradient
-                              *result[1:])
+            do_check_gradient(None, # de/dv0 not given in this path
+                              de_dv1,
+                              de_dt01)
             continue
 
         if out_of_bounds:
@@ -186,7 +191,9 @@ def test_geometry( Rt01, p, whatgeometry,
         else:
             # Check all the gradients
             if check_gradients:
-                do_check_gradient(*result[1:])
+                do_check_gradient(dp_dv0,
+                                  dp_dv1,
+                                  dp_dt01)
 
             if callback is not None:
 
