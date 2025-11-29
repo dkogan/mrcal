@@ -242,7 +242,8 @@ def parse_args():
                         type=lambda d: d if os.path.isdir(d) else \
                         parser.error(f"--outdir requires an existing directory as the arg, but got '{d}'"),
                         help='''Directory to write the output into. If omitted,
-                        we use the directory of the input model''')
+                        we use the directory of the input model. Ignored if
+                        we're reading stdin (model is omitted or "-"''')
 
     parser.add_argument('--num-trials',
                         type    = int,
