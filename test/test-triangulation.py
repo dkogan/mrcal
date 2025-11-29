@@ -107,6 +107,11 @@ def test_geometry( Rt01, p, whatgeometry,
                                                       1,
                                                       sigma = 0.1)]
 
+    # For simpler code, I extend t01,Rt01 to have shape (Npoints,...), like the
+    # other arguments
+    t01  = np.ones( (Npoints,1  ), ) * t01
+    Rt01 = np.ones( (Npoints,1,1), ) * Rt01
+
     scenarios = \
         ( (mrcal.triangulate_geometric,      callback_l2_geometric,    v0_noisy,      v1_noisy,      t01),
           (mrcal.triangulate_leecivera_l1,   callback_l1_angle,        v0_noisy,      v1_noisy,      t01),
@@ -133,7 +138,7 @@ def test_geometry( Rt01, p, whatgeometry,
 
         def do_check_gradient(*grads):
             for ipoint in range(Npoints):
-                args_cut = (args[0][ipoint], args[1][ipoint], args[2])
+                args_cut = (args[0][ipoint], args[1][ipoint], args[2][ipoint])
                 for ivar in range(len(args)):
                     if grads[ivar] is not None:
                         grad_empirical  = \
@@ -202,7 +207,7 @@ def test_geometry( Rt01, p, whatgeometry,
                 p_optimized = \
                     nps.cat(*[ scipy.optimize.minimize(callback,
                                                        p_reported[ipoint], # seed from the "right" value
-                                                       args   = (args[0][ipoint], args[1][ipoint], args[2]),
+                                                       args   = (args[0][ipoint], args[1][ipoint], args[2][ipoint]),
                                                        method = 'Nelder-Mead',
                                                        # options = dict(disp  = True)
                                                        )['x'] \
