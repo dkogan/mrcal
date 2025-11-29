@@ -20,22 +20,6 @@ import mrcal
 import testutils
 
 
-
-import tempfile
-import atexit
-import shutil
-workdir = tempfile.mkdtemp()
-def cleanup():
-    global workdir
-    try:
-        shutil.rmtree(workdir)
-        workdir = None
-    except:
-        pass
-atexit.register(cleanup)
-
-
-
 def check(filename_from, model_from,
           lensmodel_to,
           args, *,
@@ -45,7 +29,6 @@ def check(filename_from, model_from,
     process = \
         subprocess.Popen( (f"{testdir}/../mrcal-convert-lensmodel",
                            *args,
-                           "--outdir", workdir,
                            lensmodel_to),
                           encoding = 'ascii',
                           stdin    = subprocess.PIPE,
