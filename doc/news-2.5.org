@@ -53,6 +53,9 @@ undocumented, until they're done and finally appear in mrcal 3.0:
   [[https://www.github.com/dkogan/mrcal/blob/master/analyses/validate-uncertainty.py][=analyses/validate-uncertainty.py=]] tools. These are /very/ useful to check the
   various assumptions made by the mrcal processing
 
+- The [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]] tool has =--all= to write out /all/ the models
+  from a joint re-solve
+
 ** C API 
 Some guts of the calibration machinery have been ported to C and exposed as C
 functions:

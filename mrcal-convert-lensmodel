@@ -186,11 +186,19 @@ def parse_args():
     parser.add_argument('--monocular',
                         action='store_true',
                         help='''Used if not --sampled. By default we re-solve
-                        the full calibration problem that was used to originally
+                        the FULL calibration problem that was used to originally
                         obtain the input model, even if it contained multiple
                         cameras. If --monocular, we re-solve only a subset of
                         the original problem, using ONLY the observations made
-                        by THIS camera''')
+                        by THIS camera. Exclusive with --all''')
+    parser.add_argument('--all',
+                        action='store_true',
+                        help='''Used if not --sampled. By default we re-solve
+                        the FULL calibration problem that was used to originally
+                        obtain the input model, even if it contained multiple
+                        cameras. And by default, we only output the result for
+                        the ONE given model. If --all, we output the result for
+                        ALL the models in the solve. Exclusive with --monocular''')
 
     parser.add_argument('--viz',
                         action='store_true',
@@ -265,6 +273,19 @@ def parse_args():
 
     args = parser.parse_args()
 
+    if args.all and args.monocular:
+        print("Error: --monocular and --all are exclusive", file=sys.stderr)
+        sys.exit(1)
+    if args.sampled:
+        if args.monocular:
+            print("--monocular doesn't work with --sampled",
+                  file=sys.stderr)
+            sys.exit(1)
+        if args.all:
+            print("--all doesn't work with --sampled",
+                  file=sys.stderr)
+            sys.exit(1)
+
     if args.title      is not None and \
        args.extratitle is not None:
         print("Error: --title and --extratitle are exclusive", file=sys.stderr)
@@ -331,13 +352,14 @@ if args.model == '-':
     # Input read from stdin. Write output to stdout
     file_output = sys.stdout
 else:
+    # {CAMID} filled in later
     if args.outdir is None:
         filename_base,extension = os.path.splitext(args.model)
-        file_output = f"{filename_base}-{lensmodel_to}{extension}"
+        file_output = f"{filename_base}-{lensmodel_to}{{CAMID}}{extension}"
     else:
         f,extension             = os.path.splitext(args.model)
         directory,filename_base = os.path.split(f)
-        file_output = f"{args.outdir}/{filename_base}-{lensmodel_to}{extension}"
+        file_output = f"{args.outdir}/{filename_base}-{lensmodel_to}{{CAMID}}{extension}"
 
     if os.path.exists(file_output) and not args.force:
         print(f"ERROR: '{file_output}' already exists. Not overwriting this file. Pass -f to overwrite",
@@ -460,6 +482,8 @@ if not args.sampled:
     intrinsics_from      = optimization_inputs['intrinsics']
     intrinsics_from_core = intrinsics_from[..., :4]
     Ncameras             = len(intrinsics_from)
+    if Ncameras == 1:
+        args.all = False
 
     # Ignore observations in the corners, as requested
     if not (args.radius is None or args.radius == 0):
@@ -596,11 +620,6 @@ else:
             print("--sampled without --intrinsics-only REQUIRES --distance",
                   file=sys.stderr)
             sys.exit(1)
-
-    if args.monocular:
-        print("--monocular doesn't work with --sampled",
-              file=sys.stderr)
-        sys.exit(1)
 
     dims = m.imagersize()
     if dims is None:
@@ -815,13 +834,38 @@ note = \
     format(time.strftime("%Y-%m-%d %H:%M:%S"),
            ' '.join(mrcal.shellquote(s) for s in sys.argv))
 
-m_to.Rt_cam_ref( mrcal.compose_Rt( implied_Rt10,
-                                              mrcal.Rt_from_rt( m.rt_cam_ref())))
-m_to.write(file_output, note=note)
+if not args.all:
 
-if isinstance(file_output, str):
-    print(f"Wrote '{file_output}'",
-          file=sys.stderr)
+    m_to.Rt_cam_ref( mrcal.compose_Rt( implied_Rt10,
+                                       mrcal.Rt_from_rt( m.rt_cam_ref())))
+
+    if isinstance(file_output, str):
+        f = file_output.replace('{CAMID}','')
+        m_to.write(f, note=note)
+        print(f"Wrote '{f}'", file=sys.stderr)
+    else:
+        # writing to stdout
+        m_to.write(file_output, note=note)
+
+
+else:
+    # Write out the models for ALL the cameras. Today this assumes the vanilla
+    # case of stationary cameras looking at a moving chessboard
+    Ncameras = len(optimization_inputs['intrinsics'])
+    for icam_intrinsics in range(Ncameras):
+        m_to = mrcal.cameramodel( optimization_inputs = optimization_inputs,
+                                  icam_intrinsics     = icam_intrinsics )
+        if isinstance(file_output, str):
+            f = file_output.replace('{CAMID}','-{:02d}'.format(icam_intrinsics))
+            m_to.write(f, note=note)
+            print(f"Wrote '{f}'", file=sys.stderr)
+        else:
+            # writing to stdout
+            m_to.write(file_output, note=note)
+
+
+
+
 
 
 if args.viz:
@@ -863,7 +907,3 @@ if args.viz:
                                          **plotkwargs_extra)
     if args.hardcopy is None:
         plot.wait()
-
-
-
-# not sampled should laet you save ALL the models
