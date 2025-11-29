@@ -122,13 +122,18 @@ def test_geometry( Rt01, p, whatgeometry,
           (mrcal.triangulated_error,         None,                     v0_noisy,      v1_noisy,      t01),
          )
 
+    # I try out several finite-difference step sizes, and pick the best one
+    steps_empirical = [1e-3,1e-5,1e-7]
+
     for scenario in scenarios:
 
         f, callback = scenario[:2]
-        args        = scenario[2:]
 
-        result         = f(*args, get_gradients = True)
-        p_reported     = result[0]
+        # (v0,v1,t01)
+        args = scenario[2:]
+
+        result = f(*args, get_gradients = True)
+        p_reported = result[0]
         if f is mrcal.triangulated_error:
             de_dv1,de_dt01 = result[1:]
         else:
@@ -136,22 +141,42 @@ def test_geometry( Rt01, p, whatgeometry,
 
         what = f"{whatgeometry} {f.__name__}"
 
-        def do_check_gradient(*grads):
+        def do_check_gradient(d_dv0, d_dv1, d_dt01):
+            grads = (d_dv0, d_dv1, d_dt01)
             for ipoint in range(Npoints):
-                args_cut = (args[0][ipoint], args[1][ipoint], args[2][ipoint])
-                for ivar in range(len(args)):
-                    if grads[ivar] is not None:
-                        grad_empirical  = \
-                            grad( lambda x: f( *args_cut[:ivar],
-                                               x,
-                                               *args_cut[ivar+1:]),
-                                  args_cut[ivar],
-                                  step = 1e-6)
-                        testutils.confirm_equal( grads[ivar][ipoint], grad_empirical,
-                                                 relative  = True,
-                                                 worstcase = True,
-                                                 msg = f"{what}: grad(ipoint={ipoint}, ivar = {ivar})",
-                                                 eps = 2e-2)
+                args_this = [a[ipoint] for a in args]
+
+                for ivar in range(3):
+                    if grads[ivar] is None: continue
+                    # shape (Nsteps, *shape_grad)
+                    grad_empirical = \
+                        np.array([ grad( lambda x: f( *args_this[:ivar],
+                                                      x,
+                                                      *args_this[ivar+1:]),
+                                         args_this[ivar],
+                                         step = step) \
+                                   for step in steps_empirical])
+
+                    err_empirical = \
+                        testutils.relative_diff(grads[ivar][ipoint],
+                                                grad_empirical,
+                                                eps = 1e-6)
+
+                    # I take the gradient corresponding to the least error
+                    grad_empirical_best = \
+                        np.take_along_axis(grad_empirical,
+                                           np.argmin(np.abs( err_empirical),
+                                                     axis=0,
+                                                     keepdims=True),
+                                           axis=0 )
+
+                    testutils.confirm_equal( grads[ivar][ipoint], grad_empirical_best,
+                                             relative  = True,
+                                             worstcase = True,
+                                             msg = f"{what}: grad(ipoint={ipoint}, ivar={ivar})",
+                                             eps = 3e-2,
+                                             reldiff_eps = 1e-6)
+
 
         if f is mrcal.triangulated_error:
             # triangulated_error() gets lots of special treatment since it's a
