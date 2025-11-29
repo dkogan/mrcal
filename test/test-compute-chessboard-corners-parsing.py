@@ -81,7 +81,8 @@ try:
         mrcal.compute_chessboard_corners(W                 = 2,
                                          H                 = 3,
                                          globs_per_camera  = ('frame*-cam1.jpg','frame*-cam2.jpg'),
-                                         corners_cache_vnl = io.StringIO(corners_all_or_none_noweight))
+                                         corners_cache_vnl = io.StringIO(corners_all_or_none_noweight),
+                                         Npoint_observations_per_board_min = 3)
 except Exception as e:
     observations         = f"Error: {e}"
     indices_frame_camera = f"Error: {e}"
@@ -166,7 +167,8 @@ try:
                                          H                  = 3,
                                          globs_per_camera   = ('frame*-cam1.jpg','frame*-cam2.jpg'),
                                          corners_cache_vnl  = io.StringIO(corners_all_or_none),
-                                         weight_column_kind = 'weight')
+                                         weight_column_kind = 'weight',
+                                         Npoint_observations_per_board_min = 3)
 
 except Exception as e:
     observations         = f"Error: {e}"
@@ -251,7 +253,8 @@ try:
                                          H                  = 3,
                                          globs_per_camera   = ('frame*-cam1.jpg','frame*-cam2.jpg'),
                                          corners_cache_vnl  = io.StringIO(corners_all_or_none_level),
-                                         weight_column_kind = 'level')
+                                         weight_column_kind = 'level',
+                                         Npoint_observations_per_board_min = 3)
 
 except Exception as e:
     observations         = f"Error: {e}"
@@ -341,7 +344,8 @@ try:
                                          H                  = 3,
                                          globs_per_camera   = ('frame*-cam1.jpg','frame*-cam2.jpg'),
                                          corners_cache_vnl  = io.StringIO(corners_complicated),
-                                         weight_column_kind = 'weight')
+                                         weight_column_kind = 'weight',
+                                         Npoint_observations_per_board_min = 3)
 except Exception as e:
     observations         = f"Error: {e}"
     indices_frame_camera = f"Error: {e}"
