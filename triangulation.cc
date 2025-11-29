@@ -918,6 +918,8 @@ val_withgrad_t<6> sigmoid(val_withgrad_t<6> x, double knee)
        -        x < 0:    0
        - 0    < x < knee: smooth interpolation
        - knee < x:        1
+
+       // If knee<=0 then we have a sharp transition at exactly x=0
     */
     if(x.x  <= 0  ) return 0.0;
     if(knee <= x.x) return 1.0;
