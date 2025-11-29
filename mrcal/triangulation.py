@@ -949,12 +949,12 @@ if get_gradients: we return a tuple:
         return mrcal._triangulation_npsp._triangulate_lindstrom_withgrad(v0, v1, Rt01, out=out)
 
 
-def triangulated_error(v0, v1,
-                       t01           = None,
-                       get_gradients = False,
-                       v_are_local   = False,
-                       Rt01          = None,
-                       out           = None):
+def _triangulated_error(v0, v1,
+                        t01           = None,
+                        get_gradients = False,
+                        v_are_local   = False,
+                        Rt01          = None,
+                        out           = None):
 
     r'''Triangulated error function used in the optimization loop
 
@@ -987,9 +987,9 @@ SYNOPSIS
 
     # Estimated 3D position in camera-0 coordinates of the feature observed in
     # the two cameras
-    err = mrcal.triangulated_error( v0, v1,
-                                    Rt01        = Rt01,
-                                    v_are_local = True )
+    err = mrcal.triangulation._triangulated_error( v0, v1,
+                                                   Rt01        = Rt01,
+                                                   v_are_local = True )
 
 This exposes the triangulation-based error function used in the optimization of
 triangulated points. It's made available in Python primarily for testing. Unlike

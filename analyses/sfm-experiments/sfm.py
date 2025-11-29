@@ -611,10 +611,10 @@ def optimizer_callback_triangulated_no_mrcal(
 
             # shape (Nfeatures_valid,)
             e,de_dvj,de_dtij = \
-                mrcal.triangulated_error( vi, vj,
-                                          v_are_local   = False,
-                                          t01           = rtij[3:],
-                                          get_gradients = True)
+                mrcal.triangulation._triangulated_error( vi, vj,
+                                                         v_are_local   = False,
+                                                         t01           = rtij[3:],
+                                                         get_gradients = True)
 
             # p = mrcal.triangulate_leecivera_mid2( vi, vj,
             #                                       v_are_local   = False,
@@ -1836,7 +1836,7 @@ if __name__ == "__main__":
         pass
 
 
-    # test code to observe the behavior of mrcal.triangulated_error()
+    # test code to observe the behavior of mrcal.triangulation._triangulated_error()
     if False:
         import gnuplotlib as gp
         q0 = (np.array((W,H), dtype=float) - 1.) / 2.
@@ -1850,9 +1850,9 @@ if __name__ == "__main__":
         v0 = mrcal.unproject(q0, *model.intrinsics())
         v1 = mrcal.unproject(q1, *model.intrinsics())
         e = \
-            mrcal.triangulated_error( v0, v1,
-                                      v_are_local = True,
-                                      Rt01        = mrcal.Rt_from_rt( np.array((0,0,0,  1.,0,0))) )
+            mrcal.triangulation._triangulated_error( v0, v1,
+                                                     v_are_local = True,
+                                                     Rt01        = mrcal.Rt_from_rt( np.array((0,0,0,  1.,0,0))) )
         gp.plot(q1x,e,
                 legend=q1y,
                 hardcopy='/tmp/tst.gp')

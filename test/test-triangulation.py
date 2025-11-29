@@ -113,13 +113,13 @@ def test_geometry( Rt01, p, whatgeometry,
     Rt01 = np.ones( (Npoints,1,1), ) * Rt01
 
     scenarios = \
-        ( (mrcal.triangulate_geometric,      callback_l2_geometric,    v0_noisy,      v1_noisy,      t01),
-          (mrcal.triangulate_leecivera_l1,   callback_l1_angle,        v0_noisy,      v1_noisy,      t01),
-          (mrcal.triangulate_leecivera_linf, callback_linf_angle,      v0_noisy,      v1_noisy,      t01),
-          (mrcal.triangulate_leecivera_mid2, None,                     v0_noisy,      v1_noisy,      t01),
-          (mrcal.triangulate_leecivera_wmid2,None,                     v0_noisy,      v1_noisy,      t01),
-          (mrcal.triangulate_lindstrom,      callback_l2_reprojection, v0local_noisy, v1local_noisy, Rt01),
-          (mrcal.triangulated_error,         None,                     v0_noisy,      v1_noisy,      t01),
+        ( (mrcal.triangulate_geometric,             callback_l2_geometric,    v0_noisy,      v1_noisy,      t01),
+          (mrcal.triangulate_leecivera_l1,          callback_l1_angle,        v0_noisy,      v1_noisy,      t01),
+          (mrcal.triangulate_leecivera_linf,        callback_linf_angle,      v0_noisy,      v1_noisy,      t01),
+          (mrcal.triangulate_leecivera_mid2,        None,                     v0_noisy,      v1_noisy,      t01),
+          (mrcal.triangulate_leecivera_wmid2,       None,                     v0_noisy,      v1_noisy,      t01),
+          (mrcal.triangulate_lindstrom,             callback_l2_reprojection, v0local_noisy, v1local_noisy, Rt01),
+          (mrcal.triangulation._triangulated_error, None,                     v0_noisy,      v1_noisy,      t01),
          )
 
     # I try out several finite-difference step sizes, and pick the best one
@@ -134,7 +134,7 @@ def test_geometry( Rt01, p, whatgeometry,
 
         result = f(*args, get_gradients = True)
         p_reported = result[0]
-        if f is mrcal.triangulated_error:
+        if f is mrcal.triangulation._triangulated_error:
             de_dv1,de_dt01 = result[1:]
         else:
             dp_dv0,dp_dv1,dp_dt01 = result[1:]
@@ -178,10 +178,10 @@ def test_geometry( Rt01, p, whatgeometry,
                                              reldiff_eps = 1e-6)
 
 
-        if f is mrcal.triangulated_error:
-            # triangulated_error() gets lots of special treatment since it's a
-            # scalar, and works just fine with divergent rays and doesn't report
-            # the derr/dv0 gradient
+        if f is mrcal.triangulation._triangulated_error:
+            # triangulation._triangulated_error() gets lots of special treatment
+            # since it's a scalar, and works just fine with divergent rays and
+            # doesn't report the derr/dv0 gradient
             if not out_of_bounds:
                 err_reported = p_reported
                 p_mid2       = mrcal.triangulate_leecivera_mid2(*args)
