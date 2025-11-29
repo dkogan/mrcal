@@ -762,6 +762,7 @@ mrcal_triangulate_leecivera_wmid2(// outputs
     return _m;
 }
 
+__attribute__((unused))
 static
 val_withgrad_t<6>
 angle_error__assume_small(const vec_withgrad_t<6,3>& v0,
@@ -784,6 +785,86 @@ angle_error__assume_small(const vec_withgrad_t<6,3>& v0,
 #if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
 #warning "triangulated-solve: temporary hack to avoid dividing by 0"
 #endif
+    if(th_sq.x < 1e-21)
+    {
+        return val_withgrad_t<6>();
+    }
+
+
+    if(th_sq.x < 0)
+        // To handle roundoff errors
+        th_sq.x = 0;
+
+    return th_sq.sqrt();
+#if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
+#warning "triangulated-solve: look at numerical issues that will results in sqrt(<0)"
+#warning "triangulated-solve: look at behavior near 0 where dsqrt/dx -> inf"
+#endif
+}
+
+__attribute__((unused))
+static
+val_withgrad_t<6>
+angle_error__assume_small_arg0_normalized(const vec_withgrad_t<6,3>& v0,
+                                          const vec_withgrad_t<6,3>& p1)
+{
+    const val_withgrad_t<6> inner11 = p1.norm2();
+    const val_withgrad_t<6> inner01 = v0.dot(p1);
+
+    val_withgrad_t<6>  costh  = inner01 / inner11.sqrt();
+    if(costh.x < 0.0)
+        // Could happen with barely-divergent rays
+        costh *= val_withgrad_t<6>(-1.0);
+
+    // The angle is assumed small, so cos(th) ~ 1 - th*th/2.
+    // -> th ~ sqrt( 2*(1 - cos(th)) )
+    val_withgrad_t<6> th_sq = costh*(-2.) + 2.;
+
+
+#if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
+#warning "triangulated-solve: temporary hack to avoid dividing by 0"
+#endif
+
+    #warning "what is this? remove"
+    if(th_sq.x < 1e-21)
+    {
+        return val_withgrad_t<6>();
+    }
+
+
+    if(th_sq.x < 0)
+        // To handle roundoff errors
+        th_sq.x = 0;
+
+    return th_sq.sqrt();
+#if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
+#warning "triangulated-solve: look at numerical issues that will results in sqrt(<0)"
+#warning "triangulated-solve: look at behavior near 0 where dsqrt/dx -> inf"
+#endif
+}
+
+__attribute__((unused))
+static
+val_withgrad_t<6>
+angle_error__assume_small_args_normalized(const vec_withgrad_t<6,3>& v0,
+                                          const vec_withgrad_t<6,3>& v1)
+{
+    const val_withgrad_t<6> inner01 = v0.dot(v1);
+    val_withgrad_t<6>  costh  = inner01;
+    if(costh.x < 0.0)
+        // Could happen with barely-divergent rays
+        costh *= val_withgrad_t<6>(-1.0);
+
+    // The angle is assumed small, so cos(th) ~ 1 - th*th/2.
+    // -> th ~ sqrt( 2*(1 - cos(th)) )
+    val_withgrad_t<6> th_sq = costh*(-2.) + 2.;
+
+
+#if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
+#warning "triangulated-solve: temporary hack to avoid dividing by 0"
+#endif
+
+    #warning "what is this? remove"
     if(th_sq.x < 1e-21)
     {
         return val_withgrad_t<6>();
