@@ -1125,13 +1125,10 @@ _mrcal_triangulated_error(// outputs
 #endif
 
     if(_derr_dv1 != NULL)
-        memcpy(_derr_dv1->xyz,
-               &err.j[0],
-               3*sizeof(double));
+        for(int i=0; i<3; i++)
+            _derr_dv1->xyz[i] = err.j[0 + i];
     if(_derr_dt01 != NULL)
-        memcpy(_derr_dt01->xyz,
-               &err.j[3],
-               3*sizeof(double));
-
+        for(int i=0; i<3; i++)
+            _derr_dt01->xyz[i] = err.j[3 + i];
     return err.x;
 }
