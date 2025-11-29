@@ -111,11 +111,15 @@ functions:
   general-enough or tested-enough to be fully distributed yet, so run it from
   the mrcal source tree if you need it
 
-- The [[file:mrcal-python-api-reference.html#-compute_chessboard_corners][=mrcal.compute_chessboard_corners()=]] utility function has new
-  =image_path_prefix= and =image_directory= kwargs to provide more options for
-  interpreting paths in the given =corners_cache_vnl=. This is analogous to how
-  other parts of mrcal work (for instance the
-  [[file:mrcal-show-residuals-board-observation.html][=mrcal-show-residuals-board-observation=]] tool).
+- [[file:mrcal-python-api-reference.html#-compute_chessboard_corners][=mrcal.compute_chessboard_corners()=]] has new =image_path_prefix= and
+  =image_directory= kwargs to provide more options for interpreting paths in the
+  given =corners_cache_vnl=. This is analogous to how other parts of mrcal work
+  (for instance the [[file:mrcal-show-residuals-board-observation.html][=mrcal-show-residuals-board-observation=]] tool).
+
+- [[file:mrcal-python-api-reference.html#-compute_chessboard_corners][=mrcal.compute_chessboard_corners()=]] has new
+  =Npoint_observations_per_board_min= kwarg to set the floor for points per
+  board detection. Previously this was hardcoded to 3, which was far too low.
+  The new default is =2*min(board_width,board_height)=
 
 - Added =mrcal_cameramodel_converter()= "converter" function that can be used
   with =O&= conversions in [[https://docs.python.org/3/c-api/arg.html#c.PyArg_ParseTupleAndKeywords][=PyArg_ParseTupleAndKeywords()=]] calls. Can interpret
