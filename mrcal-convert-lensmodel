@@ -375,6 +375,30 @@ if lensmodel_from == lensmodel_to:
     sys.exit(0)
 
 
+
+def scale_down_rational_intrinsics(intrinsics):
+    modelmatch = re.search("OPENCV([0-9]+)", lensmodel_to)
+    if modelmatch:
+        Nd = int(modelmatch.group(1))
+        if Nd >= 8:
+            # Push down the rational components of the seed. I'd like these all to
+            # sit at 0 ideally. The radial distortion in opencv is x_distorted =
+            # x*scale where r2 = norm2(xy - xyc) and
+            #
+            # scale = (1 + k0 r2 + k1 r4 + k4 r6)/(1 + k5 r2 + k6 r4 + k7 r6)
+            #
+            # Note that k2,k3 are tangential (NOT radial) distortion components.
+            # Note that the r6 factor in the numerator is only present for
+            # >=LENSMODEL_OPENCV5. Note that the denominator is only present for >=
+            # LENSMODEL_OPENCV8. The danger with a rational model is that it's
+            # possible to get into a situation where scale ~ 0/0 ~ 1. This would
+            # have very poorly behaved derivatives. If all the rational coefficients
+            # are ~0, then the denominator is always ~1, and this problematic case
+            # can't happen. I favor that.
+            intrinsics[...,4:][...,5:8] *= 1e-3
+
+
+
 if not args.sampled:
 
     if args.intrinsics_only:
@@ -545,25 +569,7 @@ if not args.sampled:
     # stolen expand_intrinsics() in mrcal-calibrate-extrinsics. Please consolidate
     optimization_inputs['intrinsics'][:,4:] = \
         (np.random.random((Ncameras, Ndistortions)) - 0.5)*2. *1e-6
-    modelmatch = re.search("OPENCV([0-9]+)", lensmodel_to)
-    if modelmatch:
-        Nd = int(modelmatch.group(1))
-        if Nd >= 8:
-            # Push down the rational components of the seed. I'd like these all to
-            # sit at 0 ideally. The radial distortion in opencv is x_distorted =
-            # x*scale where r2 = norm2(xy - xyc) and
-            #
-            # scale = (1 + k0 r2 + k1 r4 + k4 r6)/(1 + k5 r2 + k6 r4 + k7 r6)
-            #
-            # Note that k2,k3 are tangential (NOT radial) distortion components.
-            # Note that the r6 factor in the numerator is only present for
-            # >=LENSMODEL_OPENCV5. Note that the denominator is only present for >=
-            # LENSMODEL_OPENCV8. The danger with a rational model is that it's
-            # possible to get into a situation where scale ~ 0/0 ~ 1. This would
-            # have very poorly behaved derivatives. If all the rational coefficients
-            # are ~0, then the denominator is always ~1, and this problematic case
-            # can't happen. I favor that.
-            optimization_inputs['intrinsics'][:,4:][:,5:8] *= 1e-3
+    scale_down_rational_intrinsics(optimization_inputs['intrinsics'])
     stats = mrcal.optimize(**optimization_inputs)
 
     # And finally I do the calobject_warp too
@@ -722,6 +728,8 @@ else:
         distortions     = (np.random.rand(Ndistortions) - 0.5) * 1e-3 # random initial seed
         intrinsics_to_values = nps.dummy(nps.glue(intrinsics_core, distortions, axis=-1),
                                          axis=-2)
+        scale_down_rational_intrinsics(intrinsics_to_values)
+
         # each point has weight 1.0
         observations_points = nps.glue(q, nps.transpose(weights), axis=-1)
         observations_points = np.ascontiguousarray(observations_points) # must be contiguous. mrcal.optimize() should really be more lax here
