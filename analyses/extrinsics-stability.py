@@ -4,7 +4,7 @@ r'''Look at the extrinsics drift of a camera pair over time
 
 Described here:
 
-https://mrcal.secretsauce.net/docs-3.0/differencing.html#extrinsics-diff
+https://mrcal.secretsauce.net/docs-2.5/differencing.html#extrinsics-diff
 
 '''
 
