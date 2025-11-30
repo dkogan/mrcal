@@ -87,7 +87,7 @@ def parse_args():
                         default=1.5,
                         help='''The level of the input pixel noise to simulate.
                         Defaults to 1 stdev = 1.5 pixels''')
-    parser.add_argument('--non-vanilla',
+    parser.add_argument('--moving-camera',
                         action='store_true',
                         help='''If given, run tests with the non-vanilla
                         scenarios (moving camera, different reference frames).
@@ -164,14 +164,14 @@ def parse_args():
 
     args = parser.parse_args()
 
-    if args.non_vanilla:
+    if args.moving_camera:
         if not (args.fixed == 'cam0' and args.Ncameras == 1):
-            print("--non-vanilla works ONLY with --fixed cam0 --Ncameras 1",
+            print("--moving-camera works ONLY with --fixed cam0 --Ncameras 1",
                   file=sys.stderr)
             sys.exit(1)
 
         if args.do_sample:
-            print("--non-vanilla incompatible with --do-sample. Instead I make sure that it produces the same results as the vanilla solves, and I --do-sample THOSE solves",
+            print("--moving-camera incompatible with --do-sample. Instead I make sure that it produces the same results as the stationary-camera solves, and I --do-sample THOSE solves",
                   file=sys.stderr)
             sys.exit(1)
 
@@ -334,7 +334,7 @@ frames_points_true =          \
                          optimize        = False,
                          **calibration_baseline_kwargs)
 
-if args.non_vanilla:
+if args.moving_camera:
     # Compute the different scenarios of what is moving and what is the
     # reference frame. I will use those later. THOSE ARE NOT YET OPTIMIZED; I
     # will do that later
@@ -1049,7 +1049,7 @@ The logic here is described thoroughly in
         raise Exception("reproject_perturbed__cross_reprojection implementation expects the frames to be optimized")
 
     if nps.norm2(baseline_rt_cam_ref[0]) > 1e-12:
-        raise Exception("I'm assuming a vanilla calibration problem reference at cam0")
+        raise Exception("I'm assuming a stations-camera calibration problem reference at cam0")
 
     if query_optimization_inputs is None:
         return None
@@ -2452,14 +2452,14 @@ for icam in (0,3):
     # more than one camera. If I have a moving multi-camera rig then I want to
     # be able to represent the pose each camera separately, but lock the
     # transform between the cameras. So for now I test this with a single camera
-    # (checked above to make sure that --non-vanilla goes with --Ncameras 1)
-    if args.non_vanilla:
+    # (checked above to make sure that --moving-camera goes with --Ncameras 1)
+    if args.moving_camera:
 
         for (what,optimization_inputs_here) in \
                 (('moving-camera-ref-at-frame0', optimization_inputs_baseline_moving_cameras_refframe0),
                  ('moving-camera-ref-at-cam0',   optimization_inputs_baseline_moving_cameras_refcam0)):
 
-            ####### compare the (non)vanilla measurement vectors x
+            ####### compare the measurement vectors x
             x = mrcal.optimizer_callback(**optimization_inputs_here,
                                          no_jacobian      = True,
                                          no_factorization = True)[1]
@@ -2497,7 +2497,7 @@ for icam in (0,3):
                                   # a single "right" set of extrinsics
                                   icam_extrinsics     = -1)
 
-            ####### compare the (non)vanilla uncertainties
+            ####### compare the uncertainties
             ####### only implemented for this one scenario
             if what == 'moving-camera-ref-at-frame0':
                 Var_dq_here = \

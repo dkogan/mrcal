@@ -62,8 +62,8 @@ TESTS :=																\
 # Check the non-canonical problem definitions
 TESTS += \
   test/test-projection-uncertainty.py__--fixed__cam0__--model__opencv4__--Ncameras__1__--reproject-perturbed__cross-reprojection-rrp-Jfp \
-  test/test-projection-uncertainty.py__--fixed__cam0__--model__opencv4__--Ncameras__1__--range-to-boards__4__--non-vanilla \
-  test/test-projection-uncertainty.py__--fixed__cam0__--model__opencv4__--Ncameras__1__--range-to-boards__4__--non-vanilla__--reproject-perturbed__bestq
+  test/test-projection-uncertainty.py__--fixed__cam0__--model__opencv4__--Ncameras__1__--range-to-boards__4__--moving-camera \
+  test/test-projection-uncertainty.py__--fixed__cam0__--model__opencv4__--Ncameras__1__--range-to-boards__4__--moving-camera__--reproject-perturbed__bestq
 
 
 # triangulation-uncertainty tests. Lots and lots of tests to exhaustively try
