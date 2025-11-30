@@ -743,13 +743,11 @@ smaller solid angles. For various processing it is often useful to visualize
 this angular resolution of a camera. For instance to justify using
 geometric-only techniques, such as the [[file:triangulation.org][triangulation methods]].
 
-mrcal provides the [[https://www.github.com/dkogan/mrcal/blob/master/analyses/mrcal-show-model-resolution.py][=analyses/mrcal-show-model-resolution.py=]] tool to do this.
-This tool isn't yet "released", so it is not yet part of the installed set, and
-must be run from the source tree. A sample visualization of the lens from the
-[[file:tour.org][tour of mrcal]]:
+mrcal provides the [[file:mrcal-show-model-resolution.html][=mrcal-show-model-resolution=]] tool to do this. A sample
+visualization of the lens from the [[file:tour.org][tour of mrcal]]:
 
 #+begin_src sh
-analyses/mrcal-show-model-resolution.py                        \
+mrcal-show-model-resolution                        \
   --title "Mean angular resolution (deg/pixel) over the imager" \
   splined.cameramodel
 #+end_src
@@ -758,7 +756,7 @@ D=~/projects/mrcal-doc-external/figures/resolution
 mkdir -p $D
 
 PYTHONPATH=$PWD \
-analyses/mrcal-show-model-resolution.py \
+mrcal-show-model-resolution \
   --title "Mean angular resolution (deg/pixel) over the imager" \
   --unset key \
   --hardcopy $D/splined-resolution.png                          \

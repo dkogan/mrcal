@@ -56,6 +56,8 @@ undocumented, until they're done and finally appear in mrcal 3.0:
 - The [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]] tool has =--all= to write out /all/ the models
   from a joint re-solve
 
+- Added new [[file:mrcal-show-model-resolution.html][=mrcal-show-model-resolution=]] tool
+
 ** C API 
 Some guts of the calibration machinery have been ported to C and exposed as C
 functions:

@@ -29,6 +29,8 @@ to write any code. The available tools, with links to their manpages:
 - [[file:mrcal-show-residuals-board-observation.html][=mrcal-show-residuals-board-observation=]]: visualize calibration residuals for
   one or more observations of a board
 - [[file:mrcal-show-residuals.html][=mrcal-show-residuals=]]: visualize calibration residuals in an imager
+- [[file:mrcal-show-model-resolution.html][=mrcal-show-model-resolution=]]: visualize the angular resolution across the
+  imager
 
 * Camera model manipulation
 - [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]]: Fits the behavior of one lens model to another

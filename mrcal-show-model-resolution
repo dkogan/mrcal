@@ -1,6 +1,24 @@
 #!/usr/bin/env python3
 
-r'''Display the imager resolution'''
+# Copyright (c) 2017-2023 California Institute of Technology ("Caltech"). U.S.
+# Government sponsorship acknowledged. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+r'''Display the imager resolution for a given model
+
+SYNOPSIS
+
+  $ mrcal-show-model-resolution camera.cameramodel
+  ... a plot pops up showing the resolution of the imager in degrees/pixel
+
+The angular resolution of an image varies dramatically from lens to lens and
+also over the image. This tool visualizes this behavior.
+
+'''
 
 import sys
 import argparse
