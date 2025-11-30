@@ -184,6 +184,23 @@ testutils.confirm_equal( paths,
                          paths_ref,
                          msg = "paths: all-or-none")
 
+
+##### same thing again, but with the default Npoint_observations_per_board_min.
+##### Should cut out one of the observations
+try:
+    observations, indices_frame_camera, paths = \
+        mrcal.compute_chessboard_corners(W                  = 2,
+                                         H                  = 3,
+                                         globs_per_camera   = ('frame*-cam1.jpg','frame*-cam2.jpg'),
+                                         corners_cache_vnl  = io.StringIO(corners_all_or_none),
+                                         weight_column_kind = 'weight')
+except Exception as e:
+    observations         = f"Error: {e}"
+    indices_frame_camera = f"Error: {e}"
+testutils.confirm( len(observations) < len(observations_ref),
+                   msg = "observations: default Npoint_observations_per_board_min culls some observations")
+
+
 ###############################################################
 
 corners_all_or_none_level = r'''# filename x y level
