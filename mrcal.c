@@ -4131,7 +4131,8 @@ bool markOutliers(// output, input
         }
     }
 
-    MSG("I started with %d board outliers", *Noutliers_board);
+    if(verbose)
+        MSG("I started with %d board outliers", *Noutliers_board);
     int Nmeasurements_outliers_triangulated_start = 0;
 
     LOOP_TRIANGULATED_POINT0(true)
