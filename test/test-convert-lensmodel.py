@@ -59,7 +59,8 @@ def check(filename_from, model_from,
         difflen, diff, q0, implied_Rt10 = \
             mrcal.projection_diff( (model_converted, model_from),
                                    use_uncertainties = False,
-                                   distance          = distance)
+                                   distance          = distance,
+                                   focus_radius      = 800)
         icenter = np.array(difflen.shape) // 2
         ithird  = np.array(difflen.shape) // 3
 
