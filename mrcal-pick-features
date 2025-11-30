@@ -1,6 +1,17 @@
 #!/usr/bin/python3
 
-r'''xxx'''
+r'''TODO: WRITE DOCSTRING. maybe rename. this is a feature-picker AND an extrinsics
+solver
+
+talk about extrinsics. I leave cam0 where it is, and move cam1.
+
+default geometry selectable. baseline stable or fixed at 1.0?
+
+We always leave the extrinsics of camera0, and move camera1 instead. By default,
+we move camera1 as dictated by the solve, leaving the baseline the same if the
+solve is unique up-to-scale only.
+
+'''
 
 import sys
 import argparse
@@ -174,8 +185,9 @@ def solve_R01__assume_infinity(v0,v1,
 
 For testing or maybe seeding
     '''
-    if cookie:
-        raise Exception("This function does not use the cookie")
+
+    # if cookie:
+    #     raise Exception("This function does not use the cookie")
     return \
         mrcal.align_procrustes_vectors_R01(v0,v1)
 
@@ -253,6 +265,37 @@ This is for experimenting. solve_R01__kneip() should work well.
                                      x0 = mrcal.identity_r() )
 
     R01 = mrcal.R_from_r(res.x)
+
+    return R01
+
+
+
+    # debugging stuff
+    if True:
+
+        t01,Epredicted,A,B = t01_from_R01__geometric(v0,v1,
+                                                     R01 = R01)
+        # e = p - k0 v0
+        # E = sum(norm2(e_i))
+
+        Rt01    = nps.glue(R01,  t01, axis = -2)
+        Rt01neg = nps.glue(R01, -t01, axis = -2)
+        p = mrcal.triangulate_geometric(v0, v1,
+                                        v_are_local = True,
+                                        Rt01        = Rt01 )
+        E = np.sum(nps.norm2(p - nps.dummy(nps.inner(p,v0),-1) * v0))
+        print(f"E_relerr={(E-Epredicted) / ((np.abs(E)+np.abs(Epredicted))/2.)} {E=} {Epredicted=}")
+
+    R01_in         = context['Rt01'][:3,:]
+    R01_procrustes = mrcal.align_procrustes_vectors_R01(v0,v1)
+    R01_kneip      = solve_R01__kneip(v0,v1)
+
+    r01_in         = mrcal.r_from_R(R01_in)
+    r01_procrustes = mrcal.r_from_R(R01_procrustes)
+    r01_kneip      = mrcal.r_from_R(R01_kneip)
+
+    if False:
+        print(f"{r01=} {r01_in=} {r01_procrustes=} {r01_kneip=}")
 
     return R01
 
@@ -689,7 +732,9 @@ and solve_Rt10_from_R01.
         Rt01, mask_outlier, Noutliers = \
             solve_Rt10_from_R01(v0[mask_inliers],
                                 v1[mask_inliers],
-                                R01 = R01)
+                                R01 = R01,
+                                t01_fixed     = t01_fixed,
+                                baseline_want = baseline_want)
         if Noutliers == 0:
             break
 
@@ -1539,3 +1584,22 @@ if len(context['q01_stored']):
 Fl.run()
 
 sys.exit(0)
+
+
+
+
+
+r'''
+todo notes:
+
+'u' should pan to the center
+
+ctrl-drag should lock panning
+
+arrow-keys in the table should work
+
+better UI messages
+
+
+solve diagnostics. residuals. UI for ranged fiducial/at-infinity
+'''
