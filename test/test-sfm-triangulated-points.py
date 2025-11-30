@@ -6,11 +6,9 @@ I observe, with noise, a number of points from various angles with a single
 camera, and I make sure that I can accurately compute the locations of the
 camera.
 
-I simulate a horizontal plane with many features on it, with the camera moving
-around just above this horizontal plane (like a car driving around a flat-ish
-area)
-
-#warning "triangulated-solve: fix this description comment"
+I simulate a horizontal plane with many features on it, with the forward-looking
+camera moving around just above this horizontal plane (like a car driving around
+a flat-ish area)
 
 '''
 
@@ -60,10 +58,9 @@ Npoints_per_range = 50
 # The camera starts out at the center, and moves steadily to the right along the
 # x axis, with some smaller nonlinear y motion as well. I want to avoid
 # collinear camera locations (this produces singular solves). Orientation is
-# always straight ahead (pointed along the z axis) and there's no front/back of
-# up/down motion
-Ncameras = 10
-step     = 1.0
+# always straight ahead (pointed along the z axis) and there's no front/back motion
+Ncamera_poses = 10
+step          = 1.0
 
 
 
@@ -92,44 +89,50 @@ points_true[:,1] -= (points_true[:,2]/ranges[0]*200.)
 
 Npoints = points_true.shape[0]
 
-# import gnuplotlib as gp
-# gp.plot(points_true,
-#         _3d=1,
-#         xlabel='x',
-#         ylabel='y',
-#         zlabel='z',
-#         _with='points',
-#         square=1,
-#         tuplesize=-3,
-#         wait=1)
-# sys.exit()
+if False:
+    import gnuplotlib as gp
+    gp.plot(points_true,
+            _3d=1,
+            xlabel='x',
+            ylabel='y',
+            zlabel='z',
+            _with='points',
+            square=1,
+            tuplesize=-3,
+            wait=1)
+    sys.exit()
 
-x_ref_cam_true  = np.arange(Ncameras) * step
-y_ref_cam_true  = np.zeros((Ncameras,),)
-y_ref_cam_true  = (np.arange(Ncameras) - (Ncameras-1.)/2.) ** 2. / 100.
+x_ref_cam_true  = np.arange(Ncamera_poses) * step
+y_ref_cam_true  = np.zeros((Ncamera_poses,),)
+y_ref_cam_true  = (np.arange(Ncamera_poses) - (Ncamera_poses-1.)/2.) ** 2. / 100.
 y_ref_cam_true -= y_ref_cam_true[0]
 
-# shape (Ncameras,6)
-rt_ref_cam_true = nps.glue( np.zeros((Ncameras,3)), # r
+# shape (Ncamera_poses,6)
+rt_ref_cam_true = nps.glue( np.zeros((Ncamera_poses,3)), # r
                             nps.transpose(x_ref_cam_true),
                             nps.transpose(y_ref_cam_true),
-                            np.zeros((Ncameras,1)), # z
+                            np.zeros((Ncamera_poses,1)), # z
                             axis = -1 )
 rt_cam_ref_true = mrcal.invert_rt(rt_ref_cam_true)
 
+if False:
+    mrcal.show_geometry(rt_cam_ref_true,
+                        #points = points_true
+                        )
+
 # I project all the points into all the cameras. Anything that's in view, I keep
 
-# shape (Npoints, Ncameras, 3)
+# shape (Npoints, Ncamera_poses, 3)
 pcam_true = mrcal.transform_point_rt(rt_cam_ref_true,
                                      nps.mv(points_true, -2, -3))
 
-# shape (Npoints, Ncameras, 2)
+# shape (Npoints, Ncamera_poses, 2)
 qcam_true = mrcal.project(pcam_true, *m.intrinsics())
 
 # ALL the indices. I'm about to cut these down to the visible ones
-# shape (Npoints, Ncameras)
+# shape (Npoints, Ncamera_poses)
 indices_cam, indices_point = \
-    np.meshgrid(np.arange(Ncameras),
+    np.meshgrid(np.arange(Ncamera_poses),
                 np.arange(Npoints))
 
 valid_observation_index = \
@@ -246,16 +249,28 @@ optimization_inputs = \
           do_apply_regularization_unity_cam01 = True,
           verbose                             = False)
 
+stats = mrcal.optimize(**optimization_inputs)
 
-if 1:
-    optimization_inputs['verbose'] = True
-    stats = mrcal.optimize(**optimization_inputs)
-p,x,j,f = mrcal.optimizer_callback(**optimization_inputs)
+### We have a 5DOF solve. We rescale it to match the original
+rt_cam_ref[:,3:] *= np.sqrt( nps.norm2(rt_cam_ref_true[-1,3:])/nps.norm2(rt_cam_ref[-1,3:]) )
 
+if False:
+    mrcal.show_geometry( nps.glue(rt_cam_ref, rt_cam_ref_true, axis=-2),
+                         cameranames=[f"cam{i}-{what}" for what in ("solved","true") for i in range(Ncamera_poses)])
 
-import IPython
-IPython.embed()
-sys.exit()
+rt_err = mrcal.compose_rt( rt_cam_ref, rt_cam_ref_true, inverted1=True)
+
+err_r_deg = nps.mag(rt_err[:,:3]) * 180./np.pi
+err_t     = nps.mag(rt_err[:,3:])
+
+testutils.confirm_equal(err_r_deg, 0,
+                        worstcase = True,
+                        eps = 2.,
+                        msg = f"Recovered rotation")
+testutils.confirm_equal(err_t, 0,
+                        worstcase = True,
+                        eps = 0.1,
+                        msg = f"Recovered translation")
 
 
 testutils.finish()
