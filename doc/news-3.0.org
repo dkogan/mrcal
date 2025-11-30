@@ -228,6 +228,7 @@ Date:   Thu Aug 10 14:30:58 2023 -0700
 These are notes to myself containing the steps needed to roll a new release
 
 - docs: make sure all new python functions are described in python.org
+- test building with clang
 - new [[file:versions.org][versions]]
 - new [[file:news-2.2.org][news]]
 - [[file:~/projects/mrcal/Makefile::PROJECT_NAME := mrcal][Makefile ABI version]]
