@@ -2239,3 +2239,99 @@ The mask that indicates whether each point is within the region
             mask_flat[i] = True
     return mask
 
+
+def model_resolution__deg_pixel(q, model,
+                                *,
+                                mode = 'mean'):
+    r'''Report the model resolution in deg/pixel at q
+
+SYNOPSIS
+
+  W,H = model.imagersize()
+  q = np.ascontiguousarray( \
+      nps.mv( nps.cat(*np.meshgrid( np.linspace(0, W-1, gridn_width),
+                                    np.linspace(0, H-1, gridn_height) )),
+              0,-1) )
+  resolution__deg_pixel = mrcal.model_resolution__deg_pixel(q, model)
+
+This is the core operation of the mrcal-show-model-resolution tool.
+
+For any vector v and associated pixel q, we want to gauge the shifts in q that
+result from small shifts in v, in the space normal to v.
+
+We have v = unproject(q). Let a rotation Rt = [u0 u1 v] so R v = [..., 1]. I'm
+interested in motion in the space perpendicular to v: in the subspace spanned by
+[u0 u1]. Let dv = [u0 u1] ab. We have
+
+  dq = dqdv dv
+     = dqdv Rt R dv
+     = dqdv Rt R [u0 u1] ab
+     = dqdv Rt ab0
+     = dqdv [u0 v0] ab
+
+So dq = M ab where M = dqdv [u0 u1]. M is (2,2). dq is a shift in pixel space,
+ab is a shift in an orthonormal 2D plane perpendicular to the observation vector
+v.
+
+  norm2(dq) = abt MtM ab
+
+So the smallest/largest sensitivities of dq are given by sqrt(eigenvalue(MtM))
+
+This function supports broadcasting fully
+
+ARGUMENTS
+
+- q: an array of shape (..., 2) of pixel coordinates
+
+- model: the model we're evaluating. Used for intrinsics only.
+
+- mode: optional string, defaulting to 'mean'. Selects the eigenvalue we're
+  interested in. 'min','max' report the min- and- max- resolutions respectively.
+  'mean' reports the average. 'eccentricity' reports max/min
+
+RETURNED VALUE
+
+The scalar resolution in degrees/pixel
+
+    '''
+
+    if not (mode == 'min' or mode == 'max' or mode == 'mean' or mode == 'eccentricity'):
+        raise Exception("Mode must be one of ('min','max','mean','eccentricity')")
+
+    v = mrcal.unproject(q, *model.intrinsics(),
+                        normalize = True)
+    _,dq_dv,_ = mrcal.project(v, *model.intrinsics(),
+                              get_gradients = True)
+
+    # shape (...,3,3)
+    R = mrcal.R_aligned_to_vector(v)
+
+    # shape (...,2,2)
+    M = nps.matmult(dq_dv, nps.transpose(R)[...,:2])
+
+    # Let MtM = (a b). If l is an eigenvalue then
+    #           (b c)
+    #
+    #     (a-l)*(c-l) - b^2 = 0 --> l^2 - (a+c) l + ac-b^2 = 0
+    #
+    #     --> l = (a+c +- sqrt( a^2 + 2ac + c^2 - 4ac + 4b^2)) / 2 =
+    #           = (a+c +- sqrt( a^2 - 2ac + c^2 + 4b^2)) / 2 =
+    #           = (a+c)/2 +- sqrt( (a-c)^2/4 + b^2)
+    a = nps.inner(M[...,:,0], M[...,:,0])
+    b = nps.inner(M[...,:,0], M[...,:,1])
+    c = nps.inner(M[...,:,1], M[...,:,1])
+    sqrt_discriminant = np.sqrt( (a-c)*(a-c)/4 + b*b)
+    lmax = (a+c)/2 + sqrt_discriminant
+    lmin = (a+c)/2 - sqrt_discriminant
+    # handle roundoff error
+    lmin[lmin < 1e-6] = 1e-6
+
+    # swap min/max since I took the reciprocal
+    resolution_max_deg_pix = 1./np.sqrt(lmin) * 180./np.pi
+    resolution_min_deg_pix = 1./np.sqrt(lmax) * 180./np.pi
+
+    if mode == 'min':          return resolution_min_deg_pix
+    if mode == 'max':          return resolution_max_deg_pix
+    if mode == 'eccentricity': return resolution_max_deg_pix/resolution_min_deg_pix
+
+    return (resolution_min_deg_pix + resolution_max_deg_pix)/2.

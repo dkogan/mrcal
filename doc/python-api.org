@@ -128,6 +128,7 @@ will run the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] to
 - [[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty()=]]: Compute the [[file:uncertainty.org][projection uncertainty]] of a camera-referenced point
 - [[file:mrcal-python-api-reference.html#-projection_diff][=mrcal.projection_diff()=]]: Compute the [[file:differencing.org][difference in projection]] between N models
 - [[file:mrcal-python-api-reference.html#-is_within_valid_intrinsics_region][=mrcal.is_within_valid_intrinsics_region()=]]: Which of the pixel coordinates fall within the valid-intrinsics region?
+- [[file:mrcal-python-api-reference.html#-model_resolution__deg_pixel][=mrcal.model_resolution__deg_pixel()=]]: Report the model resolution in deg/pixel
 
 * Stereo, triangulation, feature-matching
 :PROPERTIES:

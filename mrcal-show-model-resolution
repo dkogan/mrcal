@@ -39,10 +39,20 @@ def parse_args():
 
     parser.add_argument('--cbmin',
                         type=float,
-                        help='''Minimum range of the colorbar''')
+                        help='''Minimum range of the colorbar. Autoscaling by
+                        default''')
     parser.add_argument('--cbmax',
                         type=float,
-                        help='''Maximum range of the colorbar''')
+                        help='''Maximum range of the colorbar. Autoscaling by
+                        default''')
+
+    parser.add_argument('--mode',
+                        choices=('min','max','mean','eccentricity'),
+                        default='mean',
+                        help='''The resolution varies in different observation
+                        directions. This selects the min or max or mean
+                        resolution. "eccentricity" reports max/min. The default
+                        is "mean"''')
 
     parser.add_argument('--title',
                         type=str,
@@ -64,10 +74,9 @@ def parse_args():
                         type=str,
                         action='append',
                         help='''Extra 'unset' directives to gnuplotlib. Can be given multiple times''')
-
     parser.add_argument('model',
                         type=str,
-                        help='''Camera model''')
+                        help='''The model to visualize''')
 
     args = parser.parse_args()
 
@@ -81,87 +90,6 @@ import numpy as np
 import numpysane as nps
 import gnuplotlib as gp
 import mrcal
-
-
-def mean_resolution__rad_pixel(q, model):
-
-    r'''Find the mean resolution in rad/pixel at q
-
-    v = unproject(q). Let a rotation R = [u0 u1 v]
-
-    dq = dqdv dv
-       = dqdv R Rt dv
-
-    I have about dv normal to v (the space spanned by (u0,u1)), so let's assume
-    that v is in this space: inner(dv,v) = 0
-
-    Rt dv = [u0t dv] = [a]
-            [u1t dv]   [b]
-            [ 0    ]   [0]
-
-    Let ab = [a b]t
-
-    dq = M ab where M = dqdv [u0 u1]. M is (2,2)
-
-    norm2(dq) = abt MtM ab
-
-    minmax(norm2(dq)) = eig(MtM)
-
-    dq = sqrt(eig(MtM)) pixels/rad
-
-    '''
-
-    v = mrcal.unproject(q, *model.intrinsics(),
-                        normalize = True)
-    _,dq_dv,_ = mrcal.project(v, *model.intrinsics(),
-                              get_gradients = True)
-
-
-    # Use R_aligned_to_vector(). Add broadcasting to that function?
-    @nps.broadcast_define( ( (3,), ),
-                           (3,3) )
-    def rotation_any_v_to_z(v):
-        r'''Return any rotation matrix that maps the given unit vector v to [0,0,1]'''
-        z = v
-        if np.abs(v[0]) < .9:
-            x = np.array((1,0,0), dtype=float)
-        else:
-            x = np.array((0,1,0), dtype=float)
-        x -= nps.inner(x,v)*v
-        x /= nps.mag(x)
-        y = np.cross(z,x)
-        return nps.cat(x,y,z)
-
-    # shape (...,3,3)
-    Rt = rotation_any_v_to_z(v)
-
-    # shape (...,2,2)
-    M = nps.matmult(dq_dv, nps.transpose(Rt)[...,:,:2])
-
-    # Let MtM = (a b). If l is an eigenvalue then
-    #           (b c)
-    #
-    #     (a-l)*(c-l) - b^2 = 0 --> l^2 - (a+c) l + ac-b^2 = 0
-    #
-    #     --> l = (a+c +- sqrt( a^2 + 2ac + c^2 - 4ac + 4b^2)) / 2 =
-    #           = (a+c +- sqrt( a^2 - 2ac + c^2 + 4b^2)) / 2 =
-    #           = (a+c)/2 +- sqrt( (a-c)^2/4 + b^2)
-    a = nps.inner(M[...,:,0], M[...,:,0])
-    b = nps.inner(M[...,:,0], M[...,:,1])
-    c = nps.inner(M[...,:,1], M[...,:,1])
-    sqrt_discriminant = np.sqrt( (a-c)*(a-c)/4 + b*b)
-    l0 = (a+c)/2 + sqrt_discriminant
-    l1 = (a+c)/2 - sqrt_discriminant
-    resolution_pix_rad_max = np.sqrt(l0)
-
-    # real in case roundoff error makes l1<0
-    resolution_pix_rad_min = np.real(np.sqrt(l1))
-
-    # The resolution is an ellipse (different directions could have different
-    # resolutions). Here I assume it's a circle, and take the average of the
-    # axis lengths
-    resolution_pix_rad = (resolution_pix_rad_min + resolution_pix_rad_max)/2
-    return 1./resolution_pix_rad
 
 
 
@@ -194,8 +122,8 @@ q = np.ascontiguousarray( \
                                   np.linspace(0, H-1, args.gridn[1]) )),
             0,-1) )
 
-
-resolution__deg_pixel = mean_resolution__rad_pixel(q, model) * 180./np.pi
+resolution__deg_pixel = mrcal.model_resolution__deg_pixel(q, model,
+                                                          mode = args.mode)
 
 if args.cbmax is None:
     # ceil x * 10^n where x is an integer in [1,9] and n is an integer
@@ -218,7 +146,12 @@ curve_options = \
         gridn_width  = args.gridn[0],
         gridn_height = args.gridn[1])
 
+if args.mode != 'eccentricity':
+    title = f"Camera resolution {args.mode} in deg/pixel"
+else:
+    title = "Camera resolution eccentricity"
+
 gp.plot( (resolution__deg_pixel, curve_options),
          **plot_options,
-         title = "Camera resolution in deg/pixel",
+         title = title,
          wait = args.hardcopy is None)
