@@ -1,7 +1,11 @@
 #!/usr/bin/python3
 
-r'''TODO: WRITE DOCSTRING. maybe rename. this is a feature-picker AND an extrinsics
-solver
+r'''Facilitate interactive human-in-the-loop corresponding-feature picking
+
+And use features to solve for extrinsics in a stereo pair. This needs a clearer,
+more general purpose. Needs to be documented, and made to work reliably and
+tested
+
 
 talk about extrinsics. I leave cam0 where it is, and move cam1.
 
