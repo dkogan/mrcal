@@ -132,6 +132,7 @@ def calibration_baseline(model, Ncameras, Nframes, extra_observation_at,
                          calobject_warp_true,
                          fixedframes,
                          testdir,
+                         *,
                          cull_left_of_center = False,
                          range_to_boards = 4.0,
                          x_offset = 0.0,
@@ -468,6 +469,20 @@ def calibration_make_non_vanilla(optimization_inputs,
             np.ascontiguousarray(nps.transpose( nps.cat( idxce+1,
                                                          idxci,
                                                          idxf ) ))
+
+        # This is to support "test-projection-uncertainty.py --fixed frames".
+        # That tool and this function needs a rework, to take separate arguments
+        # to control
+        #
+        # - what is moving
+        # - where the reference is
+        # - what is fixed
+        # - points/boards
+        if np.all(idxce == 0) and \
+           np.all(idxf == np.arange(len(idxf))) and \
+           optimization_inputs['do_optimize_extrinsics'] and \
+           not optimization_inputs['do_optimize_frames']:
+            optimization_inputs['indices_frame_camintrinsics_camextrinsics'][:,0] -= 1
 
         optimization_inputs['rt_cam_ref'            ] = np.array(rt_cam0_board_true)
         optimization_inputs['rt_ref_frame'          ] = np.zeros((1,6), dtype=float)

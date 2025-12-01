@@ -193,11 +193,15 @@ def parse_args():
 
 args = parse_args()
 
+fixedframes = (args.fixed == 'frames')
+
+
 if args.Ncameras <= 0 or args.Ncameras > 4:
     print(f"Ncameras must be in [0,4], but got {args.Ncameras}. Giving up", file=sys.stderr)
     sys.exit(1)
-if args.points and not re.match('cross-reprojection', args.reproject_perturbed):
-    print("--points is currently implemented ONLY with --reproject-perturbed cross-reprojection-...",
+if args.points and not \
+   ( re.match('cross-reprojection', args.reproject_perturbed) or fixedframes ):
+    print("--points is currently implemented ONLY with --reproject-perturbed cross-reprojection-... or --fixed frames",
           file = sys.stderr)
     sys.exit(1)
 
@@ -216,7 +220,6 @@ import numpysane as nps
 from test_calibration_helpers import calibration_baseline,calibration_make_non_vanilla,calibration_boards_to_points,calibration_sample
 
 
-fixedframes = (args.fixed == 'frames')
 
 import tempfile
 import atexit
@@ -272,11 +275,10 @@ np.random.seed(0)
 ############# observations of everything
 object_spacing          = 0.1
 
-# Use smaller board if we're doing a points solve. Especially when doing
-# cross-reprojection tests, I tend to run out of memory. Those tests are
-# thorough, and this isn't representative of what happens when actually running
-# the algorithms
-if not args.points:
+# Use smaller board if we're doing a points solve with cross-reprojection. I
+# tend to run out of memory in those cases. Those tests are thorough, and this
+# isn't representative of what happens when actually running the algorithms
+if not (args.points and re.match('cross-reprojection', args.reproject_perturbed)):
     object_width_n  = 10
     object_height_n = 9
 else:
@@ -352,8 +354,16 @@ if args.moving_camera:
                                  ref_frame0     = True)
     if args.points: calibration_boards_to_points(optimization_inputs_baseline_moving_cameras_refframe0)
 
+elif args.points and fixedframes:
+    calibration_make_non_vanilla(optimization_inputs_baseline,
+                                 moving_cameras = True,
+                                 ref_frame0     = True)
+    calibration_boards_to_points(optimization_inputs_baseline)
 
-if args.points: calibration_boards_to_points(optimization_inputs_baseline)
+
+if args.points and not fixedframes:
+    calibration_boards_to_points(optimization_inputs_baseline)
+
 x_baseline_unoptimized = \
     mrcal.optimizer_callback(**optimization_inputs_baseline,
                              no_jacobian      = True,
@@ -639,13 +649,21 @@ if args.make_documentation_plots is not None:
                  **processoptions_output)
 
 
-
 # These are at the no-noise-but-with-regularization optimum
-intrinsics_baseline         = nps.cat( *[m.intrinsics()[1]         for m in models_baseline] )
-extrinsics_baseline_mounted = nps.cat( *[m.rt_cam_ref() for m in models_baseline] )
+intrinsics_baseline         = optimization_inputs_baseline['intrinsics']
 frames_baseline             = optimization_inputs_baseline['rt_ref_frame']
 points_baseline             = optimization_inputs_baseline['points']
 calobject_warp_baseline     = optimization_inputs_baseline['calobject_warp']
+
+extrinsics_baseline_mounted = optimization_inputs_baseline['rt_cam_ref']
+if (optimization_inputs_baseline.get('indices_frame_camintrinsics_camextrinsics') is not None and \
+    np.any(optimization_inputs_baseline['indices_frame_camintrinsics_camextrinsics'][:,2] < 0)) or \
+   (optimization_inputs_baseline.get('indices_point_camintrinsics_camextrinsics') is not None and \
+    np.any(optimization_inputs_baseline['indices_point_camintrinsics_camextrinsics'][:,2] < 0)):
+    extrinsics_baseline_mounted = nps.glue( mrcal.identity_rt(),
+                                            extrinsics_baseline_mounted,
+                                            axis = -2)
+
 
 if args.write_models:
     for i in range(args.Ncameras):
@@ -711,10 +729,8 @@ def reproject_perturbed__common(q, distance,
     is looking at Ncameras separate uncertainty computations at once
 
     '''
-
-    if not (baseline_points is None or baseline_points.size == 0) or \
-       not (query_points    is None or query_points   .size == 0):
-        raise Exception("Only implemented for board-only solves")
+    if baseline_rt_ref_frame is None and not fixedframes:
+        raise Exception("Not implemented in this path")
 
     # shape (Ncameras, 3)
     p_cam_baseline = mrcal.unproject(q, lensmodel, baseline_intrinsics,
