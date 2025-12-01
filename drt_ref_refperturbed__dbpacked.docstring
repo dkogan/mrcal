@@ -1,1 +1,8 @@
-write this
+Compute drt_rrp/db
+
+This is an internal part of the cross-reprojection uncertainty computation:
+
+  https://mrcal.secretsauce.net/docs/uncertainty-cross-reprojection.html
+
+This logic is not yet completed, and not documented beyond that page
+
