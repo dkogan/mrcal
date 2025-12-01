@@ -12,9 +12,41 @@ r'''Converts a kalibr-formatted camera model to the .cameramodel file format
 
 SYNOPSIS
 
+  $ cat model.yaml
+
+  cam0:
+    camera_model: pinhole
+    intrinsics: [461.629, 460.152, 362.680, 246.049]
+    distortion_model: radtan
+    distortion_coeffs: [-0.27695497, 0.06712482, 0.00087538, 0.00011556]
+    T_cam_imu:
+    - [0.01779318, 0.99967549,-0.01822936, 0.07008565]
+    - [-0.9998017, 0.01795239, 0.00860714,-0.01771023]
+    - [0.00893160, 0.01807260, 0.99979678, 0.00399246]
+    - [0.0, 0.0, 0.0, 1.0]
+    timeshift_cam_imu: -8.121e-05
+    rostopic: /cam0/image_raw
+    resolution: [752, 480]
+
+
   $ mrcal-from-kalibr model.yaml
+
   Wrote model-cam0.cameramodel
-  Wrote model-cam1.cameramodel
+
+
+  $ cat model-cam0.cameramodel
+
+  {
+      'lensmodel':  'LENSMODEL_OPENCV4',
+
+      # intrinsics are fx,fy,cx,cy,distortion0,distortion1,....
+      'intrinsics': [ 461.629, 460.152, 362.68, 246.049, -0.27695497, 0.06712482, 0.00087538, 0.00011556,],
+
+      'rt_cam_ref': [ 0, 0, 0, 0, 0, 0,],
+      'extrinsics': [ 0, 0, 0, 0, 0, 0,], # for compatibility with mrcal < 2.5
+
+      'imagersize': [ 752, 480,],
+  }
 
 File formats supported by mrcal are described at
 https://mrcal.secretsauce.net/cameramodels.html#cameramodel-file-formats

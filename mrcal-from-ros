@@ -14,9 +14,49 @@ r'''Converts a ROS/OpenCV-formatted camera model to the .cameramodel file format
 
 SYNOPSIS
 
+  $ cat model1.yaml
+
+  image_width: 2448
+  image_height: 2050
+  camera_name: prosilica
+  camera_matrix:
+    rows: 3
+    cols: 3
+    data: [4827.94, 0, 1223.5, 0, 4835.62, 1024.5, 0, 0, 1]
+  distortion_model: plumb_bob
+  distortion_coefficients:
+    rows: 1
+    cols: 5
+    data: [-0.41527, 0.31874, -0.00197, 0.00071, 0]
+  rectification_matrix:
+    rows: 3
+    cols: 3
+    data: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+  projection_matrix:
+    rows: 3
+    cols: 4
+    data: [4827.94, 0, 1223.5, 0, 0, 4835.62, 1024.5, 0, 0, 0, 1, 0]
+
+
   $ mrcal-from-ros model1.yaml model2.yaml
+
   Wrote model1.cameramodel
   Wrote model2.cameramodel
+
+
+  $ cat model1.cameramodel
+
+  {
+      'lensmodel':  'LENSMODEL_OPENCV5',
+
+      # intrinsics are fx,fy,cx,cy,distortion0,distortion1,....
+      'intrinsics': [ 4827.94, 4835.62, 1223.5, 1024.5, -0.41527, 0.31874, -0.00197, 0.00071, 0,],
+
+      'rt_cam_ref': [ 0, 0, 0, 0, 0, 0,],
+      'extrinsics': [ 0, 0, 0, 0, 0, 0,], # for compatibility with mrcal < 2.5
+
+      'imagersize': [ 2448, 2050,],
+  }
 
 
   $ rostopic echo -n1 -b tst.bag /camera/camera_info \
