@@ -18,17 +18,18 @@ and the Python library can be installed with
 apt install mrcal libmrcal-dev python3-mrcal
 #+end_src
 
-For older distros or if you want to get the latest release of mrcal, you can use
+For other distros or if you want to get the latest release of mrcal, you can use
 the mrcal APT repository. I currently distribute packages for
 
-- Debian/buster (10)
-- Debian/bullseye (11)
+- Debian/trixie (13)
 - Debian/bookworm (12)
+- Debian/bullseye (11)
+- Debian/buster (10)
 - Debian/sid (bleeding-edge)
-- Ubuntu/bionic (18.04 LTS)
-- Ubuntu/focal (20.04 LTS)
-- Ubuntu/jammy (22.04 LTS)
 - Ubuntu/noble (24.04 LTS)
+- Ubuntu/jammy (22.04 LTS)
+- Ubuntu/focal (20.04 LTS)
+- Ubuntu/bionic (18.04 LTS)
 
 =amd64= and =arm64= architectures only (except Debian/buster and Ubuntu/bionic,
 which are =amd64-only=). To use these, add to your =/etc/apt/sources.list=:
@@ -39,13 +40,14 @@ deb [trusted=yes] http://mrcal.secretsauce.net/packages/DISTRO/public/ DISTRO ma
 
 where =DISTRO= is one of
 
-- =buster=
-- =bulleye=
+- =trixie=
 - =bookworm=
-- =bionic=
-- =focal=
-- =jammy=
+- =bulleye=
+- =buster=
 - =noble=
+- =jammy=
+- =focal=
+- =bionic=
 
 Then, =apt update && apt install mrcal=. The chessboard corner finder, while not
 strictly required, is needed if you're doing chessboard-based calibrations. =apt
