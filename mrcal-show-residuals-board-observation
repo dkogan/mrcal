@@ -256,7 +256,16 @@ if args.from_glob:
 x = mrcal.optimizer_callback(**optimization_inputs)[1]
 
 # for --explore
-indices_frame_camintrinsics_camextrinsics = optimization_inputs['indices_frame_camintrinsics_camextrinsics']
+indices_frame_camintrinsics_camextrinsics = optimization_inputs.get('indices_frame_camintrinsics_camextrinsics')
+indices_point_camintrinsics_camextrinsics = optimization_inputs.get('indices_point_camintrinsics_camextrinsics')
+
+if indices_frame_camintrinsics_camextrinsics is None:
+    print("ERROR: today this tool is primarily for chessboard solves", file=sys.stderr)
+    sys.exit(1)
+if indices_point_camintrinsics_camextrinsics is not None:
+    print("WARNING: points present in this solve this tool looks at the chessboard observations only", file=sys.stderr)
+
+
 
 # i_observations_sorted_from_worst is available even if I don't need it.
 # --explore might want to look at it
