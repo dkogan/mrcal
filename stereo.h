@@ -13,8 +13,8 @@ extern "C" {
 #endif
 
 
-#include "mrcal-types.h"
-#include "mrcal-image.h"
+#include "types.h"
+#include "image.h"
 
 // The reference implementation in Python is _rectified_resolution_python() in
 // stereo.py

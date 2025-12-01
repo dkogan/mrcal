@@ -10,7 +10,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "mrcal-image.h"
+#include "image.h"
 #include "util.h"
 
 // for diagnostics

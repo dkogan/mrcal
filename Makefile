@@ -108,12 +108,12 @@ EXTRA_CLEAN += minimath/minimath_generated.h
 
 DIST_INCLUDE +=			\
 	mrcal.h			\
-	mrcal-image.h		\
-	mrcal-internal.h	\
+	image.h			\
+	internal.h		\
 	basic-geometry.h	\
 	poseutils.h		\
 	triangulation.h		\
-	mrcal-types.h		\
+	types.h			\
 	stereo.h                \
 	heap.h                  \
 	python-cameramodel-converter.h

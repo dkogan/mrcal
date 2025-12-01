@@ -193,6 +193,18 @@ functions:
                                           const char* filename);
   #+end_src
 
+- All the headers renamed to remove =mrcal-= from their name. Everything is
+  intended to be included as
+
+  #+begin_src c
+  #include <mrcal/thing.h>
+  #+end_src
+
+  So the =mrcal-= in the name was superfluous. Affected headers:
+
+  - =image.h=
+  - =types.h=
+  - =internal.h=
 
 * Migration notes 2.4 -> 2.5
 
@@ -206,6 +218,19 @@ functions:
   =mrcal_cameramodel_t m=. If you need a generic alias of
   =mrcal_cameramodel_XXX_t* model= you now need to
   =(mrcal_cameramodel_VOID_t*)model= instead of =&model->m=
+
+- All the headers have been renamed to remove =mrcal-= from their name. If your
+  code was =#include=-ing any of
+  - =mrcal-image.h=
+  - =mrcal-types.h=
+  - =mrcal-internal.h=
+
+  the code must be updated to instead =#include=
+  - =image.h=
+  - =types.h=
+  - =internal.h=
+
+
 
 * todo
   #+end_example

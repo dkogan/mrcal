@@ -24,7 +24,7 @@
 #endif
 
 #include "mrcal.h"
-#include "mrcal-image.h"
+#include "image.h"
 #include "stereo.h"
 
 #include "python-wrapping-utilities.h"

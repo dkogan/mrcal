@@ -128,7 +128,7 @@ and the configuration]], while the C API stores the same information in a
 
 We can also represent a full camera model in C. This is a lens model with a pose
 and imager dimension: the full set of things in a [[file:cameramodels.org][=.cameramodel= file]]. The
-definitions appear in [[https://www.github.com/dkogan/mrcal/blob/master/mrcal-types.h][=mrcal-types.h=]]:
+definitions appear in [[https://www.github.com/dkogan/mrcal/blob/master/types.h][=mrcal/types.h=]]:
 
 #+begin_src c
 typedef struct
@@ -479,7 +479,7 @@ This reads and write the [[#cameramodel-in-c][=mrcal_cameramodel_VOID_t= structu
 supports more formats.
 
 * Images
-mrcal defines simple image types in [[https://www.github.com/dkogan/mrcal/blob/master/mrcal-image.h][=mrcal-image.h=]]:
+mrcal defines simple image types in [[https://www.github.com/dkogan/mrcal/blob/master/image.h][=mrcal/image.h=]]:
 
 - =mrcal_image_int8_t=
 - =mrcal_image_uint8_t=
@@ -524,7 +524,7 @@ bool mrcal_image_T_load( mrcal_image_T_t*  image, const char* filename);
 
 These use the [[https://freeimage.sourceforge.io/][freeimage library]]. These functions aren't interesting, or better
 than any other functions you may have already. The declarations are in
-[[https://www.github.com/dkogan/mrcal/blob/master/mrcal-image.h][=mrcal-image.h=]], and the documentation lives there.
+[[https://www.github.com/dkogan/mrcal/blob/master/image.h][=mrcal/image.h=]], and the documentation lives there.
 
 * Heat maps
 mrcal can produce a colored visualization of any of the image types defined

@@ -16,11 +16,11 @@ extern "C" {
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "mrcal-types.h"
+#include "types.h"
 #include "poseutils.h"
 #include "stereo.h"
 #include "triangulation.h"
-#include "mrcal-image.h"
+#include "image.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 //////////////////// Lens models
@@ -949,7 +949,7 @@ bool mrcal_traverse_sensor_links(const uint16_t Nsensors,
 
 
 // Public ABI stuff, that's not for end-user consumption
-#include "mrcal-internal.h"
+#include "internal.h"
 
 
 #ifdef __cplusplus
