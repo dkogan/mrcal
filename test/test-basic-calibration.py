@@ -238,10 +238,11 @@ models_solved = \
                          icam_intrinsics     = i )
       for i in range(Ncameras)]
 
-# if 0:
-#     for i in range(1,Ncameras):
-#         models_solved[i].write(f'/tmp/tst{i}.cameramodel')
-
+if False:
+    for i in range(0,Ncameras):
+        f = f'/tmp/tst{i}.cameramodel'
+        models_solved[i].write(f)
+        print(f"Wrote '{f}'")
 
 testutils.confirm_equal(rmserr, 0,
                         eps = 2.5,
