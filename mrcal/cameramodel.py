@@ -262,13 +262,10 @@ future
         # string must be unpoisoned
 
         v_to = d.get(name_to, None)
-        if isinstance(v_to, np.ndarray) and np.size(v_to) == 0: v_to = None
-
         if isinstance(d.get(name_from),str) and d.get(name_from).startswith('ERROR:'):
             d[name_from] = d[name_to]
 
         v_from = d.get(name_from, None)
-        if isinstance(v_from, np.ndarray) and np.size(v_from) == 0: v_from = None
 
         if v_from is not None:
             if v_to is None:
