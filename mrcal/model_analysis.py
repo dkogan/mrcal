@@ -495,7 +495,7 @@ def _observed_pixel_uncertainty_from_inputs(optimization_inputs,
 
 Documented here:
 
-  https://mrcal.secretsauce.net/docs-3.0/formulation.html#estimating-input-noise
+  https://mrcal.secretsauce.net/docs-2.5/formulation.html#estimating-input-noise
 
 Note that this page describes a correction factor of sqrt(1 -
 Nstates/Nmeasurements). Here I simply assume that we're very overdetermined and
