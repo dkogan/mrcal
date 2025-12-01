@@ -1810,9 +1810,9 @@ A tuple
 
     if focus_radius < 0:
         if uncertainties is not None:
-            focus_radius = max(W,H) * 100 # whole imager
+            focus_radius = float(max(W,H) * 100.) # whole imager
         else:
-            focus_radius = min(W,H)/6.
+            focus_radius = float(min(W,H)/6.)
 
     if len(models) == 2:
         # Two models. Take the difference and call it good
