@@ -1438,11 +1438,13 @@ else:                    we return an array of shape (...)
         mrcal.pack_state(Kunpacked_rrp, **optimization_inputs)
     else:
         Kunpacked_rrp = None
-        if get_input('observations_point')              is not None or \
-           get_input('observations_point_triangulated') is not None:
-            raise Exception("We have point observations; only cross-reprojection uncertainty can work here")
-        if rt_ref_frame is None:
-            raise Exception("Some rt_ref_frame must exist for the no-cross-reprojection uncertainty computation, but we don't have any")
+        if optimization_inputs.get('do_optimize_frames'):
+            if get_input('observations_point')              is not None or \
+               get_input('observations_point_triangulated') is not None:
+                raise Exception("We have point observations that we are optimizing; only cross-reprojection uncertainty can work here")
+            if rt_ref_frame is None:
+                raise Exception("Some rt_ref_frame must exist for the no-cross-reprojection uncertainty computation, but we don't have any")
+
 
     # Now the extrinsics. I look at all the ones that correspond with the
     # specific camera I care about. If the camera is stationary, this will
