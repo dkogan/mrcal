@@ -170,7 +170,6 @@ bool mrcal_project( // out
                    const mrcal_point3_t* p,
                    int N,
                    const mrcal_lensmodel_t* lensmodel,
-                   // core, distortions concatenated
                    const double* intrinsics);
 
 
@@ -197,7 +196,6 @@ bool mrcal_unproject( // out
                      const mrcal_point2_t* q,
                      int N,
                      const mrcal_lensmodel_t* lensmodel,
-                     // core, distortions concatenated
                      const double* intrinsics);
 
 
@@ -470,10 +468,8 @@ mrcal_optimize( // out
 
                 // These are a seed on input, solution on output
 
-                // intrinsics is a concatenation of the intrinsics core and the
-                // distortion params. The specific distortion parameters may
-                // vary, depending on lensmodel, so this is a variable-length
-                // structure
+                // The number of intrinsics parameters varies, depending on
+                // lensmodel
                 double*             intrinsics,         // Ncameras_intrinsics * NlensParams
                 mrcal_pose_t*       rt_cam_ref,         // Ncameras_extrinsics of these. Transform FROM the reference frame
                 mrcal_pose_t*       rt_ref_frame,       // Nframes of these.    Transform TO the reference frame
@@ -564,10 +560,8 @@ bool mrcal_optimizer_callback(// out
 
                              // in
 
-                             // intrinsics is a concatenation of the intrinsics core
-                             // and the distortion params. The specific distortion
-                             // parameters may vary, depending on lensmodel, so
-                             // this is a variable-length structure
+                             // The number of intrinsics parameters varies,
+                             // depending on lensmodel
                              const double*             intrinsics,         // Ncameras_intrinsics * NlensParams
                              const mrcal_pose_t*       rt_cam_ref,         // Ncameras_extrinsics of these. Transform FROM the reference frame
                              const mrcal_pose_t*       rt_ref_frame,       // Nframes of these.    Transform TO the reference frame

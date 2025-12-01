@@ -2870,19 +2870,18 @@ bool _mrcal_project_internal( // out
                              // Stored as a row-first array of shape (N,2,3). Each
                              // row lives in a mrcal_point3_t
                              mrcal_point3_t* dq_dp,
-                             // core, distortions concatenated. Stored as a row-first
-                             // array of shape (N,2,Nintrinsics). This is a DENSE array.
-                             // High-parameter-count lens models have very sparse
-                             // gradients here, and the internal project() function
-                             // returns those sparsely. For now THIS function densifies
-                             // all of these
+                             // Stored as a row-first array of shape
+                             // (N,2,Nintrinsics). This is a DENSE array.
+                             // High-parameter-count lens models have very
+                             // sparse gradients here, and the internal
+                             // project() function returns those sparsely. For
+                             // now THIS function densifies all of these
                              double*   dq_dintrinsics,
 
                              // in
                              const mrcal_point3_t* p,
                              int N,
                              const mrcal_lensmodel_t* lensmodel,
-                             // core, distortions concatenated
                              const double* intrinsics,
 
                              int Nintrinsics,
@@ -3017,19 +3016,17 @@ bool mrcal_project( // out
                    // lives in a mrcal_point3_t.  May be NULL
                    mrcal_point3_t* dq_dp,
 
-                   // core, distortions concatenated. Stored as a row-first
-                   // array of shape (N,2,Nintrinsics). This is a DENSE array.
-                   // High-parameter-count lens models have very sparse
-                   // gradients here, and the internal project() function
-                   // returns those sparsely. For now THIS function densifies
-                   // all of these. May be NULL
+                   // Stored as a row-first array of shape (N,2,Nintrinsics).
+                   // This is a DENSE array. High-parameter-count lens models
+                   // have very sparse gradients here, and the internal
+                   // project() function returns those sparsely. For now THIS
+                   // function densifies all of these. May be NULL
                    double*   dq_dintrinsics,
 
                    // in
                    const mrcal_point3_t* p,
                    int N,
                    const mrcal_lensmodel_t* lensmodel,
-                   // core, distortions concatenated
                    const double* intrinsics)
 {
     // The outer logic (outside the loop-over-N-points) is duplicated in
@@ -3089,7 +3086,6 @@ bool mrcal_unproject( // out
                      const mrcal_point2_t* q,
                      int N,
                      const mrcal_lensmodel_t* lensmodel,
-                     // core, distortions concatenated
                      const double* intrinsics)
 {
 
@@ -3110,7 +3106,6 @@ bool mrcal_unproject( // out
 typedef struct
 {
     const mrcal_lensmodel_t* lensmodel;
-    // core, distortions concatenated
     const double* intrinsics;
     const mrcal_projection_precomputed_t* precomputed;
     const mrcal_point2_t* q;
@@ -3176,7 +3171,6 @@ bool _mrcal_unproject_internal( // out
                                const mrcal_point2_t* q,
                                int N,
                                const mrcal_lensmodel_t* lensmodel,
-                               // core, distortions concatenated
                                const double* intrinsics,
                                const mrcal_projection_precomputed_t* precomputed)
 {
@@ -6197,10 +6191,8 @@ bool mrcal_optimizer_callback(// out
 
                              // in
 
-                             // intrinsics is a concatenation of the intrinsics core
-                             // and the distortion params. The specific distortion
-                             // parameters may vary, depending on lensmodel, so
-                             // this is a variable-length structure
+                             // The number of intrinsics parameters varies,
+                             // depending on lensmodel
                              const double*             intrinsics,         // Ncameras_intrinsics * NlensParams
                              const mrcal_pose_t*       rt_cam_ref,         // Ncameras_extrinsics of these. Transform FROM the reference frame
                              const mrcal_pose_t*       rt_ref_frame,       // Nframes of these.    Transform TO the reference frame
@@ -6401,10 +6393,8 @@ mrcal_optimize( // out
 
                 // These are a seed on input, solution on output
 
-                // intrinsics is a concatenation of the intrinsics core and the
-                // distortion params. The specific distortion parameters may
-                // vary, depending on lensmodel, so this is a variable-length
-                // structure
+                // The number of intrinsics parameters varies, depending on
+                // lensmodel
                 double*             intrinsics,         // Ncameras_intrinsics * NlensParams
                 mrcal_pose_t*       rt_cam_ref,         // Ncameras_extrinsics of these. Transform FROM the reference frame
                 mrcal_pose_t*       rt_ref_frame,       // Nframes of these.    Transform TO the reference frame
