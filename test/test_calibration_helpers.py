@@ -642,13 +642,15 @@ def calibration_boards_to_points(optimization_inputs):
 
     # point-only solves are unique up-to-scale only, and need the extra regularization
     Ncameras_extrinsics = optimization_inputs['rt_cam_ref'].shape[0]
-    if Ncameras_extrinsics < 1:
-        raise Exception("Points-only solves need extra regularization, but currently that's only possible with Ncameras_extrinsics>=1")
-    optimization_inputs['do_apply_regularization_unity_cam01'] = True
-    # I rescale all geometry to make the unity01 regularization=0 at the start
-    s = 1. / nps.norm2(optimization_inputs['rt_cam_ref'][0,3:])
-    optimization_inputs['rt_cam_ref'][:,3:] *= s
-    optimization_inputs['points'] *= s
+    if Ncameras_extrinsics <= 1:
+        if optimization_inputs['do_optimize_frames']:
+            raise Exception("Points-only solves with do_optimize_frames==True need extra regularization, but currently that's only possible with Ncameras_extrinsics>=1")
+    else:
+        optimization_inputs['do_apply_regularization_unity_cam01'] = True
+        # I rescale all geometry to make the unity01 regularization=0 at the start
+        s = 1. / nps.norm2(optimization_inputs['rt_cam_ref'][0,3:])
+        optimization_inputs['rt_cam_ref'][:,3:] *= s
+        optimization_inputs['points'] *= s
 
 
 def calibration_sample(Nsamples,
