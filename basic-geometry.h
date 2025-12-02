@@ -40,8 +40,9 @@ extern "C" {
 //
 // Since this happens only with c++ and with old compilers, I don't give the
 // unhappy code to the old compiler. People stuck in that world will need to
-// make do without these functions
-#if defined __cplusplus && __GNUC__ < 11
+// make do without these functions. g++ < 11 is affected clang++ >= 6 seems ok,
+// so I just accept all clang
+#if defined __cplusplus && (__GNUC__ < 11 && !(defined __clang__ && __clang__))
   #define MRCAL_NO_CPP_ANONYMOUS_NAMED_INITIALIZERS 1
 #endif
 
