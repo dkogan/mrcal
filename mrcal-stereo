@@ -591,6 +591,9 @@ Rt_cam0_rect0 = \
 Rt_cam1_rect1 = \
     mrcal.compose_Rt( models          [1].Rt_cam_ref(),
                       models_rectified[1].Rt_ref_cam() )
+Rt_rect0_rect1 = \
+    mrcal.compose_Rt( models_rectified[0].Rt_cam_ref(),
+                      models_rectified[1].Rt_ref_cam() )
 
 
 if args.viz == 'geometry':
@@ -1054,14 +1057,12 @@ def gui_stereo(images,
     # Done with all the processing. Invoke the visualizer!
 
     UI_usage_message = r'''Usage:
-
     Left mouse button click/drag: pan
     Mouse wheel up/down/left/right: pan
     Ctrl-mouse wheel up/down: zoom
     'u': reset view: zoom out, pan to the center
     'd': show a colorized disparity image (default)
     'r': show a colorized range image
-
     Right mouse button click: examine stereo at pixel
     TAB: transpose windows
 '''
@@ -1208,9 +1209,9 @@ def gui_stereo(images,
                     widget_result.set_cross_at(q0_rectified, no_vertical = True)
                     return super().handle(event)
 
+                vrect0 = mrcal.unproject(q0_rectified, *models_rectified[0].intrinsics(), normalize=True)
                 q0_input = \
-                    mrcal.project( mrcal.transform_point_Rt( Rt_cam0_rect0,
-                                                             mrcal.unproject(q0_rectified, *models_rectified[0].intrinsics())),
+                    mrcal.project( mrcal.transform_point_Rt(Rt_cam0_rect0, vrect0),
                                    *models[0].intrinsics())
 
                 selection_preamble = \
@@ -1230,14 +1231,19 @@ def gui_stereo(images,
                 q1_rectified = \
                     q0_rectified - \
                     np.array((d/disparity_scale, 0))
+                vrect1 = mrcal.unproject(q1_rectified, *models_rectified[1].intrinsics(), normalize=True)
                 q1_input = \
-                    mrcal.project( mrcal.transform_point_Rt( Rt_cam1_rect1,
-                                                             mrcal.unproject(q1_rectified, *models_rectified[1].intrinsics())),
+                    mrcal.project( mrcal.transform_point_Rt(Rt_cam1_rect1, vrect1),
                                    *models[1].intrinsics())
 
                 selection_preamble += \
                     f"q_rectified1 = {q1_rectified[0]:.1f},{q1_rectified[1]:.1f}\n" + \
                     f"q_input_cam1 = {q1_input[0]:.1f},{q1_input[1]:.1f}\n"
+
+                vrect1_rect0 = mrcal.rotate_point_R(Rt_rect0_rect1[:3,:], vrect1)
+                costh = nps.inner(vrect0,vrect1_rect0)
+                if costh > 1: costh = 0. # for roundoff handling
+                selection_preamble += f"Triangulation vector angle = {np.arccos(costh) * 180./np.pi:.1f}deg\n"
 
                 if d == disparity_min*disparity_scale:
                     set_status(selection_preamble + \
