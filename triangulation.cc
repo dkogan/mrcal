@@ -7,6 +7,7 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 #include "_autodiff.hh"
+#include "_attribute.h"
 
 extern "C" {
 #include "triangulation.h"
@@ -762,7 +763,7 @@ mrcal_triangulate_leecivera_wmid2(// outputs
     return _m;
 }
 
-__attribute__((unused))
+MRCAL_ATTRIBUTE((unused))
 static
 val_withgrad_t<6>
 angle_error__assume_small(const vec_withgrad_t<6,3>& v0,
@@ -802,7 +803,7 @@ angle_error__assume_small(const vec_withgrad_t<6,3>& v0,
 #endif
 }
 
-__attribute__((unused))
+MRCAL_ATTRIBUTE((unused))
 static
 val_withgrad_t<6>
 angle_error__assume_small_arg0_normalized(const vec_withgrad_t<6,3>& v0,
@@ -836,7 +837,7 @@ angle_error__assume_small_arg0_normalized(const vec_withgrad_t<6,3>& v0,
 #endif
 }
 
-__attribute__((unused))
+MRCAL_ATTRIBUTE((unused))
 static
 val_withgrad_t<6>
 angle_error__assume_small_args_normalized(const vec_withgrad_t<6,3>& v0,
@@ -872,7 +873,7 @@ angle_error__assume_small_args_normalized(const vec_withgrad_t<6,3>& v0,
 #warning "triangulated-solve: maybe exposing the triangulated-error C function is OK? I'm already exposing the Python function"
 #endif
 
-__attribute__((unused))
+MRCAL_ATTRIBUTE((unused))
 static
 double relu(double x, double knee)
 {

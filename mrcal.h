@@ -21,6 +21,7 @@ extern "C" {
 #include "stereo.h"
 #include "triangulation.h"
 #include "image.h"
+#include "_attribute.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 //////////////////// Lens models
@@ -35,7 +36,7 @@ const char* const* mrcal_supported_lensmodel_names( void ); // NULL-terminated a
 
 
 // Return true if the given mrcal_lensmodel_type_t specifies a valid lens model
-__attribute__((unused))
+MRCAL_ATTRIBUTE((unused))
 static bool mrcal_lensmodel_type_is_valid(mrcal_lensmodel_type_t t)
 {
     return t >= 0;
