@@ -26,6 +26,7 @@
 #include "mrcal.h"
 #include "image.h"
 #include "stereo.h"
+#include "_util.h"
 
 #include "python-wrapping-utilities.h"
 
@@ -980,7 +981,7 @@ static bool optimize_validate_args( // out
                                     OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_LIST_DEFINE)
                                     OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(ARG_LIST_DEFINE)
                                     CROSS_REPROJECTION_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(ARG_LIST_DEFINE)
-                                    void* dummy __attribute__((unused)))
+                                    void* dummy MRCAL_UNUSED)
 {
     _Static_assert( sizeof(mrcal_pose_t)/sizeof(double) == 6, "mrcal_pose_t is assumed to contain 6 elements");
 
@@ -3828,7 +3829,7 @@ PyObject* save_image(PyObject* NPY_UNUSED(self),
     _(R_cam0_rect0, PyArrayObject*, NULL, "O&", PyArray_Converter COMMA, R_cam0_rect0, NPY_DOUBLE, {3 COMMA 3 } )
 static bool
 rectified_resolution_validate_args(RECTIFIED_RESOLUTION_ARGUMENTS(ARG_LIST_DEFINE)
-                                   void* dummy __attribute__((unused)))
+                                   void* dummy MRCAL_UNUSED)
 {
     RECTIFIED_RESOLUTION_ARGUMENTS(CHECK_LAYOUT);
     return true;
@@ -3933,7 +3934,7 @@ PyObject* _rectified_resolution(PyObject* NPY_UNUSED(self),
     _(rt_cam1_ref, PyArrayObject*, NULL, "O&", PyArray_Converter COMMA, rt_cam1_ref, NPY_DOUBLE, {6 } )
 static bool
 rectified_system_validate_args(RECTIFIED_SYSTEM_ARGUMENTS(ARG_LIST_DEFINE)
-                               void* dummy __attribute__((unused)))
+                               void* dummy MRCAL_UNUSED)
 {
     RECTIFIED_SYSTEM_ARGUMENTS(CHECK_LAYOUT);
     return true;
@@ -4099,7 +4100,7 @@ PyObject* _rectified_system(PyObject* NPY_UNUSED(self),
 
 static bool
 rectification_maps_validate_args(RECTIFICATION_MAPS_ARGUMENTS(ARG_LIST_DEFINE)
-                                 void* dummy __attribute__((unused)))
+                                 void* dummy MRCAL_UNUSED)
 {
     RECTIFICATION_MAPS_ARGUMENTS(CHECK_LAYOUT);
     return true;
