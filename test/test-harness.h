@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <math.h>
+#include "../_attribute.h"
 
 #define GREEN       "\x1b[32m"
 #define RED         "\x1b[31m"
@@ -16,7 +17,7 @@
 int Ntests       = 0;
 int NtestsFailed = 0;
 
-__attribute__((unused))
+MRCAL_ATTRIBUTE((unused))
 static bool _confirm(bool x, const char* what_x, int where)
 {
     Ntests++;
@@ -36,7 +37,7 @@ static bool _confirm(bool x, const char* what_x, int where)
 }
 #define confirm(x) _confirm(x, #x, __LINE__)
 
-__attribute__((unused))
+MRCAL_ATTRIBUTE((unused))
 static bool _confirm_eq_int(int x, int xref, const char* what_x, const char* what_xref, int where)
 {
     Ntests++;
@@ -55,7 +56,7 @@ static bool _confirm_eq_int(int x, int xref, const char* what_x, const char* wha
 }
 #define confirm_eq_int(x,xref) _confirm_eq_int(x, xref, #x, #xref, __LINE__)
 
-__attribute__((unused))
+MRCAL_ATTRIBUTE((unused))
 static bool _confirm_eq_int_max_array(const int* x, const int* xref, int N, const char* what_x, const char* what_xref, int where)
 {
     Ntests++;
@@ -75,7 +76,7 @@ static bool _confirm_eq_int_max_array(const int* x, const int* xref, int N, cons
 #define confirm_eq_int_max_array(x,xref, N)                      \
     _confirm_eq_int_max_array(x, xref, N, #x, #xref, __LINE__)
 
-__attribute__((unused))
+MRCAL_ATTRIBUTE((unused))
 static void _confirm_eq_double(double x, double xref, const char* what_x, const char* what_xref, double eps, int where)
 {
     Ntests++;
@@ -91,7 +92,7 @@ static void _confirm_eq_double(double x, double xref, const char* what_x, const 
 #define confirm_eq_double(x,xref, eps) \
     _confirm_eq_double(x, xref, #x, #xref, eps, __LINE__)
 
-__attribute__((unused))
+MRCAL_ATTRIBUTE((unused))
 static bool _confirm_eq_double_max_array(const double* x, const double* xref, int N, const char* what_x, const char* what_xref, double eps, int where)
 {
     double worst_err = 0.0;

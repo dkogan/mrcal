@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include "_attribute.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -95,40 +97,40 @@ typedef struct
 
 //////////// Easy convenience stuff
 ////// point2
-__attribute__((unused))
+MRCAL_ATTRIBUTE((unused))
 static double mrcal_point2_inner(const mrcal_point2_t a, const mrcal_point2_t b)
 {
     return
         a.x*b.x +
         a.y*b.y;
 }
-__attribute__((unused))
+MRCAL_ATTRIBUTE((unused))
 static double mrcal_point2_norm2(const mrcal_point2_t a)
 {
     return mrcal_point2_inner(a,a);
 }
 #define mrcal_point2_mag(a) sqrt(norm2(a)) // macro to not require #include <math.h>
 
-__attribute__((unused))
+MRCAL_ATTRIBUTE((unused))
 static mrcal_point2_t mrcal_point2_add(const mrcal_point2_t a, const mrcal_point2_t b)
 {
     return (mrcal_point2_t){ .x = a.x + b.x,
                              .y = a.y + b.y };
 }
-__attribute__((unused))
+MRCAL_ATTRIBUTE((unused))
 static mrcal_point2_t mrcal_point2_sub(const mrcal_point2_t a, const mrcal_point2_t b)
 {
     return (mrcal_point2_t){ .x = a.x - b.x,
                              .y = a.y - b.y };
 }
-__attribute__((unused))
+MRCAL_ATTRIBUTE((unused))
 static mrcal_point2_t mrcal_point2_scale(const mrcal_point2_t a, const double s)
 {
     return (mrcal_point2_t){ .x = a.x * s,
                              .y = a.y * s };
 }
 ////// point3
-__attribute__((unused))
+MRCAL_ATTRIBUTE((unused))
 static double mrcal_point3_inner(const mrcal_point3_t a, const mrcal_point3_t b)
 {
     return
@@ -136,35 +138,35 @@ static double mrcal_point3_inner(const mrcal_point3_t a, const mrcal_point3_t b)
         a.y*b.y +
         a.z*b.z;
 }
-__attribute__((unused))
+MRCAL_ATTRIBUTE((unused))
 static double mrcal_point3_norm2(const mrcal_point3_t a)
 {
     return mrcal_point3_inner(a,a);
 }
 #define mrcal_point3_mag(a) sqrt(mrcal_point3_norm2(a)) // macro to not require #include <math.h>
 
-__attribute__((unused))
+MRCAL_ATTRIBUTE((unused))
 static mrcal_point3_t mrcal_point3_add(const mrcal_point3_t a, const mrcal_point3_t b)
 {
     return (mrcal_point3_t){ .x = a.x + b.x,
                              .y = a.y + b.y,
                              .z = a.z + b.z };
 }
-__attribute__((unused))
+MRCAL_ATTRIBUTE((unused))
 static mrcal_point3_t mrcal_point3_sub(const mrcal_point3_t a, const mrcal_point3_t b)
 {
     return (mrcal_point3_t){ .x = a.x - b.x,
                              .y = a.y - b.y,
                              .z = a.z - b.z };
 }
-__attribute__((unused))
+MRCAL_ATTRIBUTE((unused))
 static mrcal_point3_t mrcal_point3_scale(const mrcal_point3_t a, const double s)
 {
     return (mrcal_point3_t){ .x = a.x * s,
                              .y = a.y * s,
                              .z = a.z * s };
 }
-__attribute__((unused))
+MRCAL_ATTRIBUTE((unused))
 static mrcal_point3_t mrcal_point3_cross(const mrcal_point3_t a, const mrcal_point3_t b)
 {
     return (mrcal_point3_t){ .x = a.y*b.z - a.z*b.y,
