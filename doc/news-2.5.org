@@ -59,6 +59,8 @@ undocumented, until they're done and finally appear in mrcal 3.0:
 - Added new [[file:mrcal-python-api-reference.html#-model_resolution__deg_pixel][=mrcal.model_resolution__deg_pixel()=]] function and the
   [[file:mrcal-show-model-resolution.html][=mrcal-show-model-resolution=]] tool
 
+- [[file:mrcal-python-api-reference.html#-show_distortion_off_pinhole_radial][=mrcal.show_distortion_off_pinhole_radial()=]] works with non-opencv models
+
 ** C API 
 Some guts of the calibration machinery have been ported to C and exposed as C
 functions:

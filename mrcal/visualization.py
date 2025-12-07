@@ -2139,10 +2139,20 @@ SYNOPSIS
 
 This function treats a pinhole projection as a baseline, and visualizes
 deviations from this baseline. So wide lenses will have a lot of reported
-"distortion".
+"distortion". Thus pinhole models aren't a good baseline, but pretty much every
+non-mrcal tool in common use treats lenses as pinhole+distortion, and that makes
+this visualization useful.
 
 This function looks at radial distortion only. Plots a curve showing the
-magnitude of the radial distortion as a function of the distance to the center
+magnitude of the radial distortion as a function of the distance to the center.
+For opencv models the radial distortion is plotted directly from the projection
+equations: these represent radial distortion explicitly. For other models, we
+empirically sample the imager from the optical center given my intrinsics[2:4]
+to the 4 corners and the 4 centers of the imager edges. Note that the splined
+models often shift the projection center from intrinsics[2:4], causing
+unnatural-looking curves near the center. This isn't a a bug: intrinsics[2:4]
+isn't really in the center, which isn't a problem for anything except this
+visualization.
 
 ARGUMENTS
 
@@ -2178,57 +2188,85 @@ plot
 
     '''
 
-    import gnuplotlib as gp
 
     lensmodel, intrinsics_data = model.intrinsics()
 
-    # plot the radial distortion. For now I only deal with opencv here
-    m = re.search("OPENCV([0-9]+)", lensmodel)
-    if not m:
-        raise Exception("Radial distortion visualization implemented only for OpenCV distortions; for now")
-    N = int(m.group(1))
+    if not mrcal.lensmodel_metadata_and_config(lensmodel)['has_core']:
+        raise Exception("This currently works only with models that have an fxfycxcy core")
 
-    # OpenCV does this:
-    #
-    # This is the opencv distortion code in cvProjectPoints2 in
-    # calibration.cpp Here x,y are x/z and y/z. OpenCV applies distortion to
-    # x/z, y/z and THEN does the ...*f + c thing. The distortion factor is
-    # based on r, which is ~ x/z ~ tan(th) where th is the deviation off
-    # center
-    #
-    #         z = z ? 1./z : 1;
-    #         x *= z; y *= z;
-    #         r2 = x*x + y*y;
-    #         r4 = r2*r2;
-    #         r6 = r4*r2;
-    #         a1 = 2*x*y;
-    #         a2 = r2 + 2*x*x;
-    #         a3 = r2 + 2*y*y;
-    #         cdist = 1 + k[0]*r2 + k[1]*r4 + k[4]*r6;
-    #         icdist2 = 1./(1 + k[5]*r2 + k[6]*r4 + k[7]*r6);
-    #         xd = x*cdist*icdist2 + k[2]*a1 + k[3]*a2 + k[8]*r2+k[9]*r4;
-    #         yd = y*cdist*icdist2 + k[2]*a3 + k[3]*a1 + k[10]*r2+k[11]*r4;
-    #         ...
-    #         m[i].x = xd*fx + cx;
-    #         m[i].y = yd*fy + cy;
+    import gnuplotlib as gp
+
+    equations = ['x title "pinhole"']
+
     cxy         = intrinsics_data[2:4]
     distortions = intrinsics_data[4:]
-    k2 = distortions[0]
-    k4 = distortions[1]
-    k6 = 0
-    if N >= 5:
-        k6 = distortions[4]
-    numerator = '1. + r*r * ({} + r*r * ({} + r*r * {}))'.format(k2,k4,k6)
-    numerator = numerator.replace('r', 'tan(x*pi/180.)')
-
-    if N >= 8:
-        denominator = '1. + r*r * ({} + r*r * ({} + r*r * {}))'.format(*distortions[5:8])
-        denominator = denominator.replace('r', 'tan(x*pi/180.)')
-        scale = '({})/({})'.format(numerator,denominator)
-    else:
-        scale = numerator
 
     W,H = model.imagersize()
+
+    m_opencv = re.search("OPENCV([0-9]+)", lensmodel)
+    if m_opencv is not None:
+        opencvN = int(m_opencv.group(1))
+
+        # OpenCV does this:
+        #
+        # This is the opencv distortion code in cvProjectPoints2 in
+        # calibration.cpp Here x,y are x/z and y/z. OpenCV applies distortion to
+        # x/z, y/z and THEN does the ...*f + c thing. The distortion factor is
+        # based on r, which is ~ x/z ~ tan(th) where th is the deviation off
+        # center
+        #
+        #         z = z ? 1./z : 1;
+        #         x *= z; y *= z;
+        #         r2 = x*x + y*y;
+        #         r4 = r2*r2;
+        #         r6 = r4*r2;
+        #         a1 = 2*x*y;
+        #         a2 = r2 + 2*x*x;
+        #         a3 = r2 + 2*y*y;
+        #         cdist = 1 + k[0]*r2 + k[1]*r4 + k[4]*r6;
+        #         icdist2 = 1./(1 + k[5]*r2 + k[6]*r4 + k[7]*r6);
+        #         xd = x*cdist*icdist2 + k[2]*a1 + k[3]*a2 + k[8]*r2+k[9]*r4;
+        #         yd = y*cdist*icdist2 + k[2]*a3 + k[3]*a1 + k[10]*r2+k[11]*r4;
+        #         ...
+        #         m[i].x = xd*fx + cx;
+        #         m[i].y = yd*fy + cy;
+        k2 = distortions[0]
+        k4 = distortions[1]
+        k6 = 0
+        if opencvN >= 5:
+            k6 = distortions[4]
+        numerator = '1. + r*r * ({} + r*r * ({} + r*r * {}))'.format(k2,k4,k6)
+        numerator = numerator.replace('r', 'tan(x*pi/180.)')
+
+        if opencvN >= 8:
+            denominator = '1. + r*r * ({} + r*r * ({} + r*r * {}))'.format(*distortions[5:8])
+            denominator = denominator.replace('r', 'tan(x*pi/180.)')
+            scale = '({})/({})'.format(numerator,denominator)
+        else:
+            scale = numerator
+
+
+        # Now the equations. The 'x' value here is "pinhole pixels off center",
+        # which is f*tan(th). I plot this model's radial relationship, and that
+        # from other common fisheye projections (formulas mostly from
+        # https://en.wikipedia.org/wiki/Fisheye_lens)
+        equations.append(f'180./pi*atan(tan(x*pi/180.) * ({scale})) with lines lw 2 title "THIS model"')
+        if opencvN >= 8:
+            equations.extend( [numerator   + ' axis x1y2 title "numerator (y2)"',
+                               denominator + ' axis x1y2 title "denominator (y2)"',
+                               '0 axis x1y2 notitle with lines lw 2' ] )
+            gp.add_plot_option(kwargs, 'set', 'y2tics')
+            kwargs['y2label'] = 'Rational correction numerator, denominator'
+
+
+
+    def th_from_q(q, *intrinsics):
+        v = mrcal.unproject( q, *intrinsics)
+        # some unprojections may be nan (we're looking beyond where the projection
+        # is valid), so I explicitly ignore those
+        v = v [np.all(np.isfinite(v),  axis=-1)]
+        return 180./np.pi * np.arctan2(nps.mag(v [...,:2]), v [...,2])
+
     x0,x1 = 0, W-1
     y0,y1 = 0, H-1
 
@@ -2241,23 +2279,10 @@ plot
     q_centersy  = np.array(((x0,cxy[1]),
                             (x1,cxy[1])), dtype=float)
 
-    def th_from_q(q, *intrinsics):
-        v = mrcal.unproject( q, *intrinsics)
-        # some unprojections may be nan (we're looking beyond where the projection
-        # is valid), so I explicitly ignore those
-        v = v [np.all(np.isfinite(v),  axis=-1)]
-        return 180./np.pi * np.arctan2(nps.mag(v [...,:2]), v [...,2])
-
     th_corners  = th_from_q(q_corners,  lensmodel, intrinsics_data)
     th_centersx = th_from_q(q_centersx, lensmodel, intrinsics_data)
     th_centersy = th_from_q(q_centersy, lensmodel, intrinsics_data)
 
-    # Now the equations. The 'x' value here is "pinhole pixels off center",
-    # which is f*tan(th). I plot this model's radial relationship, and that
-    # from other common fisheye projections (formulas mostly from
-    # https://en.wikipedia.org/wiki/Fisheye_lens)
-    equations = [f'180./pi*atan(tan(x*pi/180.) * ({scale})) with lines lw 2 title "THIS model"',
-                 'x title "pinhole"']
     if show_fisheye_projections:
         equations += [f'180./pi*atan(2. * tan( x*pi/180. / 2.)) title "stereographic"',
                       f'180./pi*atan(x*pi/180.) title "equidistant"',
@@ -2272,12 +2297,6 @@ plot
                        ['arrow from {th}, graph 0 to {th}, graph 1 nohead lc "blue"' . \
                         format(th=th) for th in th_corners ])
 
-    if N >= 8:
-        equations.extend( [numerator   + ' axis x1y2 title "numerator (y2)"',
-                           denominator + ' axis x1y2 title "denominator (y2)"',
-                           '0 axis x1y2 notitle with lines lw 2' ] )
-        gp.add_plot_option(kwargs, 'set', 'y2tics')
-        kwargs['y2label'] = 'Rational correction numerator, denominator'
 
     if 'title' not in kwargs:
         title = 'Radial distortion. Red: x edges. Green: y edges. Blue: corners'
@@ -2294,9 +2313,44 @@ plot
                                                         axis=-1)))
                         * 1.01],
              xlabel = 'Angle off the projection center (deg)',
-             ylabel = 'Distorted angle off the projection center',
+             ylabel = 'Pinhole angle off the projection center',
              **kwargs)
-    data_tuples = ()
+
+
+    if m_opencv is None:
+        # Empirical empirical radial-distortion plots. Pointless with opencv
+        # models: the above equations plot them exactly
+        N=100
+
+        data_tuples = [None] * 8
+
+        what = ( 'left-top',
+                 'center-top',
+                 'right-top',
+                 'right-center',
+                 'right-bottom',
+                 'center-bottom',
+                 'left-bottom',
+                 'left-center')
+        for i,target in enumerate(np.array(((0,      0),
+                                            (cxy[0], 0),
+                                            (W-1,    0),
+                                            (W-1,    cxy[1]),
+                                            (W-1,    H-1),
+                                            (cxy[0], H-1),
+                                            (0,      H-1),
+                                            (0,      cxy[1]),),)):
+            qxy = np.linspace( cxy, target, N)
+
+            th_pinhole = th_from_q(qxy, 'LENSMODEL_PINHOLE', intrinsics_data[:4])
+            th         = th_from_q(qxy, lensmodel, intrinsics_data)
+
+            data_tuples[i] = (th, th_pinhole,
+                              dict(_with  = 'lines',
+                                   legend = f'optical center to imager {what[i]}'))
+    else:
+        data_tuples = ()
+
     if not return_plot_args:
         plot = gp.gnuplotlib(**plot_options)
         plot.plot(*data_tuples)
