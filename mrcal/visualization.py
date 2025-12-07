@@ -2241,19 +2241,16 @@ plot
     q_centersy  = np.array(((x0,cxy[1]),
                             (x1,cxy[1])), dtype=float)
 
-    v_corners  = mrcal.unproject( q_corners,  lensmodel, intrinsics_data)
-    v_centersx = mrcal.unproject( q_centersx, lensmodel, intrinsics_data)
-    v_centersy = mrcal.unproject( q_centersy, lensmodel, intrinsics_data)
+    def th_from_q(q, *intrinsics):
+        v = mrcal.unproject( q, *intrinsics)
+        # some unprojections may be nan (we're looking beyond where the projection
+        # is valid), so I explicitly ignore those
+        v = v [np.all(np.isfinite(v),  axis=-1)]
+        return 180./np.pi * np.arctan2(nps.mag(v [...,:2]), v [...,2])
 
-    # some unprojections may be nan (we're looking beyond where the projection
-    # is valid), so I explicitly ignore those
-    v_corners  = v_corners [np.all(np.isfinite(v_corners),  axis=-1)]
-    v_centersx = v_centersx[np.all(np.isfinite(v_centersx), axis=-1)]
-    v_centersy = v_centersy[np.all(np.isfinite(v_centersy), axis=-1)]
-
-    th_corners  = 180./np.pi * np.arctan2(nps.mag(v_corners [..., :2]), v_corners [..., 2])
-    th_centersx = 180./np.pi * np.arctan2(nps.mag(v_centersx[..., :2]), v_centersx[..., 2])
-    th_centersy = 180./np.pi * np.arctan2(nps.mag(v_centersy[..., :2]), v_centersy[..., 2])
+    th_corners  = th_from_q(q_corners,  lensmodel, intrinsics_data)
+    th_centersx = th_from_q(q_centersx, lensmodel, intrinsics_data)
+    th_centersy = th_from_q(q_centersy, lensmodel, intrinsics_data)
 
     # Now the equations. The 'x' value here is "pinhole pixels off center",
     # which is f*tan(th). I plot this model's radial relationship, and that
