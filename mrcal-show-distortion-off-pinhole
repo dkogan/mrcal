@@ -63,7 +63,8 @@ def parse_args():
 
     parser.add_argument('--show-fisheye-projections',
                         action='store_true',
-                        help='''If given, the radial plots include the behavior of common fisheye
+                        help='''Applies to radial plots only. if given, the
+                        radial plots include the behavior of common fisheye
                         projections, in addition to the behavior of THIS lens''')
     parser.add_argument('--cbmax',
                         type=float,
