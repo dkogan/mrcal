@@ -149,16 +149,12 @@ if args.extratitle is not None:
     plotkwargs['extratitle'] = args.extratitle
 
 if   args.radial:
-    try:
-        plot = \
-            mrcal.show_distortion_off_pinhole_radial(model,
-                                                     show_fisheye_projections = args.show_fisheye_projections,
-                                                     hardcopy     = args.hardcopy,
-                                                     terminal     = args.terminal,
-                                                     **plotkwargs)
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+    plot = \
+        mrcal.show_distortion_off_pinhole_radial(model,
+                                                 show_fisheye_projections = args.show_fisheye_projections,
+                                                 hardcopy     = args.hardcopy,
+                                                 terminal     = args.terminal,
+                                                 **plotkwargs)
 else:
     plot = mrcal.show_distortion_off_pinhole(model,
                                              vectorfield  = args.vectorfield,
