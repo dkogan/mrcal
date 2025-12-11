@@ -1221,7 +1221,7 @@ def gui_stereo(images,
 
                 d = disparity[int(round(q0_rectified[-1])),
                               int(round(q0_rectified[-2]))]
-                if d < disparity_min*disparity_scale:
+                if d != 0 and d < disparity_min*disparity_scale:
                     set_status(selection_preamble + "No valid disparity at the clicked location")
                     widget_image0.set_cross_at(q0_rectified)
                     widget_image1.set_cross_at(q0_rectified, no_vertical = True)
@@ -1245,7 +1245,7 @@ def gui_stereo(images,
                 if costh > 1: costh = 0. # for roundoff handling
                 selection_preamble += f"Triangulation vector angle = {np.arccos(costh) * 180./np.pi:.1f}deg\n"
 
-                if d == disparity_min*disparity_scale:
+                if d == 0:
                     set_status(selection_preamble + \
                                "Disparity: 0pixels\n" +
                                "range: infinity\n")
