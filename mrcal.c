@@ -6491,7 +6491,7 @@ mrcal_optimize( // out
     // and without serious concern for performance. I looked only at a single
     // frame. Tweak them please
     dogleg_parameters.Jt_x_threshold                    = 0;
-    dogleg_parameters.update_threshold                  = 1e-6;
+    dogleg_parameters.update_threshold                  = 1e-7;
     dogleg_parameters.trustregion_threshold             = 0;
     dogleg_parameters.max_iterations                    = 300;
     // dogleg_parameters.trustregion_decrease_factor    = 0.1;

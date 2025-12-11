@@ -2485,22 +2485,6 @@ for icam in (0,3):
                                     msg = f"x is consistent when looking at {what}")
 
 
-            # This test fails unless I apply this patch:
-            #
-            # diff --git a/mrcal.c b/mrcal.c
-            # index ff709e36..d3e7057b 100644
-            # --- a/mrcal.c
-            # +++ b/mrcal.c
-            # @@ -6468,3 +6474,3 @@ mrcal_optimize( // out
-            #      dogleg_parameters.Jt_x_threshold                    = 0;
-            # -    dogleg_parameters.update_threshold                  = 1e-6;
-            # +    dogleg_parameters.update_threshold                  = 1e-9;
-            #      dogleg_parameters.trustregion_threshold             = 0;
-            #
-            # Can visualize like this:
-            #   import gnuplotlib as gp
-            #   gp.plot( np.abs(x_baseline_optimized - x),
-            #            _set = mrcal.plotoptions_measurement_boundaries(**optimization_inputs_baseline_moving_cameras_refcam0) )
             x = mrcal.optimize(**optimization_inputs_here)['x']
             testutils.confirm_equal(x_baseline_optimized, x,
                                     eps = 1e-8,
