@@ -938,13 +938,13 @@ def process(i_image):
     # This doesn't really matter: I don't use the input imagersize. But a
     # mismatch suggests the user probably messed up, and it would save them time
     # to yell at them
-    imagersize_image = np.array((images[0].shape[-1], images[0].shape[-2]))
+    imagersize_image = np.array((images[0].shape[1], images[0].shape[0]))
     imagersize_model = models[0].imagersize()
     if np.any(imagersize_image - imagersize_model):
         print(f"Image '{image_filenames[0]}' dimensions {imagersize_image} don't match the model '{args.models[0]}' dimensions {imagersize_model}",
               file=sys.stderr)
         return False
-    imagersize_image = np.array((images[1].shape[-1], images[1].shape[-2]))
+    imagersize_image = np.array((images[1].shape[1], images[1].shape[0]))
     imagersize_model = models[1].imagersize()
     if np.any(imagersize_image - imagersize_model):
         print(f"Image '{image_filenames[1]}' dimensions {imagersize_image} don't match the model '{args.models[1]}' dimensions {imagersize_model}",
