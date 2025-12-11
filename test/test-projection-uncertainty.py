@@ -2387,6 +2387,21 @@ for icam in (0,3):
     if icam >= args.Ncameras:
         break
 
+    p_cam_baseline = mrcal.unproject( q0_baseline, *models_baseline[icam].intrinsics(),
+                                      normalize = True)
+    Var_dq_ref = \
+        mrcal.projection_uncertainty( p_cam_baseline * 1.0,
+                                      model = models_baseline[icam],
+                                      atinfinity = False,
+                                      method     = method,
+                                      observed_pixel_uncertainty = args.observed_pixel_uncertainty)
+    Var_dq_inf_ref = \
+        mrcal.projection_uncertainty( p_cam_baseline * 1.0,
+                                      model = models_baseline[icam],
+                                      atinfinity = True,
+                                      method     = method,
+                                      observed_pixel_uncertainty = args.observed_pixel_uncertainty )
+
     # I move the extrinsics of a model, write it to disk, and make sure the same
     # uncertainties come back
     if True:
@@ -2403,15 +2418,6 @@ for icam in (0,3):
                                 icam_extrinsics_read,
                                 msg = f"corresponding icam_extrinsics reported correctly for camera {icam}")
 
-        p_cam_baseline = mrcal.unproject( q0_baseline, *models_baseline[icam].intrinsics(),
-                                          normalize = True)
-
-        Var_dq_ref = \
-            mrcal.projection_uncertainty( p_cam_baseline * 1.0,
-                                          model = models_baseline[icam],
-                                          atinfinity = False,
-                                          method     = method,
-                                          observed_pixel_uncertainty = args.observed_pixel_uncertainty)
         Var_dq_moved_written_read = \
             mrcal.projection_uncertainty( p_cam_baseline * 1.0,
                                           model = model_read,
@@ -2424,12 +2430,6 @@ for icam in (0,3):
                                 relative  = True,
                                 msg = f"var(dq) with full rt matches for camera {icam} after moving, writing to disk, reading from disk")
 
-        Var_dq_inf_ref = \
-            mrcal.projection_uncertainty( p_cam_baseline * 1.0,
-                                          model = models_baseline[icam],
-                                          atinfinity = True,
-                                          method     = method,
-                                          observed_pixel_uncertainty = args.observed_pixel_uncertainty )
         Var_dq_inf_moved_written_read = \
             mrcal.projection_uncertainty( p_cam_baseline * 1.0,
                                           model = model_read,
