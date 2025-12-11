@@ -235,11 +235,5 @@ functions:
 
 
 * todo
-  #+end_example
 
-- new observed_pixel_uncertainty
-  - apply sqrt() factor. Documented in 68789474. git grep -n
-    observed_pixel_uncertainty ..
-  - Does too little data give smaller residuals? It should. Is this reflected in
-    the sqrt() factor?
 
