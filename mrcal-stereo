@@ -1061,8 +1061,7 @@ def gui_stereo(images,
     Mouse wheel up/down/left/right: pan
     Ctrl-mouse wheel up/down: zoom
     'u': reset view: zoom out, pan to the center
-    'd': show a colorized disparity image (default)
-    'r': show a colorized range image
+    'd'/'r': switch between colorized disparity and range images
     Right mouse button click: examine stereo at pixel
     TAB: transpose windows
 '''
