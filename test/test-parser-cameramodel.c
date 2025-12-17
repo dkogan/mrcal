@@ -210,6 +210,16 @@ int main(int argc, char* argv[])
           (mrcal_cameramodel_VOID_t*)&cameramodel_ref,
           0);
 
+    // new rt_cam_ref key
+    check("{\n"
+          "    'lensmodel':  \"LENSMODEL_CAHVORE_linearity=0.34\",\n"
+          "    'rt_cam_ref': [ 0., 1, 2, 33, 44e4, -55.3E-3, ],\n"
+          "    'intrinsics': [ 4, 3, 4, 5, 0, 1, 3, 5, 4, 10, 11, 12 ],\n"
+          "    'imagersize': [110, 400],\n"
+          "}\n",
+          (mrcal_cameramodel_VOID_t*)&cameramodel_ref,
+          0);
+
     // trailing garbage
     check_fail("{\n"
                "    'lensmodel':  \"LENSMODEL_CAHVORE_linearity=0.34\",\n"
@@ -228,10 +238,19 @@ int main(int argc, char* argv[])
                "    'imagersize': [110, 400],\n"
                "}\n",
                0);
+    check("{\n"
+          "    'lensmodel':  \"LENSMODEL_CAHVORE_linearity=0.34\",\n"
+          "    'extrinsics': [ 0., 1, 2, 33, 44e4, -55.3E-3, ],\n"
+          "    'extrinsics': [ 0., 1, 2, 33, 44e4, -55.3E-3, ],\n"
+          "    'intrinsics': [ 4, 3, 4, 5, 0, 1, 3, 5, 4, 10, 11, 12 ],\n"
+          "    'imagersize': [110, 400],\n"
+          "}\n",
+          (mrcal_cameramodel_VOID_t*)&cameramodel_ref,
+          0);
     check_fail("{\n"
                "    'lensmodel':  \"LENSMODEL_CAHVORE_linearity=0.34\",\n"
                "    'extrinsics': [ 0., 1, 2, 33, 44e4, -55.3E-3, ],\n"
-               "    'extrinsics': [ 0., 1, 2, 33, 44e4, -55.3E-3, ],\n"
+               "    'extrinsics': [ 0., 1, 2, 33, 44e4, -55.4E-3, ],\n"
                "    'intrinsics': [ 4, 3, 4, 5, 0, 1, 3, 5, 4, 10, 11, 12 ],\n"
                "    'imagersize': [110, 400],\n"
                "}\n",
@@ -294,6 +313,16 @@ int main(int argc, char* argv[])
                "    'imagersize': [110, 400],\n"
                "}\n",
                0);
+
+    // If rt_cam_ref key and extrinsics are given, they must be the same
+    check("{\n"
+          "    'lensmodel':  \"LENSMODEL_CAHVORE_linearity=0.34\",\n"
+          "    'rt_cam_ref': [ 0., 1, 2, 33, 44e4, -55.3E-3, ],\n"
+          "    'intrinsics': [ 4, 3, 4, 5, 0, 1, 3, 5, 4, 10, 11, 12 ],\n"
+          "    'imagersize': [110, 400],\n"
+          "}\n",
+          (mrcal_cameramodel_VOID_t*)&cameramodel_ref,
+          0);
 
 
     // Roundtrip write/read

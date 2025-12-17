@@ -525,16 +525,28 @@ bool read_cameramodel_from_string(// output buffer. If it should be allocated,
 
             did_read_intrinsics = true;
         }
-        else if(string_is("extrinsics", key))
+        else if(string_is("extrinsics", key) ||
+                string_is("rt_cam_ref", key))
         {
             if(model_not_intrinsics.rt_cam_ref[0] != DBL_MAX)
             {
-                MSG("extrinsics defined more than once");
-                goto done;
+                // Receiving another one; must be identical
+                double rt_cam_ref[6];
+                if( !read_list_values_generic(rt_cam_ref,
+                                              ingest_double_consume_ignorable,
+                                              &YYCURSOR, start_file, "extrinsics", 6) )
+                    goto done;
+
+                for(int i=0; i<6; i++)
+                    if(1e-9 < fabs(rt_cam_ref[i] - model_not_intrinsics.rt_cam_ref[i]))
+                    {
+                        MSG("extrinsics defined more than once and aren't identical");
+                        goto done;
+                    }
             }
-            if( !read_list_values_generic(model_not_intrinsics.rt_cam_ref,
-                                          ingest_double_consume_ignorable,
-                                          &YYCURSOR, start_file, "extrinsics", 6) )
+            else if( !read_list_values_generic(model_not_intrinsics.rt_cam_ref,
+                                               ingest_double_consume_ignorable,
+                                               &YYCURSOR, start_file, "extrinsics", 6) )
                 goto done;
         }
         else if(string_is("imagersize", key))
@@ -630,7 +642,7 @@ bool read_cameramodel_from_string(// output buffer. If it should be allocated,
          model_not_intrinsics.rt_cam_ref[0] != DBL_MAX &&
          model_not_intrinsics.imagersize[0] > 0))
     {
-        MSG("Incomplete cameramodel. Need keys: lensmodel, intrinsics, extrinsics, imagersize");
+        MSG("Incomplete cameramodel. Need keys: lensmodel, intrinsics, rt_cam_ref/extrinsics, imagersize");
         if(model_need_dealloc)
         {
             free(*model);
