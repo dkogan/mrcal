@@ -15,6 +15,7 @@ import mrcal
 import testutils
 
 
+import io
 import tempfile
 import atexit
 import shutil
@@ -116,12 +117,74 @@ string = r'''
 }
 '''
 
-import io
 with io.StringIO(string) as f:
     m = mrcal.cameramodel(f)
 
     testutils.confirm_equal( m.intrinsics()[1], [ 1761.181055, 1761.250444, 1965.706996, 1087.518797, -0.01266096516, 0.03590794372, -0.0002547045941, 0.0005275929652, 0.01968883397, 0.01482863541, -0.0562239888, 0.0500223357,],
                              msg="extra spaces don't confuse the parser")
+
+
+
+string = r'''
+{
+    'lens_model':  'LENSMODEL_OPENCV8',
+    'intrinsics': [ 1761.181055, 1761.250444, 1965.706996, 1087.518797, -0.01266096516, 0.03590794372, -0.0002547045941, 0.0005275929652, 0.01968883397, 0.01482863541, -0.0562239888, 0.0500223357,],
+    'imagersize': [ 4000, 2200 ]
+}
+'''
+with io.StringIO(string) as f:
+    testutils.confirm_raises(lambda: mrcal.cameramodel(f),
+                             msg = "One of (extrinsics,rt_cam_ref) must be given")
+
+
+string = r'''
+{
+    'lens_model':  'LENSMODEL_OPENCV8',
+    'intrinsics': [ 1761.181055, 1761.250444, 1965.706996, 1087.518797, -0.01266096516, 0.03590794372, -0.0002547045941, 0.0005275929652, 0.01968883397, 0.01482863541, -0.0562239888, 0.0500223357,],
+    'rt_cam_ref': [0,0,0,0,0,0],
+    'extrinsics': [0,0,0,0,0,0.1],
+    'imagersize': [ 4000, 2200 ]
+}
+'''
+with io.StringIO(string) as f:
+    testutils.confirm_raises(lambda: mrcal.cameramodel(f),
+                             msg = "Both (extrinsics,rt_cam_ref) are given, so they must be identical")
+
+string = r'''
+{
+    'lens_model':  'LENSMODEL_OPENCV8',
+    'intrinsics': [ 1761.181055, 1761.250444, 1965.706996, 1087.518797, -0.01266096516, 0.03590794372, -0.0002547045941, 0.0005275929652, 0.01968883397, 0.01482863541, -0.0562239888, 0.0500223357,],
+    'rt_cam_ref': [0.2,0,0,0,0,0.1],
+    'extrinsics': [0.2,0,0,0,0,0.1],
+    'imagersize': [ 4000, 2200 ]
+}
+'''
+with io.StringIO(string) as f:
+    try: m = mrcal.cameramodel(f)
+    except Exception as e:
+        testutils.confirm(False,
+                          msg = "Both (extrinsics,rt_cam_ref) are given; they are identical. That is OK")
+    else:
+        testutils.confirm_equal( m.rt_cam_ref(), [0.2,0,0,0,0,0.1],
+                                 msg="Both (extrinsics,rt_cam_ref) are given; have correct value")
+
+string = r'''
+{
+    'lens_model':  'LENSMODEL_OPENCV8',
+    'intrinsics': [ 1761.181055, 1761.250444, 1965.706996, 1087.518797, -0.01266096516, 0.03590794372, -0.0002547045941, 0.0005275929652, 0.01968883397, 0.01482863541, -0.0562239888, 0.0500223357,],
+    'rt_cam_ref': [0.2,0,0,0,0,0.1],
+    'imagersize': [ 4000, 2200 ]
+}
+'''
+with io.StringIO(string) as f:
+    try: m = mrcal.cameramodel(f)
+    except Exception as e:
+        testutils.confirm(False,
+                          msg = "Only rt_cam_ref given. That is OK")
+    else:
+        testutils.confirm_equal( m.rt_cam_ref(), [0.2,0,0,0,0,0.1],
+                                 msg="Only rt_cam_ref given; have correct value")
+
 
 
 # Make sure I ignore unknown optimization_inputs keys

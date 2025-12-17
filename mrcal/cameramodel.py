@@ -581,10 +581,22 @@ A sample valid .cameramodel file:
                 raise CameramodelParseException(f"Failed to parse cameramodel '{name}'")
 
         # for legacy compatibility
-        def renamed(name_from, name_to, d):
-            if name_from in d and not name_to in d:
-                d[name_to] = d[name_from]
-                del d[name_from]
+        def renamed(name_from, name_to, d,
+                    *,
+                    check_equal = False):
+            if name_from in d:
+                if name_to in d:
+                    if check_equal:
+                        try:
+                            diff = np.array(d[name_from]) - np.array(d[name_to])
+                            equal = np.all( np.abs(diff) < 1e-9 )
+                            if not equal:
+                                raise CameramodelParseException(f"'{name_to}' and '{name_from}' both given, and they're NOT the same")
+                        except Exception as e:
+                            raise CameramodelParseException(f"'{name_to}' and '{name_from}' both given; couldn't check if they're the same: '{e}'")
+                else:
+                    d[name_to] = d[name_from]
+                    del d[name_from]
         renamed('distortion_model',
                 'lensmodel',
                 model)
@@ -596,9 +608,9 @@ A sample valid .cameramodel file:
                 model)
         model['lensmodel'] = model['lensmodel'].replace('DISTORTION', 'LENSMODEL')
 
-        renamed('extrinsics',
-                'rt_cam_ref',
-                model)
+        renamed('extrinsics', 'rt_cam_ref',
+                model,
+                check_equal = True)
 
 
 
