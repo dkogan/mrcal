@@ -7,26 +7,15 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 #include <FreeImage.h>
+#define STBI_NO_HDR 1
+#include <stb/stb_image.h>
+
 #include <string.h>
 #include <stdlib.h>
 
 #include "image.h"
 #include "util.h"
 
-// for diagnostics
-__attribute__((unused))
-static void report_image_details(/* const; FreeImage doesn't support that */
-                                 FIBITMAP* fib, const char* what)
-{
-    MSG("%s colortype = %d bpp = %d dimensions: (%d,%d), pitch = %d, imagetype = %d",
-        what,
-        (int)FreeImage_GetColorType(fib),
-        (int)FreeImage_GetBPP      (fib),
-        (int)FreeImage_GetWidth    (fib),
-        (int)FreeImage_GetHeight   (fib),
-        (int)FreeImage_GetPitch    (fib),
-        (int)FreeImage_GetImageType(fib));
-}
 
 
 static
@@ -112,6 +101,22 @@ bool mrcal_image_bgr_save(const char* filename, const mrcal_image_bgr_t* image)
 
 
 static
+void bgr_from_rgb(mrcal_image_bgr_t* image)
+{
+    for(int i=0; i<image->height; i++)
+    {
+        mrcal_bgr_t* row = mrcal_image_bgr_at(image, 0, i);
+        for(int j=0; j<image->width; j++)
+        {
+            mrcal_bgr_t* p = &row[j];
+            uint8_t t = p->bgr[0];
+            p->bgr[0] = p->bgr[2];
+            p->bgr[2] = t;
+        }
+    }
+}
+
+static
 void stretch_equalization_uint8_from_uint16(mrcal_image_uint8_t* out,
                                             const mrcal_image_uint16_t* in)
 {
@@ -166,121 +171,123 @@ bool generic_load(// output
                   // input
                   const char* filename)
 {
-    bool      result        = false;
-    FIBITMAP* fib           = NULL;
-    FIBITMAP* fib_converted = NULL;
-
-    FREE_IMAGE_FORMAT format = FreeImage_GetFileType(filename,0);
-    if(format == FIF_UNKNOWN)
-    {
-        MSG("Couldn't load '%s': FreeImage_GetFileType() failed", filename);
-        goto done;
-    }
-
-    fib = FreeImage_Load(format, filename, 0);
-    if(fib == NULL)
-    {
-        MSG("Couldn't load '%s': FreeImage_Load() failed", filename);
-        goto done;
-    }
-
-    // FreeImage loads images upside-down, so I flip it around
-    if(!FreeImage_FlipVertical(fib))
-    {
-        MSG("Couldn't flip the image");
-        goto done;
-    }
+    bool result = false;
 
     // might not be "uint8_t" necessarily, but all the fields still line up
     mrcal_image_uint8_t* image = NULL;
-    FREE_IMAGE_COLOR_TYPE color_type_expected;
-    const char* what_expected;
+    unsigned char* image_buf = NULL;
+    int width=0, height=0, channels=0;
+
+    FILE* fp = fopen(filename, "r");
+    if(fp == NULL)
+    {
+        MSG("Couldn't open image: fopen(\"%s\") failed", filename);
+        goto done;
+    }
 
     if(*bits_per_pixel == 0)
     {
-        // autodetect
-        FREE_IMAGE_COLOR_TYPE color_type_have = FreeImage_GetColorType(fib);
-        if(color_type_have == FIC_RGB ||
-           color_type_have == FIC_PALETTE)
+        // autodetect *bits_per_pixel. This path is ONLY for *bits_per_pixel.
+        // The actual work is done in the if() below
+        int width,height,channels;
+
+        if(!stbi_info_from_file(fp, &width, &height, &channels))
         {
-            *bits_per_pixel = 24;
+            MSG("Couldn't load image: stbi_info_from_file(\"%s\") failed", filename);
+            goto done;
         }
-        else if(color_type_have == FIC_MINISBLACK)
+        bool is_16bit = (bool)stbi_is_16_bit_from_file(fp);
+        if(!is_16bit)
         {
-            unsigned int bpp_have = FreeImage_GetBPP(fib);
-            if(bpp_have == 16)
-                *bits_per_pixel = 16;
-            else
+            if(channels == 3)
+                *bits_per_pixel = 24;
+            else if(channels == 1)
                 *bits_per_pixel = 8;
+            else
+            {
+                MSG("Couldn't load image \"%s\" 8-bit image: I only support 1-channel and 3-channel images", filename);
+                goto done;
+            }
         }
         else
         {
-            MSG("Couldn't auto-detect image type. I only know about FIC_RGB, FIC_PALETTE, FIC_MINISBLACK");
-            goto done;
+            if(channels == 1)
+                *bits_per_pixel = 16;
+            else
+            {
+                MSG("Couldn't load image \"%s\" 16-bit image: I only support 1-channel", filename);
+                goto done;
+            }
         }
     }
 
     if(*bits_per_pixel == 8)
     {
-        color_type_expected = FIC_MINISBLACK;
-        what_expected = "grayscale";
+        const bool is_16bit = (bool)stbi_is_16_bit_from_file(fp);
 
-        if(FreeImage_GetImageType(fib) == FIT_UINT16 &&
-           FreeImage_GetColorType(fib) == FIC_MINISBLACK)
+        if(is_16bit)
         {
             // special case: uint16 monochrome image. I apply stretch
             // equalization
-            mrcal_image_uint16_t in =
-                { .width  = (int)      FreeImage_GetWidth (fib),
-                  .height = (int)      FreeImage_GetHeight(fib),
-                  .stride = (int)      FreeImage_GetPitch (fib),
-                  .data   = (uint16_t*)FreeImage_GetBits  (fib)
-                };
-
-            fib_converted = FreeImage_Allocate(in.width, in.height, 8, /* 8bpp */ 0,0,0);
-            if(fib_converted == NULL)
+            image_buf = (unsigned char*)stbi_load_from_file_16(fp, &width, &height, &channels, 1);
+            if(image_buf == NULL)
             {
-                MSG("Couldn't FreeImage_Allocate(%d,%d)", in.width, in.height);
+                MSG("Couldn't load image: stbi_load_from_file_16(\"%s\", desired_channels=1) failed", filename);
                 goto done;
             }
 
+            // allocate new image
+            int size = width*height;
+            unsigned char* image_buf_8bit;
+            if(posix_memalign((void**)&image_buf_8bit, 16UL, size) != 0)
+            {
+                MSG("couldn't allocate image: malloc(%d) failed",
+                    size);
+                goto done;
+            }
+
+            mrcal_image_uint16_t in =
+                { .width  = (int)      width,
+                  .height = (int)      height,
+                  .stride = (int)      width*2,
+                  .data   = (uint16_t*)image_buf
+                };
+
             mrcal_image_uint8_t out =
-                { .width  = in.width,
-                  .height = in.height,
-                  .stride = (int)     FreeImage_GetPitch (fib_converted),
-                  .data   = (uint8_t*)FreeImage_GetBits  (fib_converted)
+                { .width  = width,
+                  .height = height,
+                  .stride = width,
+                  .data   = (uint8_t*)image_buf_8bit
                 };
             stretch_equalization_uint8_from_uint16(&out, &in);
+            free(image_buf);
+            image_buf = image_buf_8bit;
         }
         else
         {
-            fib_converted = FreeImage_ConvertToGreyscale(fib);
-            if(fib_converted == NULL)
+            image_buf = stbi_load_from_file(fp, &width, &height, &channels, 1);
+            if(image_buf == NULL)
             {
-                MSG("Couldn't FreeImage_ConvertToGreyscale()");
+                MSG("Couldn't load image: stbi_load_from_file(\"%s\", desired_channels=1) failed", filename);
                 goto done;
             }
         }
     }
     else if(*bits_per_pixel == 16)
     {
-        color_type_expected = FIC_MINISBLACK;
-        what_expected = "16-bit grayscale";
-
-        // At this time, 16bpp grayscale images can only be read directly from
-        // the input. I cannot be given a different kind of input, and convert
-        // the images to 16bpp grayscale
-        fib_converted = fib;
+        image_buf = (unsigned char*)stbi_load_from_file_16(fp, &width, &height, &channels, 1);
+        if(image_buf == NULL)
+        {
+            MSG("Couldn't load image: stbi_load_from_file_16(\"%s\", desired_channels=1) failed", filename);
+            goto done;
+        }
     }
     else if(*bits_per_pixel == 24)
     {
-        color_type_expected = FIC_RGB;
-        what_expected = "bgr 24-bit";
-
-        fib_converted = FreeImage_ConvertTo24Bits(fib);
-        if(fib_converted == NULL)
+        image_buf = stbi_load_from_file(fp, &width, &height, &channels, 3);
+        if(image_buf == NULL)
         {
-            MSG("Couldn't FreeImage_ConvertTo24Bits()");
+            MSG("Couldn't load image: stbi_load_from_file(\"%s\", desired_channels=3) failed", filename);
             goto done;
         }
     }
@@ -290,41 +297,29 @@ bool generic_load(// output
         goto done;
     }
 
-    if(!(FreeImage_GetColorType(fib_converted) == color_type_expected &&
-         FreeImage_GetBPP(fib_converted) == (unsigned)*bits_per_pixel))
-    {
-        MSG("Loaded and preprocessed image isn't %s",
-            what_expected);
-        goto done;
-    }
     // This may actually be a different mrcal_image_xxx_t type, but all the
     // fields line up anyway
     image = (mrcal_image_uint8_t*)_image;
 
-    image->width  = (int)FreeImage_GetWidth (fib_converted);
-    image->height = (int)FreeImage_GetHeight(fib_converted);
-    image->stride = (int)FreeImage_GetPitch (fib_converted);
+    image->width  = width;
+    image->height = height;
+    image->stride = width * (*bits_per_pixel)/8;
+    image->data   = image_buf;
 
-    int size = image->stride*image->height;
-    if(posix_memalign((void**)&image->data, 16UL, size) != 0)
+    if(*bits_per_pixel == 24)
     {
-        MSG("%s('%s') couldn't allocate image: malloc(%d) failed",
-            __func__, filename, size);
-        goto done;
+        // we loaded rgb, but I want bgr
+        bgr_from_rgb((mrcal_image_bgr_t*)image);
     }
 
-    memcpy( image->data,
-            FreeImage_GetBits(fib_converted),
-            size );
+    image_buf = NULL; // to not free
 
     result = true;
 
  done:
-    if(fib != NULL)
-        FreeImage_Unload(fib);
-    if(fib_converted != NULL &&
-       fib_converted != fib)
-        FreeImage_Unload(fib_converted);
+    if(fp != NULL)
+        fclose(fp);
+    stbi_image_free(image_buf);
     return result;
 }
 
