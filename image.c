@@ -6,11 +6,12 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
-#include <FreeImage.h>
 #define STBI_NO_HDR 1
 #include <stb/stb_image.h>
+#include <stb/stb_image_write.h>
 
 #include <string.h>
+#include <strings.h>
 #include <stdlib.h>
 
 #include "image.h"
@@ -19,17 +20,32 @@
 
 
 static
+void bgr_tofrom_rgb(mrcal_image_bgr_t* image)
+{
+    for(int i=0; i<image->height; i++)
+    {
+        mrcal_bgr_t* row = mrcal_image_bgr_at(image, 0, i);
+        for(int j=0; j<image->width; j++)
+        {
+            mrcal_bgr_t* p = &row[j];
+            uint8_t t = p->bgr[0];
+            p->bgr[0] = p->bgr[2];
+            p->bgr[2] = t;
+        }
+    }
+}
+
+static
 bool generic_save(const char* filename,
                   const void* _image,
                   int bits_per_pixel)
 {
     bool result = false;
 
-    FIBITMAP* fib = NULL;
-
     // This may actually be a different mrcal_image_xxx_t type, but all the
     // fields line up anyway
-    const mrcal_image_uint8_t* image = (const mrcal_image_uint8_t*)_image;
+    mrcal_image_uint8_t* image = (mrcal_image_uint8_t*)_image;
+    char* buf = NULL;
 
     if(image->w == 0 || image->h == 0)
     {
@@ -38,49 +54,79 @@ bool generic_save(const char* filename,
         goto done;
     }
 
-#if defined HAVE_OLD_LIBFREEIMAGE && HAVE_OLD_LIBFREEIMAGE
-    if(bits_per_pixel == 16)
-        MSG("WARNING: you have an old build of libfreeimage. It has trouble writing 16bpp images, so '%s' will probably be written incorrectly. You should upgrade your libfreeimage and rebuild",
-            filename);
-    fib = FreeImage_ConvertFromRawBits( (BYTE*)image->data,
-                                        image->width, image->height, image->stride,
-                                        bits_per_pixel,
-                                        0,0,0,
-                                        // Top row is stored first
-                                        true);
-#else
-    // I do NOT reuse the input data because this function actually changes the
-    // input buffer to flip it upside-down instead of accessing the bits in the
-    // correct order
-    fib = FreeImage_ConvertFromRawBitsEx(true,
-                                         (BYTE*)image->data,
-                                         (bits_per_pixel == 16) ? FIT_UINT16 : FIT_BITMAP,
-                                         image->width, image->height, image->stride,
-                                         bits_per_pixel,
-                                         0,0,0,
-                                         // Top row is stored first
-                                         true);
-#endif
-
-    FREE_IMAGE_FORMAT format = FreeImage_GetFIFFromFilename(filename);
-    if(format == FIF_UNKNOWN)
+    int channels = -1;
+    if(bits_per_pixel == 8 || bits_per_pixel == 16)
+        channels = 1;
+    else if(bits_per_pixel == 24)
+        channels = 3;
+    else
     {
-        MSG("FreeImage doesn't know how to save '%s'", filename);
+        MSG("bits_per_pixel must be 8 or 16 or 24");
         goto done;
     }
 
-    int flags = format == FIF_JPEG ? 96 : 0;
-    if(!FreeImage_Save(format, fib, filename, flags))
+    if(bits_per_pixel == 24)
     {
-        MSG("FreeImage couldn't save '%s'", filename);
+        // bgr/rgb
+        buf = malloc(image->w*image->h*3);
+        if(buf == NULL)
+        {
+            MSG("Could not malloc buffer for bgr<->rgb");
+            goto done;
+        }
+        if(image->stride == image->width*3)
+            memcpy(buf, image->data, image->w*image->h*3);
+        else
+            for(int i=0; i<image->h; i++)
+                memcpy(&buf[i*image->width*3],
+                       &image->data[i*image->stride],
+                       image->width*3);
+        image->data = (uint8_t*)buf;
+        image->stride = image->width*3;
+        bgr_tofrom_rgb( (mrcal_image_bgr_t*)image);
+    }
+
+    const int filename_len = strlen(filename);
+    if(filename_len < 5)
+    {
+        MSG("Image must be xxx.png or xxx.jpg; the name is too short");
         goto done;
+    }
+
+    const char* extension = &filename[filename_len - 4];
+    if(0 == strcasecmp(extension, ".png"))
+    {
+        if(!stbi_write_png(filename,
+                           image->w, image->h,
+                           channels,
+                           image->data,
+                           image->stride))
+        {
+            MSG("stbi_write_png(\"%s\") failed", filename);
+            goto done;
+        }
+    }
+    else if(0 == strcasecmp(extension, ".jpg"))
+    {
+        if(image->stride != image->width*bits_per_pixel/8)
+        {
+            MSG("jpg writing requires a densely-stored image");
+            goto done;
+        }
+        if(!stbi_write_jpg(filename,
+                           image->w, image->h,
+                           channels,
+                           image->data,
+                           96))
+        {
+            MSG("stbi_write_jpg(\"%s\") failed", filename);
+            goto done;
+        }
     }
     result = true;
 
  done:
-    if(fib != NULL)
-        FreeImage_Unload(fib);
-
+    free(buf);
     return result;
 }
 
@@ -99,22 +145,6 @@ bool mrcal_image_bgr_save(const char* filename, const mrcal_image_bgr_t* image)
     return generic_save(filename, image, 24);
 }
 
-
-static
-void bgr_from_rgb(mrcal_image_bgr_t* image)
-{
-    for(int i=0; i<image->height; i++)
-    {
-        mrcal_bgr_t* row = mrcal_image_bgr_at(image, 0, i);
-        for(int j=0; j<image->width; j++)
-        {
-            mrcal_bgr_t* p = &row[j];
-            uint8_t t = p->bgr[0];
-            p->bgr[0] = p->bgr[2];
-            p->bgr[2] = t;
-        }
-    }
-}
 
 static
 void stretch_equalization_uint8_from_uint16(mrcal_image_uint8_t* out,
@@ -197,6 +227,7 @@ bool generic_load(// output
             goto done;
         }
         bool is_16bit = (bool)stbi_is_16_bit_from_file(fp);
+#warning rgba
         if(!is_16bit)
         {
             if(channels == 3)
@@ -309,7 +340,7 @@ bool generic_load(// output
     if(*bits_per_pixel == 24)
     {
         // we loaded rgb, but I want bgr
-        bgr_from_rgb((mrcal_image_bgr_t*)image);
+        bgr_tofrom_rgb((mrcal_image_bgr_t*)image);
     }
 
     image_buf = NULL; // to not free
