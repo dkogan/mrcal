@@ -26,6 +26,22 @@ By default we render a heat map of the lens effects. We can also see the
 vectorfield by passing in --vectorfield. Or we can see the radial distortion
 curve by passing --radial
 
+This tool treats a pinhole projection as a baseline, and visualizes deviations
+from this baseline. So wide lenses will have a lot of reported "distortion".
+Thus pinhole models aren't a good baseline, but pretty much every non-mrcal tool
+in common use treats lenses as pinhole+distortion, and that makes this
+visualization useful.
+
+The plots produced with --radial show the magnitude of the radial distortion as
+a function of the distance to the center. For opencv models the radial
+distortion is plotted directly from the projection equations: these represent
+radial distortion explicitly. For other models, we empirically sample the imager
+from the optical center given by intrinsics[2:4] to the 4 corners and the 4
+centers of the imager edges. Note that the splined models often shift the
+projection center from intrinsics[2:4], causing unnatural-looking curves near
+the center. This isn't a a bug: intrinsics[2:4] isn't really in the center,
+which isn't a problem for anything except this visualization.
+
 '''
 
 

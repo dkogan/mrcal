@@ -2147,7 +2147,7 @@ This function looks at radial distortion only. Plots a curve showing the
 magnitude of the radial distortion as a function of the distance to the center.
 For opencv models the radial distortion is plotted directly from the projection
 equations: these represent radial distortion explicitly. For other models, we
-empirically sample the imager from the optical center given my intrinsics[2:4]
+empirically sample the imager from the optical center given by intrinsics[2:4]
 to the 4 corners and the 4 centers of the imager edges. Note that the splined
 models often shift the projection center from intrinsics[2:4], causing
 unnatural-looking curves near the center. This isn't a a bug: intrinsics[2:4]
