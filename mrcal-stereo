@@ -1079,8 +1079,16 @@ def gui_stereo(images,
                 set_status.string = ''
 
         if q_rect is not None:
+            lensmodel,intrinsics = models_rectified[icam].intrinsics()
+            if lensmodel == 'LENSMODEL_LATLON':
+                fx,fy,cx,cy = intrinsics
+                az_deg = (q_rect[0] - cx)/fx * 180./np.pi
+                el_deg = (q_rect[1] - cy)/fy * 180./np.pi
+                azel = f"  azel_deg = {az_deg:.1f},{el_deg:.1f}"
+            else:
+                azel = ''
             set_status.qstring = \
-                f"q_rectified{icam} = {q_rect[0]:.1f},{q_rect[1]:.1f}\n"
+                f"q_rectified{icam} = {q_rect[0]:.1f},{q_rect[1]:.1f}{azel}\n"
             if q_input is not None:
                 set_status.qstring += f"q_input_cam{icam} = {q_input[0]:.1f},{q_input[1]:.1f}\n"
             set_status.qstring += "\n"
