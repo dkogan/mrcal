@@ -230,8 +230,7 @@ def rectified_system(models,
                      el_fov_deg,
                      az0_deg             = None,
                      el0_deg             = 0,
-                     # we refuse to create a view this close to az=90 or az=-90
-                     az_edge_margin_deg  = 20.,
+                     az_edge_margin_deg  = 10.,
                      pixels_per_deg_az   = -1.,
                      pixels_per_deg_el   = -1.,
                      rectification_model = 'LENSMODEL_LATLON',
@@ -373,8 +372,8 @@ ARGUMENTS
   Defaults to 0.
 
 - az_edge_margin_deg: optional angle, the nearest the rectified view is allowed
-  to approach az = -90 or az = +90. Defaults to 20deg, for a maximum az field of
-  view of 140deg. Applies ONLY to LENSMODEL_LATLON rectification
+  to approach az = -90 or az = +90. Defaults to 10deg, for a maximum az field of
+  view of 160deg. Applies ONLY to LENSMODEL_LATLON rectification
 
 - pixels_per_deg_az: optional value for the azimuth resolution of the rectified
   image. If a resolution of >0 is requested, the value is used as is. If a

@@ -225,11 +225,11 @@ def parse_args():
                         lies along the mean forward direction of the two
                         cameras" Defaults to 0.''')
     parser.add_argument('--az-edge-margin-deg',
-                        default = 20.,
+                        default = 10.,
                         type=float,
                         help='''The nearest the rectified view is allowed to
-                        approach az = -90 or az = +90. Defaults to 20deg, for a
-                        maximum az field of view of 140deg. Applies ONLY to
+                        approach az = -90 or az = +90. Defaults to 10deg, for a
+                        maximum az field of view of 160deg. Applies ONLY to
                         LENSMODEL_LATLON rectification.''')
     parser.add_argument('--pixels-per-deg',
                         help='''The resolution of the rectified images. This is

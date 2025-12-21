@@ -73,7 +73,7 @@ bool mrcal_rectified_system2(// output
                             bool   el0_deg_autodetect,
                             bool   az_fov_deg_autodetect,
                             bool   el_fov_deg_autodetect);
-// legacy function. Uses az_edge_margin_deg=20.0 without providing an argument
+// legacy function. Uses az_edge_margin_deg=10.0 without providing an argument
 bool mrcal_rectified_system(// output
                             unsigned int*     imagersize_rectified,
                             double*           fxycxy_rectified,

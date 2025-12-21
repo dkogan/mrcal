@@ -481,7 +481,7 @@ bool mrcal_rectified_system2(// output
     return true;
 }
 
-// legacy function. Uses az_edge_margin_deg=20.0 without providing an argument
+// legacy function. Uses az_edge_margin_deg=10.0 without providing an argument
 bool mrcal_rectified_system(// output
                             unsigned int*     imagersize_rectified,
                             double*           fxycxy_rectified,
@@ -514,7 +514,7 @@ bool mrcal_rectified_system(// output
                             bool   az_fov_deg_autodetect,
                             bool   el_fov_deg_autodetect)
 {
-    const double az_edge_margin_deg = 20.0;
+    const double az_edge_margin_deg = 10.0;
     return mrcal_rectified_system2(// output
                             imagersize_rectified,
                             fxycxy_rectified,
