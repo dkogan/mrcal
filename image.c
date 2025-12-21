@@ -229,7 +229,7 @@ bool generic_load(// output
                   // mrcal_image_uint8_t  if bits_per_pixel == 8
                   // mrcal_image_uint16_t if bits_per_pixel == 16
                   // mrcal_image_bgr_t    if bits_per_pixel == 24
-                  void* _image,
+                  mrcal_image_void_t* image,
                   // if >0: this is the requested bits_per_pixel. If == 0: we
                   // get this from the input image, and set the value on the
                   // return
@@ -240,8 +240,6 @@ bool generic_load(// output
 {
     bool result = false;
 
-    // might not be "uint8_t" necessarily, but all the fields still line up
-    mrcal_image_uint8_t* image = NULL;
     unsigned char* image_buf = NULL;
     int width=0, height=0, channels=0;
 
@@ -365,10 +363,6 @@ bool generic_load(// output
         goto done;
     }
 
-    // This may actually be a different mrcal_image_xxx_t type, but all the
-    // fields line up anyway
-    image = (mrcal_image_uint8_t*)_image;
-
     image->width  = width;
     image->height = height;
     image->stride = width * (*bits_per_pixel)/8;
@@ -399,7 +393,7 @@ bool mrcal_image_uint8_load(// output
                            const char* filename)
 {
     int bits_per_pixel = 8;
-    return generic_load(image, &bits_per_pixel, filename);
+    return generic_load((mrcal_image_void_t*)image, &bits_per_pixel, filename);
 }
 
 bool mrcal_image_uint16_load(// output
@@ -409,7 +403,7 @@ bool mrcal_image_uint16_load(// output
                             const char* filename)
 {
     int bits_per_pixel = 16;
-    return generic_load(image, &bits_per_pixel, filename);
+    return generic_load((mrcal_image_void_t*)image, &bits_per_pixel, filename);
 }
 
 bool mrcal_image_bgr_load  (// output
@@ -419,7 +413,7 @@ bool mrcal_image_bgr_load  (// output
                            const char* filename)
 {
     int bits_per_pixel = 24;
-    return generic_load(image, &bits_per_pixel, filename);
+    return generic_load((mrcal_image_void_t*)image, &bits_per_pixel, filename);
 }
 
 bool mrcal_image_anytype_load(// output
@@ -431,7 +425,7 @@ bool mrcal_image_anytype_load(// output
                               const char* filename)
 {
     *bits_per_pixel = 0;
-    if(!generic_load(image, bits_per_pixel, filename))
+    if(!generic_load((mrcal_image_void_t*)image, bits_per_pixel, filename))
         return false;
 
     switch(*bits_per_pixel)
