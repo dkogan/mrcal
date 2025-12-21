@@ -33,23 +33,48 @@ atexit.register(cleanup)
 
 W,H = 133,211
 
-im8 = np.arange(W*H, dtype=np.uint8).reshape(H,W)
-im8 *= im8
+images = dict()
+images[8] = np.arange(W*H, dtype=np.uint8).reshape(H,W)
+images[8] *= images[8]
 
-im16 = np.arange(W*H, dtype=np.uint16).reshape(H,W)
-im16 *= im16
+images[16] = np.arange(W*H, dtype=np.uint16).reshape(H,W)
+images[16] *= images[16]
 
-im24 = np.arange(W*H*3, dtype=np.uint8).reshape(H,W,3)
-im24 *= im24
+images[24] = np.arange(W*H*3, dtype=np.uint8).reshape(H,W,3)
+images[24] *= images[24]
 
 filename = f"{workdir}/tst.png"
 
-for im,what in ( (im8,  "8bpp grayscale"),
-                 (im16, "16bpp grayscale"),
-                 (im24, "24bpp bgr")):
+
+def check_load(filename, image, what):
+    try:
+        image_check = mrcal.load_image(filename)
+    except:
+        testutils.confirm(False,
+                          msg = f"Error loading {what} image")
+        return
+    testutils.confirm(True,
+                      msg = f"Success loading {what} image")
+
+    # print(image.shape)
+    # print(image_check.shape)
+    # print(image.dtype)
+    # print(image_check.dtype)
+
+    testutils.confirm_equal(image, image_check,
+                            worstcase=True,
+                            msg = f"load/save match for {what}")
+
+
+
+for bpp,what in ( (8,  "8bpp grayscale"),
+                 (16, "16bpp grayscale"),
+                 (24, "24bpp bgr")):
+
+    image = images[bpp]
 
     try:
-        mrcal.save_image(filename, im)
+        mrcal.save_image(filename, image)
     except:
         testutils.confirm(False,
                           msg = f"Error saving {what} image")
@@ -57,22 +82,6 @@ for im,what in ( (im8,  "8bpp grayscale"),
     testutils.confirm(True,
                       msg = f"Success saving {what} image")
 
-    try:
-        im_check = mrcal.load_image(filename)
-    except:
-        testutils.confirm(False,
-                          msg = f"Error loading {what} image")
-        continue
-    testutils.confirm(True,
-                      msg = f"Success loading {what} image")
-
-    # print(im.shape)
-    # print(im_check.shape)
-    # print(im.dtype)
-    # print(im_check.dtype)
-
-    testutils.confirm_equal(im, im_check,
-                            worstcase=True,
-                            msg = f"load/save match for {what}")
+    check_load(filename,image,what)
 
 testutils.finish()
