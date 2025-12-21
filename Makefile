@@ -92,7 +92,7 @@ BIN_SOURCES +=					\
   test/test-parser-cameramodel.c                \
   test/test-heap.c
 
-LDLIBS += -ldogleg -lstb -llapack
+LDLIBS += -ldogleg -lstb -lpng -llapack
 
 ifneq (${USE_LIBELAS},) # using libelas
 LDLIBS += -lelas

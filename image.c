@@ -10,6 +10,11 @@
 #include <stb/stb_image.h>
 #include <stb/stb_image_write.h>
 
+// stb_image_write() cannot write 16-bit png files. So I use stb for everything
+// except for writing png files. Using libpng to write all .png
+#include <png.h>
+
+
 #include <string.h>
 #include <strings.h>
 #include <stdlib.h>
@@ -35,16 +40,52 @@ void bgr_tofrom_rgb(mrcal_image_bgr_t* image)
     }
 }
 
+const char* get_extension(const char* filename)
+{
+    const int filename_len = strlen(filename);
+    if(filename_len < 5)
+    {
+        MSG("Image must be xxx.png or xxx.jpg; the name is too short");
+        return NULL;
+    }
+
+    return &filename[filename_len - 4];
+}
+
 static
-bool generic_save(const char* filename,
-                  const void* _image,
-                  int bits_per_pixel)
+bool generic_save_png(const char* filename,
+                      const mrcal_image_void_t* image,
+                      const int bits_per_pixel,
+                      const int channels)
 {
     bool result = false;
 
-    // This may actually be a different mrcal_image_xxx_t type, but all the
-    // fields line up anyway
-    mrcal_image_uint8_t* image = (mrcal_image_uint8_t*)_image;
+    png_image pimage = { .version = PNG_IMAGE_VERSION,
+                         .width   = image->width,
+                         .height  = image->height,
+                         .format  =
+                             bits_per_pixel == 24 ? PNG_FORMAT_RGB :
+                                 (bits_per_pixel == 16 ? PNG_FORMAT_LINEAR_Y : PNG_FORMAT_GRAY) };
+    if(!png_image_write_to_file(&pimage, filename, 0, image->data,
+                                bits_per_pixel == 16 ? image->stride/2 : image->stride,
+                                NULL))
+    {
+        MSG("png_image_write_to_file('%s') failed", filename);
+        goto done;
+    }
+    result = true;
+
+done:
+    png_image_free(&pimage);
+    return result;
+}
+
+static
+bool generic_save(const char* filename,
+                  /* This really is const */ mrcal_image_void_t* image,
+                  const int bits_per_pixel)
+{
+    bool result = false;
     char* buf = NULL;
 
     if(image->w == 0 || image->h == 0)
@@ -79,34 +120,25 @@ bool generic_save(const char* filename,
         else
             for(int i=0; i<image->h; i++)
                 memcpy(&buf[i*image->width*3],
-                       &image->data[i*image->stride],
+                       &((uint8_t*)image->data)[i*image->stride],
                        image->width*3);
         image->data = (uint8_t*)buf;
         image->stride = image->width*3;
         bgr_tofrom_rgb( (mrcal_image_bgr_t*)image);
     }
 
-    const int filename_len = strlen(filename);
-    if(filename_len < 5)
+    // stb_image_write() cannot write 16-bit png files. So I use stb for
+    // everything except for writing png files. Using libpng to write all .png
+    const char* extension = get_extension(filename);
+    if(extension == NULL) goto done;
+
+    if(0 == strcasecmp(extension, ".png"))
     {
-        MSG("Image must be xxx.png or xxx.jpg; the name is too short");
+        result = generic_save_png(filename, image, bits_per_pixel, channels);
         goto done;
     }
 
-    const char* extension = &filename[filename_len - 4];
-    if(0 == strcasecmp(extension, ".png"))
-    {
-        if(!stbi_write_png(filename,
-                           image->w, image->h,
-                           channels,
-                           image->data,
-                           image->stride))
-        {
-            MSG("stbi_write_png(\"%s\") failed", filename);
-            goto done;
-        }
-    }
-    else if(0 == strcasecmp(extension, ".jpg"))
+    if(0 == strcasecmp(extension, ".jpg"))
     {
         if(image->stride != image->width*bits_per_pixel/8)
         {
@@ -123,6 +155,11 @@ bool generic_save(const char* filename,
             goto done;
         }
     }
+    else
+    {
+        MSG("The path being written MUST be XXX.png or XXX.jpg");
+        goto done;
+    }
     result = true;
 
  done:
@@ -132,17 +169,17 @@ bool generic_save(const char* filename,
 
 bool mrcal_image_uint8_save (const char* filename, const mrcal_image_uint8_t* image)
 {
-    return generic_save(filename, image, 8);
+    return generic_save(filename, (mrcal_image_void_t*)image, 8);
 }
 
 bool mrcal_image_uint16_save(const char* filename, const mrcal_image_uint16_t* image)
 {
-    return generic_save(filename, image, 16);
+    return generic_save(filename, (mrcal_image_void_t*)image, 16);
 }
 
 bool mrcal_image_bgr_save(const char* filename, const mrcal_image_bgr_t* image)
 {
-    return generic_save(filename, image, 24);
+    return generic_save(filename, (mrcal_image_void_t*)image, 24);
 }
 
 
