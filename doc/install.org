@@ -1,8 +1,9 @@
 #+title: Building or installing
 
-I provide packages for a number of distros. If possible, please use these
-instead of building from source. If you're interested in packages for a
-not-yet-supported distro, please contribute! You can email me for help.
+I provide packages for a number of Linux distros. These packages are the
+recommended method of installing mrcal. If you're interested in support for some
+other Linux distro or some other distribution method or even a non-Linux OS,
+send me a message. We can work something out.
 
 * Installing from packages
 :PROPERTIES:
@@ -18,8 +19,9 @@ and the Python library can be installed with
 apt install mrcal libmrcal-dev python3-mrcal
 #+end_src
 
-For other distros or if you want to get the latest release of mrcal, you can use
-the mrcal APT repository. I currently distribute packages for
+The older distros will have older builds of mrcal. To get the most recent mrcal
+packages, you can use the mrcal APT repository. I currently distribute packages
+for
 
 - Debian/trixie (13)
 - Debian/bookworm (12)
