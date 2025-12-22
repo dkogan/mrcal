@@ -61,6 +61,13 @@ undocumented, until they're done and finally appear in mrcal 3.0:
 
 - [[file:mrcal-python-api-reference.html#-show_distortion_off_pinhole_radial][=mrcal.show_distortion_off_pinhole_radial()=]] works with non-opencv models
 
+- The image load/save functions no longer use [[https://freeimage.sourceforge.io/][libfreeimage]], since that library
+  is no longer maintained. I'm using [[https://github.com/nothings/stb][libstb]] for image-reading and [[https://www.libpng.org/pub/png/libpng.html][libpng]] and
+  [[https://libjpeg-turbo.org/][libjpeg-turbo]] for image-writing. libstb can write images too, but there were
+  several limitations that made it necessary to use the dedicated libraries.
+  This means that currently I can write /only/ =.png= and =.jpg= images. This
+  can be extended if needed.
+
 ** C API 
 Some guts of the calibration machinery have been ported to C and exposed as C
 functions:

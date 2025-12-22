@@ -96,9 +96,6 @@ these are available in most distros. Things that may not be:
 - [[https://github.com/dkogan/GL_image_display][=python3-gl-image-display=]]: an image widget for FLTK. Optional. Used only in
   the visualizer in the [[file:mrcal-stereo.html][=mrcal-stereo=]] tool.
 
-- [[https://freeimage.sourceforge.io/][=libfreeimage-dev=]]: an image reading/writing library. Most distros have this
-  available.
-
 - [[https://www.cvlibs.net/software/libelas/][=libelas-dev=]]: the ELAS stereo matcher. Used as an option in the
   [[file:mrcal-stereo.html][=mrcal-stereo=]] tool. Optional.
 

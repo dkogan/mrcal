@@ -522,9 +522,10 @@ bool mrcal_image_T_save (const char* filename, const mrcal_image_T_t*  image);
 bool mrcal_image_T_load( mrcal_image_T_t*  image, const char* filename);
 #+end_src
 
-These use the [[https://freeimage.sourceforge.io/][freeimage library]]. These functions aren't interesting, or better
-than any other functions you may have already. The declarations are in
-[[https://www.github.com/dkogan/mrcal/blob/master/image.h][=mrcal/image.h=]], and the documentation lives there.
+These use libraries for their core functionality, and are here for convenience.
+These aren't interesting, or better than any other functions you may have
+already; if you already have an image read/write implementation, use it. The
+declarations are in [[https://www.github.com/dkogan/mrcal/blob/master/image.h][=mrcal/image.h=]], and the documentation lives there.
 
 * Heat maps
 mrcal can produce a colored visualization of any of the image types defined
