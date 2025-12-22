@@ -8,6 +8,7 @@
 
 #define STBI_NO_HDR 1
 #include <stb/stb_image.h>
+//#include <stb/stb_image_write.h>
 
 // stb_image_write() cannot write 16-bit png files. So I use stb for everything
 // except for writing png files. Using libpng to write all .png
