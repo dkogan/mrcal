@@ -8,11 +8,15 @@
 
 #define STBI_NO_HDR 1
 #include <stb/stb_image.h>
-#include <stb/stb_image_write.h>
 
 // stb_image_write() cannot write 16-bit png files. So I use stb for everything
 // except for writing png files. Using libpng to write all .png
 #include <png.h>
+
+// stb_image_write() cannot write 8-bit jpg files AS 8-BIT FILES. It always
+// writes color. So I do this myself for jpeg files.
+#include <jpeglib.h>
+#include <setjmp.h>
 
 
 #include <string.h>
@@ -80,6 +84,78 @@ done:
     return result;
 }
 
+
+// Error handling in libjpeg
+struct my_error_mgr {
+    struct jpeg_error_mgr pub;
+    jmp_buf setjmp_buffer;
+};
+static void my_error_exit(j_common_ptr cinfo) {
+    struct my_error_mgr* myerr = (struct my_error_mgr *)cinfo->err;
+    (*cinfo->err->output_message) (cinfo);
+    longjmp(myerr->setjmp_buffer, 1);
+}
+static
+bool generic_save_jpg(const char* filename,
+                      const mrcal_image_void_t* image,
+                      const int bits_per_pixel,
+                      const int channels)
+{
+    if(bits_per_pixel == 16)
+    {
+        MSG("16bpp jpeg not supported");
+        return false;
+    }
+
+    bool result = false;
+
+    FILE* fp = NULL;
+
+    if(NULL == (fp = fopen(filename, "wb")))
+    {
+        MSG("Couldn't open '%s'", filename);
+        return false;
+    }
+
+    struct my_error_mgr jerr = {};
+    struct jpeg_compress_struct cinfo = {.err = jpeg_std_error(&jerr.pub)};
+    jerr.pub.error_exit = my_error_exit;
+
+    if (setjmp(jerr.setjmp_buffer))
+    {
+        jpeg_destroy_compress(&cinfo);
+        fclose(fp);
+        return false;
+    }
+
+    jpeg_create_compress(&cinfo);
+    jpeg_stdio_dest(&cinfo, fp);
+
+    cinfo.image_width      = image->width;
+    cinfo.image_height     = image->height;
+    cinfo.input_components = channels;
+    cinfo.in_color_space   = channels == 1 ? JCS_GRAYSCALE : JCS_RGB;
+
+    jpeg_set_defaults(&cinfo);
+    jpeg_set_quality(&cinfo, 96, TRUE);
+    if(channels == 3)
+        cinfo.jpeg_color_space = JCS_YCbCr;
+    jpeg_start_compress(&cinfo, TRUE);
+
+    JSAMPROW row_pointer[1];
+    while (cinfo.next_scanline < cinfo.image_height) {
+        row_pointer[0] = &((uint8_t*)image->data)[cinfo.next_scanline * image->stride];
+        jpeg_write_scanlines(&cinfo, row_pointer, 1);
+    }
+
+    jpeg_finish_compress(&cinfo);
+    fclose(fp);
+    jpeg_destroy_compress(&cinfo);
+
+    return true;
+}
+
+
 static
 bool generic_save(const char* filename,
                   /* This really is const */ mrcal_image_void_t* image,
@@ -137,9 +213,11 @@ bool generic_save(const char* filename,
         result = generic_save_png(filename, image, bits_per_pixel, channels);
         goto done;
     }
-
     if(0 == strcasecmp(extension, ".jpg"))
     {
+#if 0
+        // Not using stbi_write_jpg() to do this because it always saves color
+        // jpg files. Even if I give it grayscale input
         if(image->stride != image->width*bits_per_pixel/8)
         {
             MSG("jpg writing requires a densely-stored image");
@@ -154,8 +232,14 @@ bool generic_save(const char* filename,
             MSG("stbi_write_jpg(\"%s\") failed", filename);
             goto done;
         }
+        result = true;
+
+#else
+        result = generic_save_jpg(filename, image, bits_per_pixel, channels);
+#endif
+        goto done;
     }
-    else
+
     {
         MSG("The path being written MUST be XXX.png or XXX.jpg");
         goto done;
