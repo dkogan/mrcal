@@ -250,13 +250,13 @@ bool generic_load(// output
         goto done;
     }
 
-    if(*bits_per_pixel == 0)
+    int bits_per_pixel_detected = -1;
+    int channels_detected       = -1;
     {
-        // autodetect *bits_per_pixel. This path is ONLY for *bits_per_pixel.
-        // The actual work is done in the if() below
-        int width,height,channels;
+        // autodetect the image parameters
+        int width,height;
 
-        if(!stbi_info_from_file(fp, &width, &height, &channels))
+        if(!stbi_info_from_file(fp, &width, &height, &channels_detected))
         {
             MSG("Couldn't load image: stbi_info_from_file(\"%s\") failed", filename);
             goto done;
@@ -265,10 +265,10 @@ bool generic_load(// output
 #warning rgba
         if(!is_16bit)
         {
-            if(channels == 3)
-                *bits_per_pixel = 24;
-            else if(channels == 1)
-                *bits_per_pixel = 8;
+            if(channels_detected == 3)
+                bits_per_pixel_detected = 24;
+            else if(channels_detected == 1)
+                bits_per_pixel_detected = 8;
             else
             {
                 MSG("Couldn't load image \"%s\" 8-bit image: I only support 1-channel and 3-channel images", filename);
@@ -277,8 +277,8 @@ bool generic_load(// output
         }
         else
         {
-            if(channels == 1)
-                *bits_per_pixel = 16;
+            if(channels_detected == 1)
+                bits_per_pixel_detected = 16;
             else
             {
                 MSG("Couldn't load image \"%s\" 16-bit image: I only support 1-channel", filename);
@@ -286,6 +286,27 @@ bool generic_load(// output
             }
         }
     }
+    if(*bits_per_pixel == 0)
+        *bits_per_pixel = bits_per_pixel_detected;
+    else
+    {
+        if(bits_per_pixel_detected == 8 && *bits_per_pixel == 16)
+        {
+            MSG("Loading 8-bit image as a 16-bit image not supported");
+            goto done;
+        }
+        if(bits_per_pixel_detected == 16 && *bits_per_pixel == 24)
+        {
+            MSG("Loading 16-bit image as a 24-bit image not supported");
+            goto done;
+        }
+        if(bits_per_pixel_detected == 24 && *bits_per_pixel == 16)
+        {
+            MSG("Loading 24-bit image as a 16-bit image not supported");
+            goto done;
+        }
+    }
+
 
     if(*bits_per_pixel == 8)
     {
