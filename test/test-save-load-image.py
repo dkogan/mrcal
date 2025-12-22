@@ -43,12 +43,13 @@ images[16] *= images[16]
 images[24] = np.arange(W*H*3, dtype=np.uint8).reshape(H,W,3)
 images[24] *= images[24]
 
-filename = f"{workdir}/tst.png"
+filename_pattern = f"{workdir}/tst.{{extension}}"
 
 
 def _check_load(filename, image_ref, what,
-                should_fail_load = False,
-                compare_value    = True,
+                should_fail_load    = False,
+                compare_value       = True,
+                extension           = None,
                 **kwargs):
 
     if should_fail_load:
@@ -99,20 +100,40 @@ def _check_load(filename, image_ref, what,
                                     msg = "dtype match. Loading 24bpp-3channel image")
 
     if compare_value:
-        if bpp_load == 24:
+        # jpg is approximate
+        if extension == 'jpg':
+            eps = 10
+            percentile = 95
+            worstcase  = False
+        else:
+            eps = 1e-6
+            percentile = None
+            worstcase  = True
+
+        if bpp_load == 24 and image_ref.ndim==2:
             image_ref = nps.glue( nps.dummy(image_ref,-1),
                                   nps.dummy(image_ref,-1),
                                   nps.dummy(image_ref,-1),
                                   axis = -1)
-        testutils.confirm_equal(image_ref, image_check,
-                                worstcase=True,
+        # signed cast to make approximate comparisons work. Otherwise <0 wraps
+        # around
+        testutils.confirm_equal(image_ref.astype(np.int32), image_check.astype(np.int32),
+                                worstcase  = worstcase,
+                                eps        = eps,
+                                percentile = percentile,
                                 msg = f"load/save match for {what}")
 
 
 
-for bpp,what in ( (8,  "8bpp grayscale"),
-                 (16, "16bpp grayscale"),
-                 (24, "24bpp bgr")):
+
+
+for bpp,extension,what in ( (8,  'png', "8bpp  png grayscale"),
+                            (16, 'png', "16bpp png grayscale"),
+                            (24, 'png', "24bpp png bgr"),
+                            (8,  'jpg', "8bpp  jpg grayscale"),
+                            (24, 'jpg', "24bpp jpg bgr")):
+
+    filename = filename_pattern.format(extension=extension)
 
     image = images[bpp]
 
@@ -129,10 +150,12 @@ for bpp,what in ( (8,  "8bpp grayscale"),
         if 'bits_per_pixel' not in kwargs:
             _check_load(filename, image,
                         what,
+                        extension = extension,
                         **kwargs)
         else:
             _check_load(filename, image,
                         f"{what} (loading as {kwargs['bits_per_pixel']}bpp)",
+                        extension = extension,
                         **kwargs)
 
     check_load()
