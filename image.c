@@ -140,7 +140,7 @@ bool generic_save_jpg(const char* filename,
     jpeg_set_defaults(&cinfo);
     jpeg_set_quality(&cinfo, 96, TRUE);
     if(channels == 3)
-        cinfo.jpeg_color_space = JCS_YCbCr;
+        jpeg_set_colorspace(&cinfo, JCS_RGB);
     jpeg_start_compress(&cinfo, TRUE);
 
     JSAMPROW row_pointer[1];
