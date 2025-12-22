@@ -346,16 +346,15 @@ bool generic_load(// output
             goto done;
         }
         bool is_16bit = (bool)stbi_is_16_bit_from_file(fp);
-#warning rgba
         if(!is_16bit)
         {
-            if(channels_detected == 3)
+            if(channels_detected == 3 || channels_detected == 4)
                 bits_per_pixel_detected = 24;
             else if(channels_detected == 1)
                 bits_per_pixel_detected = 8;
             else
             {
-                MSG("Couldn't load image \"%s\" 8-bit image: I only support 1-channel and 3-channel images", filename);
+                MSG("Couldn't load image \"%s\" 8-bit image: I only support 1-channel and 3-channel images and 4-channel images (alpha ignored)", filename);
                 goto done;
             }
         }
