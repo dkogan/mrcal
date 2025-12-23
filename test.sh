@@ -1,5 +1,10 @@
 #!/usr/bin/env zsh
 
+GREEN="\x1b[32m"
+RED="\x1b[31m"
+COLOR_RESET="\x1b[0m"
+
+
 # The test suite no longer runs in parallel, but it ALWAYS tries to run all the
 # tests, even without 'make -k'
 TESTS=("test/test-pywrap-functions.py"
@@ -114,11 +119,15 @@ for t ($TESTS_selected) {
 }
 
 if (( $#FAILED )) {
+  echo -n $RED
   echo "$#FAILED TEST SETS FAILED:"
   for t ($FAILED) { echo "  $t" }
+  echo -n $COLOR_RESET
   exit 1
 
 } else {
+  echo -n $GREEN
   echo "ALL TEST SETS PASSED!"
+  echo -n $COLOR_RESET
   exit 0
 }
