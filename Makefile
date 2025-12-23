@@ -198,8 +198,16 @@ DIST_PY3_MODULES := mrcal
 all: mrcal/_mrcal$(PY_EXT_SUFFIX) $(ALL_NPSP_SO)
 EXTRA_CLEAN += mrcal/*.$(SO)
 
+
+TESTS_ALL_TARGETS := test-all test-nosampling test-triangulation-uncertainty test-external-data
+$(TESTS_ALL_TARGETS): all
+	./test.sh $@
+.PHONY: $(TESTS_ALL_TARGETS)
+test:
+	@echo "Which test set should we run? I know about '$(TESTS_ALL_TARGETS)'" > /dev/stderr; false
+.PHONY: test
+
 include Makefile.doc
-include Makefile.tests
 
 include $(MRBUILD_MK)/Makefile.common.footer
 
