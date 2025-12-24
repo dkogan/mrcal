@@ -109,12 +109,16 @@ if ((1 != $#)) {
 test_type=${${${(L)1}#test-}//-/_}
 TESTS_name="TESTS_$test_type"
 TESTS_selected=("${(@P)TESTS_name}")
-echo "Running $TESTS_name: $#TESTS_selected tests"
+
+Ntests=$#TESTS_selected
+echo "Running $TESTS_name: $Ntests tests"
 
 
 FAILED=()
-for t ($TESTS_selected) {
-  echo "========== RUNNING: $t"
+for i ({1..$#TESTS_selected}) {
+  t=$TESTS_selected[i];
+
+  echo "========== Test $i/$Ntests: $t"
   ${=t} || FAILED+=($t)
 }
 
