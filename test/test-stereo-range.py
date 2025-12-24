@@ -44,8 +44,12 @@ el0_deg                = 0
 
 
 
-models = [mrcal.cameramodel(f) \
-          for f in model_filenames]
+try:
+    models = [mrcal.cameramodel(f) \
+              for f in model_filenames]
+except FileNotFoundError:
+    print("Data not found. Commands to download appear at the top of this script")
+    sys.exit(1)
 
 images = [mrcal.load_image(f, bits_per_pixel = 8, channels = 1) \
           for f in image_filenames]
