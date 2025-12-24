@@ -232,6 +232,195 @@ Date:   Thu Aug 10 14:30:58 2023 -0700
   - Does too little data give smaller residuals? It should. Is this reflected in
     the sqrt() factor?
 
+** test-projection-uncertainty improvements
+"--fixed frames" and --moving-camera and --points should be consolidated into a
+clearer set of things. I should be able to have the surveyed calibration
+uncertainty test in test-projection-uncertainty, but that doesn't currently
+work. The best-effort is the below patch:
+
+#+begin_src diff
+diff --git a/test/test-projection-uncertainty.py b/test/test-projection-uncertainty.py
+index 8cc40962..2ac9d2c7 100755
+--- a/test/test-projection-uncertainty.py
++++ b/test/test-projection-uncertainty.py
+@@ -379,17 +379,72 @@ x_baseline_optimized = \
+ 
+ lensmodel       = optimization_inputs_baseline['lensmodel']
+ imagersizes     = optimization_inputs_baseline['imagersizes']
+ intrinsics_true = nps.cat( *[m.intrinsics()[1] \
+                              for m in models_true] )
+ 
+-models_baseline = \
+-    [ mrcal.cameramodel( optimization_inputs = optimization_inputs_baseline,
+-                         icam_intrinsics     = i) \
+-      for i in range(args.Ncameras) ]
+ 
++print(f"rt_cam_ref.shape: {optimization_inputs_baseline['rt_cam_ref'].shape}")
++if optimization_inputs_baseline.get('indices_frame_camintrinsics_camextrinsics') is not None:
++    print(f"indices_frame_camintrinsics_camextrinsics.shape: {optimization_inputs_baseline['indices_frame_camintrinsics_camextrinsics'].shape}")
++else:
++    print(f"indices_point_camintrinsics_camextrinsics.shape: {optimization_inputs_baseline['indices_point_camintrinsics_camextrinsics'].shape}")
++
++
++if False:
++    ####### this can't be written in all cases:
++    # test/test-projection-uncertainty.py \
++    #   --fixed frames \
++    #   --model opencv4 \
++    #   --Ncameras 1 \
++    #   --range-to-boards 4 \
++    #   --points
++    # mrcal.c(3944): Cannot compute icam_extrinsics. I don't have a vanilla calibration problem (stationary cameras, cam0 is reference)
++    # Traceback (most recent call last):
++    #   File "/home/dima/projects/mrcal/test/test-projection-uncertainty.py", line 389, in <module>
++    #     [ mrcal.cameramodel( optimization_inputs = optimization_inputs_baseline,
++    #       ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
++    #                          icam_intrinsics     = i) \
++    #                          ^^^^^^^^^^^^^^^^^^^^^^^^
++    #   File "/home/dima/projects/mrcal/test/../mrcal/cameramodel.py", line 1249, in __init__
++    #     icam_extrinsics = mrcal.corresponding_icam_extrinsics(icam_intrinsics,
++    #                                                           **optimization_inputs)
++    # RuntimeError: mrcal-pywrap.c:3277 callback_corresponding_icam_extrinsics(): Error calling mrcal_corresponding_icam_extrinsics()
++    models_baseline = \
++        [ mrcal.cameramodel( optimization_inputs = optimization_inputs_baseline,
++                             icam_intrinsics     = i) \
++          for i in range(args.Ncameras) ]
++else:
++    # This path causes a crash:
++    # test/test-projection-uncertainty.py \
++    #   --fixed cam0 \
++    #   --model opencv4 \
++    #   --do-sample \
++    #   --observed-pixel-uncertainty 0.03 \
++    #   --reproject-perturbed cross-reprojection-rrp-Jfp \
++    #   --points
++    # Traceback (most recent call last):
++    #   File "/home/dima/projects/mrcal/test/test-projection-uncertainty.py", line 394, in <module>
++    #     [ mrcal.cameramodel( optimization_inputs = optimization_inputs_baseline,
++    #       ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
++    #                          icam_intrinsics = 0,
++    #                          ^^^^^^^^^^^^^^^^^^^^
++    #                          icam_extrinsics = i) \
++    #                          ^^^^^^^^^^^^^^^^^^^^
++    #   File "/home/dima/projects/mrcal/test/../mrcal/cameramodel.py", line 1254, in __init__
++    #     self.rt_cam_ref(optimization_inputs['rt_cam_ref'][icam_extrinsics])
++    models_baseline = \
++        [ mrcal.cameramodel( optimization_inputs = optimization_inputs_baseline,
++                             icam_intrinsics = 0,
++                             icam_extrinsics = i) \
++          for i in range(args.Ncameras) ]
++##### the extra test in Makefile.tests does not pass. I try to do
++##### fixed-points-only uncertainty. It should work. test-surveyed-calibration
++##### does the same thing (I think) and that does work. The only difference is
++##### that that test has only a single camera pose
+ 
+ # I evaluate the projection uncertainty of this vector. In each camera. I'd like
+ # it to be center-ish, but not AT the center. So I look at 1/3 (w,h). I want
+ # this to represent a point in a globally-consistent coordinate system. Here I
+ # have fixed frames, so using the reference coordinate system gives me that
+ # consistency. Note that I look at q0 for each camera separately, so I'm going
+@@ -2332,12 +2397,69 @@ else:                                                          reproject_perturb
+ # "method" argument for mrcal.projection_uncertainty()
+ if   re.match('^(mean-pcam|bestq)$', args.reproject_perturbed): method = args.reproject_perturbed
+ elif re.match('cross-reprojection',  args.reproject_perturbed): method = 'cross-reprojection-rrp-Jfp'
+ # default
+ else:                                                           method = 'mean-pcam'
+ 
++
++
++
++
++
++
++
++
++distance = args.distances[0]
++# shape (Ncameras, 3)
++p_cam_baseline = mrcal.unproject(q0_baseline, lensmodel, intrinsics_baseline,
++                                 normalize = True) * distance
++
++# shape (Ncameras, 3)
++p_ref_baseline = \
++    mrcal.transform_point_rt( mrcal.invert_rt(extrinsics_baseline_mounted),
++                              p_cam_baseline )
++p_ref_query = p_ref_baseline
++p_cam_query = \
++    mrcal.transform_point_rt(rt_cam_ref_true, p_ref_query)
++q = mrcal.project(p_cam_query, lensmodel, intrinsics_true)
++print(q[0])
++
++import IPython
++IPython.embed()
++sys.exit()
++
++# THE PROBLEM:
++#
++# extrinsics_baseline_mounted should be the reoptimized rt_cam_ref_true, but
++# they don't even have the same shape:
++r'''
++In [5]: extrinsics_baseline_mounted.shape
++Out[5]: (50, 6)
++
++In [10]: extrinsics_baseline_mounted[0]
++Out[10]: array([ 0.05111173,  0.22532253,  0.07174262, -0.00834507, -0.03635452,  0.20792226])
++
++In [11]: rt_cam_ref_true[0]
++Out[11]: array([0., 0., 0., 0., 0., 0.])
++
++In [12]: rt_cam_ref_true.shape
++Out[13]: (1, 6)
++
++'''
++
++
++
++
++
++
++
++
++
++
++
++
+ q0_true = dict()
+ for distance in args.distances:
+ 
+     # shape (Ncameras, 2)
+     q0_true_here = \
+         reproject_perturbed(q0_baseline,
+@@ -2401,13 +2525,13 @@ for icam in (0,3):
+                                       atinfinity = True,
+                                       method     = method,
+                                       observed_pixel_uncertainty = args.observed_pixel_uncertainty )
+ 
+     # I move the extrinsics of a model, write it to disk, and make sure the same
+     # uncertainties come back
+-    if True:
++    if False:
+         model_moved = mrcal.cameramodel(models_baseline[icam])
+         model_moved.rt_cam_ref([1., 2., 3., 4., 5., 6.])
+         model_moved.write(f'{workdir}/out.cameramodel')
+         model_read = mrcal.cameramodel(f'{workdir}/out.cameramodel')
+ 
+         icam_intrinsics_read = model_read.icam_intrinsics()
+#+end_src
+
+Running:
+
+#+begin_src sh
+test/test-projection-uncertainty.py \
+  --fixed frames \
+  --model opencv4 \
+  --Ncameras 1 \
+  --range-to-boards 4 \
+  --points
+#+end_src
+
+Doesn't work. q_baseline diverges a LOT from q_true. Something isn't right. This
+is already implemented and working in test-surveyed-calibration --do-sample. So
+the functionality is validated, it's the test that needs to be improved.
+
 
 * release checklist
 These are notes to myself containing the steps needed to roll a new release
