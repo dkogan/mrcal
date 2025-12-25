@@ -1542,13 +1542,13 @@ def projection_diff(models,
 
 SYNOPSIS
 
-    models = ( mrcal.cameramodel('cam0-dance0.cameramodel'),
-               mrcal.cameramodel('cam0-dance1.cameramodel') )
+    models = ( mrcal.cameramodel('dance0-cam0.cameramodel'),
+               mrcal.cameramodel('dance1-cam0.cameramodel') )
 
     difference,_,q0,_ = mrcal.projection_diff(models)
 
     print(q0.shape)
-    ==> (40,60)
+    ==> (40,60,2)
 
     print(difference.shape)
     ==> (40,60)
@@ -1557,7 +1557,7 @@ SYNOPSIS
     # each grid cell. 'difference' is the projection variation between the two
     # models at each cell
 
-The operation of this tool is documented at
+The operation of this function is documented at
 https://mrcal.secretsauce.net/differencing.html
 
 It is often useful to compare the projection behavior of two camera models. For
@@ -1766,7 +1766,6 @@ A tuple
     intrinsics_data = [model.intrinsics()[1] for model in models]
 
     for i in range(len(models)):
-        import re
         if mrcal.lensmodel_metadata_and_config(lensmodels[i])['noncentral'] and not \
            (re.match("LENSMODEL_CAHVORE_",models[i].intrinsics()[0]) and nps.norm2(models[i].intrinsics()[1][-3:]) < 1e-12):
             if not atinfinity:
