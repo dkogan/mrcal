@@ -908,8 +908,7 @@ def _append_observation_visualizations(plot_data_args,
                                        legend_prefix = '',
                                        pointtype,
                                        _2d,
-                                       # for splined models
-                                       reproject_to_stereographic = False):
+                                       reproject = None):
     optimization_inputs = model.optimization_inputs()
     if optimization_inputs is None:
         raise Exception("mrcal.show_...(observations=True) requires optimization_inputs to be available")
@@ -959,10 +958,8 @@ def _append_observation_visualizations(plot_data_args,
                           (q_cam_points_outliers, "red",   "point outliers"), ):
         if q is not None and len(q) > 0:
 
-            if reproject_to_stereographic:
-                q = mrcal.project_stereographic( \
-                        mrcal.unproject(q,
-                                        *model.intrinsics()))
+            if reproject is not None:
+                q = reproject(q)
 
             if pointtype < 0:
                 _with = f'dots lc "{color}"'
@@ -3009,7 +3006,8 @@ plot
                                            model         = model,
                                            pointtype     = -1 if observations == 'dots' else 1,
                                            _2d           = True,
-                                           reproject_to_stereographic = not imager_domain)
+                                           reproject     = None if imager_domain else \
+                                                           lambda q: mrcal.project_stereographic(mrcal.unproject(q,*model.intrinsics())))
 
     # Anything outside the valid region contour but inside the imager is an
     # invalid area: the field-of-view of the camera needs to be increased. I
