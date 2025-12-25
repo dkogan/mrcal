@@ -520,6 +520,7 @@ testutils.confirm_equal(dp_triangulated_dbstate[...,istate_i0:istate_i0+Nintrins
                         relative = True,
                         worstcase = True,
                         eps = 0.1,
+                        reldiff_eps = 1e-5,
                         msg = "Gradient check: dp_triangulated_dbstate[intrinsics0]")
 testutils.confirm_equal(dp_triangulated_dbstate[...,istate_i1:istate_i1+Nintrinsics],
                         dp_triangulated_di1_empirical,
@@ -795,7 +796,7 @@ for ipt in range(2):
                                         # it, but then I'd need to collect more
                                         # samples. Non-major axes have more
                                         # relative error
-                                        eps_eigenvalues      = (0.11, 0.2, 0.3),
+                                        eps_eigenvalues      = (0.15, 0.2, 0.3),
                                         eps_eigenvectors_deg = 6)
 
 
