@@ -1942,175 +1942,104 @@ def stereo_pair_diff(model_pairs,
                      gridn_width  = 60,
                      gridn_height = None,
                      distance     = None):
-    r'''Compute the difference in projection between N model_pairs
+    r'''Compute the difference in projection between 2 pairs of models
 
 SYNOPSIS
 
-    model_pairs = ( mrcal.cameramodel('cam0-dance0.cameramodel'),
-               mrcal.cameramodel('cam0-dance1.cameramodel') )
-
-    difference,_,q0,_ = mrcal.stereo_pair_diff(model_pairs)
+    model_pairs = (( "set1/camera-0.cameramodel", "set1/camera-3.cameramodel", ),
+                   ( "set2/camera-0.cameramodel", "set2/camera-3.cameramodel", ))
+    model_pairs = [[mrcal.cameramodel(m) for m in p] for p in model_pairs]
+    difference,diff,q0 = mrcal.stereo_pair_diff(model_pairs)
 
     print(q0.shape)
-    ==> (40,60)
+    ==> (40,60,2)
 
     print(difference.shape)
     ==> (40,60)
 
     # The differences are computed across a grid. 'q0' is the pixel centers of
-    # each grid cell. 'difference' is the projection variation between the two
-    # model_pairs at each cell
+    # each grid cell on the camera0 imager.
 
-The operation of this tool is documented at
-https://mrcal.secretsauce.net/differencing.html
+    'difference' show the mismatch of mapping q0 from camera0 to camera1
 
-It is often useful to compare the projection behavior of two camera model_pairs. For
-instance, one may want to validate a calibration by comparing the results of two
-different chessboard dances. Or one may want to evaluate the stability of the
-intrinsics in response to mechanical or thermal stresses. This function makes
-these comparisons, and returns the results. A visualization wrapper is
-available: mrcal.show_projection_diff() and the mrcal-show-projection-diff tool.
+THIS TOOL IS EXPERIMENTAL, AND LIKELY WILL BE CHANGED AND EXTENDED. MORE
+COMPLETE DOCUMENTATION WILL BE WRITTEN LATER
 
-In the most common case we're given exactly 2 model_pairs to compare, and we compute
-the differences in projection of each point. If we're given more than 2 model_pairs,
-we instead compute the standard deviation of the differences between model_pairs 1..N
-and model0.
+It is useful to evaluate the stability and uncertainty of a multi-camera system,
+looking at the intrinsics,extrinsics either separately or jointly. For instance,
+when deployed in the field a calibration may shift in the extrinsics (camera
+units moved) and/or intrinsics (lens moved), and it would be useful to quantify
+them individually. Up to now (version 2.5) mrcal has been concerned mostly with
+the intrinsics: the mean-pcam uncertainty method and
+implied_Rt10__from_unprojections() try to compensate for and eliminate the
+effect of extrinsic shifts in uncertainty and diff methods respectively.
+
+This stereo_pair_diff() tool extends this in one way: in a multi-camera
+calibration, it quantifies the joint intrinsics+extrinsics shift of a camera
+pair. At a given distance this tool reprojects pixels in camera0 to camera1,
+and compares the results of this reprojection. This is actually far simpler than
+the earlier intrinsics-only methods: no implied transform or reference-frame
+shift need to be considered. As of mrcal 2.5 we also have an extrinsics-only
+stereo-pair diff in an unreleased analyses/extrinsics-stability.py tool. No
+corresponding uncertainty method is implemented yet, but that is
+straightforward. All the methods will be implemented in a future mrcal release.
+They can then be studied to see what is useful to look at in practice.
+
+The reason mrcal started out with the more complex intrinsics-only methods is to
+support monocular calibrations: camera-camera extrinsics don't exist in this
+scenario.
 
 The top-level operation of this function:
 
-- Grid the imager
-- Unproject each point in the grid using one camera model
-- Apply a transformation to map this point from one camera's coord system to the
-  other. How we obtain this transformation is described below
-- Project the transformed points to the other camera
-- Look at the resulting pixel difference in the reprojection
-
-Sometimes we want to look at the intrinsics differences in isolation (if
-intrinsics_only), and sometimes we want to use the known geometry in the given
-model_pairs (not intrinsics_only and focus_radius == 0). If neither of these apply,
-we estimate the transformation: this is needed if we're comparing different
-calibration results from the same lens.
-
-Given different camera model_pairs, we have a different set of intrinsics for each.
-Extrinsics differ also, even if we're looking at different calibration of the
-same stationary lens: the position and orientation of the camera coordinate
-system in respect to the physical camera housing shift with each calibration.
-This geometric variation is baked into the intrinsics. So when we project "the
-same world point" into both cameras (as is desired when comparing repeated
-calibrations), we must apply a geometric transformation because we want to be
-comparing projections of world points (relative to the camera housing), not
-projections relative to the (floating) camera coordinate systems. This
-transformation is unknown, but we can estimate it by fitting projections across
-the imager: the "right" transformation would result in apparent low projection
-differences in a wide area.
-
-This transformation is computed by implied_Rt10__from_unprojections(), and some
-details of its operation are significant:
-
-- The imager area we use for the fit
-- Which world points we're looking at
+- Grid the camera0 imager
+- Unproject each of these grid points to a given distance from camera0. Each
+  pair has different camera0 intrinsics.
+- Apply a transformation to map these points from camera0 coords to camera1
+  coords. Each pair has its own transform
+- Project each point to camera1. Each pair has different camera1 intrinsics
+- Look at the resulting pixel difference in the camera1 reprojection
 
 In most practical usages, we would not expect a good fit everywhere in the
-imager: areas where no chessboards were observed will not fit well, for
-instance. From the point of view of the fit we perform, those ill-fitting areas
-should be treated as outliers, and they should NOT be a part of the solve. How
-do we specify the well-fitting area? The best way is to use the model
-uncertainties: these can be used to emphasize the confident regions of the
-imager. This behavior is selected with use_uncertainties=True, which is the
-default. If uncertainties aren't available, or if we want a faster solve, pass
-use_uncertainties=False. The well-fitting region can then be passed using the
-focus_center,focus_radius arguments to indicate the circle in the imager we care
-about.
+imager: areas where no chessboards were observed will not fit well, because the
+solves are uncertain there.
 
-If use_uncertainties then the defaults for focus_center,focus_radius are set to
-utilize all the data in the imager. If not use_uncertainties, then the defaults
-are to use a more reasonable circle of radius min(width,height)/6 at the center
-of the imager. Usually this is sufficiently correct, and we don't need to mess
-with it. If we aren't guided to the correct focus region, the
-implied-by-the-intrinsics solve will try to fit lots of outliers, which would
-result in an incorrect transformation, which in turn would produce overly-high
-reported diffs. A common case when this happens is if the chessboard
-observations used in the calibration were concentrated to the side of the image
-(off-center), no uncertainties were used, and the focus_center was not pointed
-to that area.
-
-Unlike the projection operation, the diff operation is NOT invariant under
-geometric scaling: if we look at the projection difference for two points at
-different locations along a single observation ray, there will be a variation in
-the observed diff. This is due to the geometric difference in the two cameras.
-If the model_pairs differed only in their intrinsics parameters, then this
-variation would not appear. Thus we need to know how far from the camera to
-look, and this is specified by the "distance" argument. By default (distance =
-None) we look out to infinity. If we care about the projection difference at
-some other distance, pass that here. Generally the most confident distance will
-be where the chessboards were observed at calibration time.
+This diff operation is NOT invariant under geometric scaling. As with the
+intrinsics-only diff reported by projection_diff(), the reported diff will be
+smallest at the range where the chessboards were observed.
 
 ARGUMENTS
 
-- model_pairs: iterable of mrcal.cameramodel objects we're comparing. Exactly
-  two pairs are expected. The intrinsics are always used; the extrinsics are
-  used only if not intrinsics_only and focus_radius==0
-
-- implied_Rt10: optional transformation to use to line up the camera coordinate
-  systems. Most of the time we want to estimate this transformation, so this
-  should be omitted or None. Currently this is supported only if exactly two
-  model_pairs are being compared.
+- model_pairs: iterable of 2 camera pairs. Each pair is an iterable ofr 2
+  mrcal.cameramodel objects. Exactly two pairs are expected. The intrinsics and
+  extrinsics are used. The corresponding cameras in the pairs must have the same
+  imager size, but the two cameras inside each pair may differ
 
 - gridn_width: optional value, defaulting to 60. How many points along the
-  horizontal gridding dimension
+  horizontal gridding dimension of the camera0 imager
 
-- gridn_height: how many points along the vertical gridding dimension. If None,
-  we compute an integer gridn_height to maintain a square-ish grid:
-  gridn_height/gridn_width ~ imager_height/imager_width
+- gridn_height: how many points along the vertical gridding dimension of the
+  camera0 imager. If None, we compute an integer gridn_height to maintain a
+  square-ish grid: gridn_height/gridn_width ~ imager_height/imager_width
 
-- intrinsics_only: optional boolean, defaulting to False. If True: we evaluate
-  the intrinsics of each lens in isolation by assuming that the coordinate
-  systems of each camera line up exactly
-
-- distance: optional value, defaulting to None. Has an effect only if not
-  intrinsics_only. The projection difference varies depending on the range to
-  the observed world points, with the queried range set in this 'distance'
-  argument. If None (the default) we look out to infinity.
-
-- use_uncertainties: optional boolean, defaulting to True. Used only if not
-  intrinsics_only and focus_radius!=0. If True we use the whole imager to fit
-  the implied-by-the-intrinsics transformation, using the uncertainties to
-  emphasize the confident regions. If False, it is important to select the
-  confident region using the focus_center and focus_radius arguments. If
-  use_uncertainties is True, but that data isn't available, we report a warning,
-  and try to proceed without.
-
-- focus_center: optional array of shape (2,); the imager center by default. Used
-  only if not intrinsics_only and focus_radius!=0. Used to indicate that the
-  implied-by-the-intrinsics transformation should use only those pixels a
-  distance focus_radius from focus_center. This is intended to be used if no
-  uncertainties are available, and we need to manually select the focus region.
-
-- focus_radius: optional value. If use_uncertainties then the default is LARGE,
-  to use the whole imager. Else the default is min(width,height)/6. Used to
-  indicate that the implied-by-the-intrinsics transformation should use only
-  those pixels a distance focus_radius from focus_center. This is intended to be
-  used if no uncertainties are available, and we need to manually select the
-  focus region. To avoid computing the transformation, either pass
-  focus_radius=0 (to use the extrinsics in the given model_pairs) or pass
-  intrinsics_only=True (to use the identity transform).
+- distance: optional value, defaulting to None. The distance from camera0 to
+  evaluate. If None (the default) we look out to infinity.
 
 RETURNED VALUE
 
 A tuple
 
 - difflen: a numpy array of shape (...,gridn_height,gridn_width) containing the
-  magnitude of differences at each cell
+  magnitude of differences of reprojection-to-camera1 at each camera0 cell
 
 - diff: a numpy array of shape (...,gridn_height,gridn_width,2) containing the
-  vector of differences at each cell
+  vector of differences of reprojection-to-camera1 at each camera0 cell
 
 - q0: a numpy array of shape (gridn_height,gridn_width,2) containing the
-  pixel coordinates of each grid cell
+  pixel coordinates of each camera0 grid cell
 
-- Rt10: the geometric Rt transformation in an array of shape (...,4,3). This is
-  the relative transformation we ended up using, which is computed using the
-  logic above (using intrinsics_only and focus_radius)
+- reproject_pairp_from_cami: a function taking arguments (q,pairp,cami). For the
+  given inputs to this functions, maps pixels q from pair-p-camera-i to
+  pair-p-camera-other.
 
     '''
 
@@ -2118,81 +2047,69 @@ A tuple
         raise Exception("Exactly 2 model_pairs are expected")
 
 
-
-    ### radius does nothing
-    ### "distance is None" does something useful?
+    Rt10_pairs = np.array([ mrcal.compose_Rt( m1.Rt_cam_ref(),m0.Rt_ref_cam() ) \
+                            for m0,m1 in model_pairs ])
 
     if distance is None:
         atinfinity = True
-        distance   = np.ones((1,), dtype=float)
-    else:
-        atinfinity = False
-        distance   = nps.atleast_dims(np.array(distance), -1)
-    distance   = nps.mv(distance.ravel(), -1,-4)
-
-    Rt10_pairs = [ mrcal.compose_Rt( model_pair[1].Rt_cam_ref(),
-                                     model_pair[0].Rt_ref_cam() ) \
-                   for model_pair in model_pairs ]
-
-    if atinfinity:
+        distance = 1.
         for Rt10 in Rt10_pairs:
             Rt10[3,:] = 0
+    else:
+        atinfinity = False
 
     for model_pair in model_pairs:
         for model in model_pair:
-            import re
-            if mrcal.lensmodel_metadata_and_config(model.intrinsics()[0])['noncentral'] and not \
-               (re.match("LENSMODEL_CAHVORE_",model.intrinsics()[0]) and nps.norm2(model.intrinsics()[1][-3:]) < 1e-12):
-                if not atinfinity:
-                    raise Exception(f"Model {model.intrinsics()[0]} is noncentral, so I can only evaluate the diff at infinity")
-                if re.match("LENSMODEL_CAHVORE_",model.intrinsics()[0]):
-                    if use_uncertainties:
-                        raise Exception("I have a noncentral model. No usable uncertainties for those yet")
-                    # Special-case to centralize CAHVORE. This path will need to be
-                    # redone when I do noncentral models "properly", but this will
-                    # do in the meantime
-                    intrinsics_data = model.intrinsics()[1]
-                    intrinsics_data[-3:] = 0
-                    model.intrinsics( intrinsics = (model.intrinsics()[0],
-                                                    intrinsics_data) )
-                else:
-                    raise Exception("I have a non-CAHVORE noncentral model. This isn't supported yet")
+            if not mrcal.lensmodel_metadata_and_config(model.intrinsics()[0])['noncentral']:
+                continue
+            if not re.match("LENSMODEL_CAHVORE_",model.intrinsics()[0]):
+                raise Exception("I have a noncentral model that I cannot centralize. unproject() isn't implemented yet in this case")
+
+            # CAHVORE. I know how to centralize this. If we're looking at
+            # infinity, then this is ok
+            if np.norm2(model.intrinsics()[1][-3:]) < 1e-12 or atinfinity:
+                intrinsics_data = model.intrinsics()[1]
+                intrinsics_data[-3:] = 0
+                model.intrinsics( intrinsics = (model.intrinsics()[0],
+                                                intrinsics_data) )
+                continue
+            if not atinfinity:
+                raise Exception("I have a noncentral model. I can centralize it, but that's only valid at infinity")
 
 
 
     imagersizes0 = np.array([model_pair[0].imagersize() for model_pair in model_pairs])
-    if np.linalg.norm(np.std(imagersizes0, axis=-2)) != 0:
-        raise Exception("The diff function needs all the imager dimensions of the first camera in each pair to match. Instead got {}". \
-                        format(imagersizes0))
+    if np.any(imagersizes0[1] - imagersizes0[0]):
+        raise Exception("The first camera in each given pair MUST have identical imager dimensions")
+    imagersizes0 = imagersizes0[0]
 
+    imagersizes1 = np.array([model_pair[1].imagersize() for model_pair in model_pairs])
+    if np.any(imagersizes1[1] - imagersizes1[0]):
+        raise Exception("The second camera in each given pair must have identical imager dimensions. I technically don't NEED this, but it's extremely likely to be an unintentional mistake by the caller")
+
+
+
+    Rt10_Rt01_pairs = (Rt10_pairs,
+                       mrcal.invert_Rt(Rt10_pairs))
+
+    reproject_pairp_from_cami = \
+        lambda q,p,i: \
+        mrcal.project( mrcal.transform_point_Rt(Rt10_Rt01_pairs[i][p],
+                                                distance *
+                                                mrcal.unproject(q,
+                                                                *model_pairs[p][i].intrinsics(),
+                                                                normalize = True)),
+                       *model_pairs[p][1-i].intrinsics() )
 
     q0 = mrcal.sample_imager(gridn_width, gridn_height,
-                             *imagersizes0[0])
+                             *imagersizes0)
 
     # q1 shape (Npairs, Nheight,Nwidth,2)
-    q1 = [ mrcal.project( \
-              mrcal.transform_point_Rt(Rt10_pairs[ipair],
-                                       distance *
-                                       mrcal.unproject(q0,
-                                                       *model_pairs[ipair][0].intrinsics(),
-                                                       normalize = True)),
-                          *model_pairs[ipair][1].intrinsics() ) \
-           for ipair in range(len(model_pairs)) ]
+    q1 = [ reproject_pairp_from_cami(q0,ipair,0) for ipair in (0,1) ]
 
     diff    = q1[1] - q1[0]
     difflen = nps.mag(diff)
-
-    # difflen, diff, q0 currently all have shape (len(distance), ...). If the
-    # given distance was NOT an iterable, I strip out that leading dimension
-    if difflen.shape[0] != 1:
-        raise Exception(f"The leading shape of difflen is not 1 (difflen.shape = {difflen.shape}). This is a bug. Giving up")
-    difflen = difflen[0,...]
-
-    if diff.shape[0] != 1:
-        raise Exception(f"The leading shape of diff is not 1 (diff.shape = {diff.shape}). This is a bug. Giving up")
-    diff = diff[0,...]
-
-    return difflen, diff, q0
+    return difflen, diff, q0, reproject_pairp_from_cami
 
 
 def is_within_valid_intrinsics_region(q, model):

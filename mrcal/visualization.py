@@ -1386,62 +1386,56 @@ def show_stereo_pair_diff(model_pairs,
 
 SYNOPSIS
 
-    models = ( mrcal.cameramodel('cam0-dance0.cameramodel'),
-               mrcal.cameramodel('cam0-dance1.cameramodel') )
+    model_pairs = (( "set1/camera-0.cameramodel", "set1/camera-3.cameramodel", ),
+                   ( "set2/camera-0.cameramodel", "set2/camera-3.cameramodel", ))
+    model_pairs = [[mrcal.cameramodel(m) for m in p] for p in model_pairs]
 
-    mrcal.show_stereo_pair_diff(models)
+    mrcal.show_stereo_pair_diff(model_pairs)
 
-    # A plot pops up displaying the projection difference between the two models
+    # A plot pops up displaying the reprojection difference to camera1 between
+    # the two pairs
 
-The operation of this tool is documented at
-https://mrcal.secretsauce.net/differencing.html
+THIS TOOL IS EXPERIMENTAL, AND LIKELY WILL BE CHANGED AND EXTENDED. MORE
+COMPLETE DOCUMENTATION WILL BE WRITTEN LATER
+
+It is useful to evaluate the stability and uncertainty of a multi-camera system,
+looking at the intrinsics,extrinsics either separately or jointly. For instance,
+when deployed in the field a calibration may shift in the extrinsics (camera
+units moved) and/or intrinsics (lens moved), and it would be useful to quantify
+them individually. Up to now (version 2.5) mrcal has been concerned mostly with
+the intrinsics: the mean-pcam uncertainty method and
+implied_Rt10__from_unprojections() try to compensate for and eliminate the
+effect of extrinsic shifts in uncertainty and diff methods respectively.
+
+This stereo_pair_diff() tool extends this in one way: in a multi-camera
+calibration, it quantifies the joint intrinsics+extrinsics shift of a camera
+pair. At a given distance this tool reprojects pixels in camera0 to camera1,
+and compares the results of this reprojection. This is actually far simpler than
+the earlier intrinsics-only methods: no implied transform or reference-frame
+shift need to be considered. As of mrcal 2.5 we also have an extrinsics-only
+stereo-pair diff in an unreleased analyses/extrinsics-stability.py tool. No
+corresponding uncertainty method is implemented yet, but that is
+straightforward. All the methods will be implemented in a future mrcal release.
+They can then be studied to see what is useful to look at in practice.
 
 This function visualizes the results of mrcal.stereo_pair_diff()
 
-It is often useful to compare the projection behavior of two camera models. For
-instance, one may want to validate a calibration by comparing the results of two
-different chessboard dances. Or one may want to evaluate the stability of the
-intrinsics in response to mechanical or thermal stresses.
-
-In the most common case we're given exactly 2 models to compare. We then display
-the projection difference as either a vector field or a heat map. If we're given
-more than 2 models, then a vector field isn't possible and we instead display as
-a heatmap the standard deviation of the differences between models 1..N and
-model0.
-
-The top-level operation of this function:
-
-- Grid the imager
-- Unproject each point in the grid using one camera model
-- Apply a transformation to map this point from one camera's coord system to the
-  other. How we obtain this transformation is described below
-- Project the transformed points to the other camera
-- Look at the resulting pixel difference in the reprojection
-
-The details of how the comparison is computed, and the meaning of the arguments
-controlling this, are in the docstring of mrcal.stereo_pair_diff().
-
 ARGUMENTS
 
-- models: iterable of mrcal.cameramodel objects we're comparing. Usually there
-  will be 2 of these, but more than 2 is possible. The intrinsics are used; the
-  extrinsics are NOT.
+- model_pairs: iterable of 2 camera pairs. Each pair is an iterable ofr 2
+  mrcal.cameramodel objects. Exactly two pairs are expected. The intrinsics and
+  extrinsics are used. The corresponding cameras in the pairs must have the same
+  imager size, but the two cameras inside each pair may differ
 
 - gridn_width: optional value, defaulting to 60. How many points along the
-  horizontal gridding dimension
+  horizontal gridding dimension of the camera0 imager
 
-- gridn_height: how many points along the vertical gridding dimension. If None,
-  we compute an integer gridn_height to maintain a square-ish grid:
-  gridn_height/gridn_width ~ imager_height/imager_width
+- gridn_height: how many points along the vertical gridding dimension of the
+  camera0 imager. If None, we compute an integer gridn_height to maintain a
+  square-ish grid: gridn_height/gridn_width ~ imager_height/imager_width
 
-- observations: optional value, defaulting to False. If observations: we overlay
-  calibration-time observations on top of the difference plot. We should then
-  see that more data produces more consistent results. If a special value of
-  'dots' is passed, the observations are plotted as dots instead of points
-
-- valid_intrinsics_region: optional boolean, defaulting to False. If True, we
-  overlay the valid-intrinsics regions onto the plot. If the valid-intrinsics
-  regions aren't available, we will silently omit them
+- distance: optional value, defaulting to None. The distance from camera0 to
+  evaluate. If None (the default) we look out to infinity.
 
 - distance: optional value, defaulting to None. Has an effect only if not
   intrinsics_only. The projection difference varies depending on the range to
@@ -1459,6 +1453,15 @@ ARGUMENTS
   often very small, and impossible to make out when looking at the whole imager.
   This argument can be used to scale all the displayed vectors to improve
   legibility.
+
+- observations: optional value, defaulting to False. If observations: we overlay
+  calibration-time observations on top of the difference plot. We should then
+  see that more data produces more consistent results. If a special value of
+  'dots' is passed, the observations are plotted as dots instead of points
+
+- valid_intrinsics_region: optional boolean, defaulting to False. If True, we
+  overlay the valid-intrinsics regions onto the plot. If the valid-intrinsics
+  regions aren't available, we will silently omit them
 
 - cbmax: optional value, defaulting to 4.0. Sets the maximum range of the color
   map
@@ -1488,44 +1491,30 @@ A tuple:
   made with gp.plot(*data_tuples, **plot_options). Useful if we want to include
   this as a part of a more complex plot
 
-- Rt10: the geometric Rt transformation in an array of shape (...,4,3). This is
-  the relative transformation we ended up using, which is computed using the
-  logic above (using intrinsics_only and focus_radius). if len(models)>2: this
-  is an array of shape (len(models)-1,4,3), with slice i representing the
-  transformation between camera 0 and camera i+1.
+- reproject_pairp_from_cami: a function taking arguments (q,pairp,cami). For the
+  given inputs to this functions, maps pixels q from pair-p-camera-i to
+  pair-p-camera-other.
 
     '''
 
-    if len(model_pairs) < 2:
-        raise Exception("At least 2 model_pairs are required to compute the diff")
+    if len(model_pairs) != 2:
+        raise Exception("Exactly 2 model_pairs are expected")
 
 
     import gnuplotlib as gp
 
     if 'title' not in kwargs:
-        title = f"Diff looking at {len(model_pairs)} model_pairs"
+        distance_string = "infinity" if distance is None else f"distance={distance}"
+        title = f"Reprojection-to-camera1 at {distance_string}"
         if extratitle is not None:
             title += ": " + extratitle
         kwargs['title'] = title
 
-    if vectorfield:
-        if len(model_pairs) > 2:
-            raise Exception("I can only plot a vectorfield when looking at exactly 2 model_pairs. Instead I have {}". \
-                            format(len(model_pairs)))
-
-    # Now do all the actual work
-    difflen,diff,q0 = mrcal.stereo_pair_diff(model_pairs,
-                                             gridn_width       = gridn_width,
-                                             gridn_height      = gridn_height,
-                                             distance          = distance)
-    # shape (Nheight, Nwidth)
-    if difflen is not None and difflen.ndim > 2:
-        difflen = nps.clump(difflen, n=difflen.ndim-2)[0]
-    # shape (Nheight, Nwidth,2)
-    if diff is not None and diff.ndim > 3:
-        diff = nps.clump(diff, n=diff.ndim-3)[0]
-
-
+    difflen,diff,q0,reproject_pairp_from_cami = \
+        mrcal.stereo_pair_diff(model_pairs,
+                               gridn_width  = gridn_width,
+                               gridn_height = gridn_height,
+                               distance     = distance)[:4]
 
     plot_options = kwargs
 
@@ -1575,70 +1564,44 @@ A tuple:
         plot_data_args = [ (color, curve_options) ]
 
     if valid_intrinsics_region:
-        raise Exception("finish this")
-        valid_region0 = model_pairs[0].valid_intrinsics_region()
-        if valid_region0 is not None:
-            if vectorfield:
-                # 2d plot
-                plot_data_args.append( (valid_region0[:,0], valid_region0[:,1],
-                                        dict(_with = 'lines lw 4 lc "green"',
-                                             legend = "valid region of 1st camera")) )
-            else:
-                # 3d plot
-                plot_data_args.append( (valid_region0[:,0], valid_region0[:,1], valid_region0[:,0]*0,
-                                        dict(_with = 'lines lw 4 lc "green" nocontour',
-                                             legend = "valid region of 1st camera")) )
+        for pair in (0,1):
+            for cam in (0,1):
+                valid_region = model_pairs[pair][cam].valid_intrinsics_region()
+                if valid_region is None:
+                    continue
 
-        valid_region1 = model_pairs[1].valid_intrinsics_region()
-    else:
-        valid_region0 = None
-        valid_region1 = None
+                if cam == 1:
+                    valid_region = mrcal.utils._densify_polyline(valid_region, spacing = 50)
+                    valid_region = reproject_pairp_from_cami(valid_region,pair,1)
 
-    if len(model_pairs) == 2 and valid_region1 is not None:
-        # The second camera has a valid region, and I should plot it. This has
-        # more complexity: each point on the contour of the valid region of the
-        # second camera needs to be transformed to the coordinate system of the
-        # first camera to make sense. The transformation is complex, and
-        # straight lines will not remain straight. I thus resample the polyline
-        # more densely.
-        v1 = mrcal.unproject(mrcal.utils._densify_polyline(valid_region1, spacing = 50),
-                             *model_pairs[1].intrinsics(),
-                             normalize = True)
-
-        if distance is not None:
-            v1 *= distance
-
-        valid_region1 = mrcal.project( mrcal.transform_point_Rt( mrcal.invert_Rt(Rt10),
-                                                                 v1 ),
-                                       *model_pairs[0].intrinsics() )
-
-        if vectorfield:
-            # 2d plot
-            plot_data_args.append( (valid_region1[:,0], valid_region1[:,1],
-                                    dict(_with = 'lines lw 3 lc "gray80"',
-                                         legend = "valid region of 2nd camera")) )
-        else:
-            # 3d plot
-            plot_data_args.append( (valid_region1[:,0], valid_region1[:,1], valid_region1[:,0]*0,
-                                    dict(_with = 'lines lw 3 lc "gray80" nocontour',
-                                         legend = "valid region of 2nd camera")) )
+                if vectorfield:
+                    # 2d plot
+                    plot_data_args.append( (valid_region[:,0], valid_region[:,1],
+                                            dict(_with = 'lines lw 4',
+                                                 legend = f"valid region of {pair=} {cam=}")) )
+                else:
+                    # 3d plot
+                    plot_data_args.append( (valid_region[:,0], valid_region[:,1], valid_region[:,0]*0,
+                                            dict(_with = 'lines lw 4 nocontour',
+                                                 legend = f"valid region of {pair=} {cam=}")) )
 
     if observations:
-        raise Exception("finish this")
-        for i in range(len(model_pairs)):
-            _append_observation_visualizations(plot_data_args,
-                                               model         = model_pairs[i],
-                                               legend_prefix = f"Camera {i} ",
-                                               pointtype     = -1 if observations == 'dots' else (1+i),
-                                               _2d           = bool(vectorfield))
+        for pair in (0,1):
+            for cam in (0,1):
+                _append_observation_visualizations(plot_data_args,
+                                                   model         = model_pairs[pair][cam],
+                                                   legend_prefix = f"{pair=} {cam=} ",
+                                                   pointtype     = -1 if observations == 'dots' else (1+pair*2+cam),
+                                                   _2d           = bool(vectorfield),
+                                                   reproject = None if cam==0 else lambda q: reproject_pairp_from_cami(q,pair,1))
 
     data_tuples = plot_data_args
 
     if not return_plot_args:
         plot = gp.gnuplotlib(**plot_options)
         plot.plot(*data_tuples)
-        return plot
-    return (data_tuples, plot_options)
+        return plot, reproject_pairp_from_cami
+    return (data_tuples, plot_options), reproject_pairp_from_cami
 
 
 def show_projection_uncertainty(model,

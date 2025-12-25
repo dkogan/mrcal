@@ -8,42 +8,41 @@
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
 
-r'''Visualize the difference in projection between N models
+r'''Visualize the difference in projection between 2 camera pairs
 
 SYNOPSIS
 
-  $ mrcal-show-stereo-pair-diff before.cameramodel after.cameramodel
-  ... a plot pops up showing how these two models differ in their projections
+  $ mrcal-show-stereo-pair-diff      \
+      --distance 2                   \
+      before/camera-[01].cameramodel \
+      after/camera-[01].cameramodel
 
-The operation of this tool is documented at
+  ... a plot pops up showing how these two pairs differ in their projections
 
-  https://mrcal.secretsauce.net/differencing.html
+THIS TOOL IS EXPERIMENTAL, AND LIKELY WILL BE CHANGED AND EXTENDED. MORE
+COMPLETE DOCUMENTATION WILL BE WRITTEN LATER
+
+It is useful to evaluate the stability and uncertainty of a multi-camera system,
+looking at the intrinsics,extrinsics either separately or jointly. For instance,
+when deployed in the field a calibration may shift in the extrinsics (camera
+units moved) and/or intrinsics (lens moved), and it would be useful to quantify
+them individually. Up to now (version 2.5) mrcal has been concerned mostly with
+the intrinsics: the mean-pcam uncertainty method and
+implied_Rt10__from_unprojections() try to compensate for and eliminate the
+effect of extrinsic shifts in uncertainty and diff methods respectively.
+
+This stereo_pair_diff() tool extends this in one way: in a multi-camera
+calibration, it quantifies the joint intrinsics+extrinsics shift of a camera
+pair. At a given distance this tool reprojects pixels in camera0 to camera1,
+and compares the results of this reprojection. This is actually far simpler than
+the earlier intrinsics-only methods: no implied transform or reference-frame
+shift need to be considered. As of mrcal 2.5 we also have an extrinsics-only
+stereo-pair diff in an unreleased analyses/extrinsics-stability.py tool. No
+corresponding uncertainty method is implemented yet, but that is
+straightforward. All the methods will be implemented in a future mrcal release.
+They can then be studied to see what is useful to look at in practice.
 
 This tool visualizes the results of mrcal.stereo_pair_diff()
-
-It is often useful to compare the projection behavior of two camera models. For
-instance, one may want to validate a calibration by comparing the results of two
-different chessboard dances. Or one may want to evaluate the stability of the
-intrinsics in response to mechanical or thermal stresses. This tool makes these
-comparisons, and produces a visualization of the results.
-
-In the most common case we're given exactly 2 models to compare. We then display
-the projection difference as either a vector field or a heat map. If we're given
-more than 2 models, then a vector field isn't possible and we instead display as
-a heatmap the standard deviation of the differences between models 1..N and
-model0.
-
-The top-level operation of this tool:
-
-- Grid the imager
-- Unproject each point in the grid using one camera model
-- Apply a transformation to map this point from one camera's coord system to the
-  other. How we obtain this transformation is described below
-- Project the transformed points to the other camera
-- Look at the resulting pixel difference in the reprojection
-
-The details of how the comparison is computed, and the meaning of the arguments
-controlling this, are in the docstring of mrcal.stereo_pair_diff().
 
 '''
 
@@ -109,10 +108,6 @@ def parse_args():
                         improve legibility if the vectors are too small to
                         see''')
 
-    parser.add_argument('--directions',
-                        action = 'store_true',
-                        help='''If given, the plots are color-coded by the direction of the error, instead of
-                        the magnitude''')
 
     parser.add_argument('--hardcopy',
                         type=str,
@@ -133,12 +128,13 @@ def parse_args():
     parser.add_argument('models',
                         type=str,
                         nargs=4,
-                        help='''Camera models to diff''')
+                        help='''4 camera models: 2 cameras from the first camera
+                        pair, followed by 2 cameras from the other pair''')
 
     args = parser.parse_args()
 
-    if len(args.models) < 4:
-        print(f"I need at least 4 models to diff. Instead got '{args.models}'", file=sys.stderr)
+    if len(args.models) != 4:
+        print(f"I need exactly 4 models to diff. Instead got '{len(args.models)}'", file=sys.stderr)
         sys.exit(1)
 
     if args.title      is not None and \
@@ -146,28 +142,14 @@ def parse_args():
         print("--title and --extratitle are exclusive", file=sys.stderr)
         sys.exit(1)
 
+    if args.vectorscale != 1.0 and not args.vectorfield:
+        print("Error: --vectorscale only makes sense with --vectorfield",
+              file = sys.stderr)
+        sys.exit(1)
+
     return args
 
 args = parse_args()
-
-# arg-parsing is done before the imports so that --help works without building
-# stuff, so that I can generate the manpages and README
-
-if args.vectorscale != 1.0 and not args.vectorfield:
-    print("Error: --vectorscale only makes sense with --vectorfield",
-          file = sys.stderr)
-    sys.exit(1)
-
-# if len(args.models) > 2:
-#     if args.vectorfield:
-#         print("Error: --vectorfield works only with exactly 2 models",
-#               file = sys.stderr)
-#         sys.exit(1)
-#     if args.directions:
-#         print("Error: --directions works only with exactly 2 models",
-#               file = sys.stderr)
-#         sys.exit(1)
-
 
 import mrcal
 import numpy as np
@@ -195,16 +177,16 @@ def openmodel(f):
 
 models = [openmodel(modelfilename) for modelfilename in args.models]
 
-model_pairs = [ (models[i0], models[i0+1]) \
-                for i0 in range(0,len(models),2)]
+model_pairs = ( (models[0], models[1]),
+                (models[2], models[3]) )
 
 
-# if args.observations:
-#     optimization_inputs = [ model_pair[0].optimization_inputs() for model_pair in model_pairs ]
-#     if any( oi is None for oi in optimization_inputs ):
-#         print("mrcal-show-stereo-pair-diff --observations requires optimization_inputs to be available for all models, but this is missing for some models",
-#               file=sys.stderr)
-#         sys.exit(1)
+if args.observations:
+    optimization_inputs = [ m.optimization_inputs() for model_pair in model_pairs for m in model_pair ]
+    if any( oi is None for oi in optimization_inputs ):
+        print("mrcal-show-stereo-pair-diff --observations requires optimization_inputs to be available for all models, but this is missing for some models",
+              file=sys.stderr)
+        sys.exit(1)
 
 plot = mrcal.show_stereo_pair_diff(model_pairs,
                                    gridn_width             = args.gridn[0],
@@ -217,7 +199,7 @@ plot = mrcal.show_stereo_pair_diff(model_pairs,
                                    hardcopy                = args.hardcopy,
                                    terminal                = args.terminal,
                                    cbmax                   = args.cbmax,
-                                   **plotkwargs_extra)
+                                   **plotkwargs_extra)[0]
 
 if args.hardcopy is None:
     plot.wait()
