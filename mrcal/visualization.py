@@ -1504,20 +1504,20 @@ A tuple:
 
     import gnuplotlib as gp
 
-    if 'title' not in kwargs:
+    plot_options = kwargs
+
+    if 'title' not in plot_options:
         distance_string = "infinity" if distance is None else f"distance={distance}"
         title = f"Reprojection-to-camera1 at {distance_string}"
         if extratitle is not None:
             title += ": " + extratitle
-        kwargs['title'] = title
+        plot_options['title'] = title
 
     difflen,diff,q0,reproject_pairp_from_cami = \
         mrcal.stereo_pair_diff(model_pairs,
                                gridn_width  = gridn_width,
                                gridn_height = gridn_height,
                                distance     = distance)[:4]
-
-    plot_options = kwargs
 
     if vectorfield:
         # Not plotting a matrix image. I collapse (Nheight, Nwidth, ...) to (Nheight*Nwidth, ...)
@@ -1554,7 +1554,7 @@ A tuple:
         curve_options = \
             _options_heatmap_with_contours(
                 # update these plot options
-                kwargs,
+                plot_options,
 
                 contour_max  = cbmax,
                 imagersize   = model_pairs[0][0].imagersize(),
