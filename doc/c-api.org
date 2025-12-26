@@ -492,16 +492,18 @@ mrcal defines simple image types in [[https://www.github.com/dkogan/mrcal/blob/m
 - =mrcal_image_float_t=
 - =mrcal_image_double_t=
 - =mrcal_image_bgr_t=
+- =mrcal_image_void_t=
 
-These are the basic not-necessarily-contiguous arrays. The =bgr= type is used
-for color images:
+These are the basic not-necessarily-contiguous arrays. The =void= type is meant
+to be used to accept arguments to functions that can operate on multiple types.
+The =bgr= type is used for color images:
 
 #+begin_src c
 typedef struct { uint8_t bgr[3]; } mrcal_bgr_t;
 #+end_src
 
 Simple accessor and manipulation functions are available for each of these
-types (replacing each =T= below):
+types (except =void=; replacing each =T= below):
 
 #+begin_src c
 T* mrcal_image_T_at(mrcal_image_T_t* image, int x, int y);

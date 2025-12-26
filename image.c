@@ -522,15 +522,14 @@ bool mrcal_image_bgr_load  (// output
 }
 
 bool mrcal_image_anytype_load(// output
-                              // This is ONE of the known types
-                              mrcal_image_uint8_t* image,
+                              mrcal_image_void_t* image,
                               int* bits_per_pixel,
                               int* channels,
                               // input
                               const char* filename)
 {
     *bits_per_pixel = 0;
-    if(!generic_load((mrcal_image_void_t*)image, bits_per_pixel, filename))
+    if(!generic_load(image, bits_per_pixel, filename))
         return false;
 
     switch(*bits_per_pixel)

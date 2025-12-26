@@ -31,6 +31,14 @@ extern "C" {
 // - mrcal_image_TYPE_save (const char* filename, const mrcal_image_TYPE_t*  image);
 // - mrcal_image_TYPE_load( mrcal_image_TYPE_t*  image, const char* filename);
 //
+// And there's a generic load function:
+//   mrcal_image_anytype_load(// output
+//                            mrcal_image_void_t* image,
+//                            int* bits_per_pixel,
+//                            int* channels,
+//                            // input
+//                            const char* filename);
+//    
 // The image-loading functions require a few notes:
 //
 // An image structure to fill in is given. image->data will be allocated to the
@@ -134,8 +142,7 @@ MRCAL_IMAGE_DECLARE(double,   double);
 
 // Load the image into whatever type is stored on disk
 bool mrcal_image_anytype_load(// output
-                              // This is ONE of the known types
-                              mrcal_image_uint8_t* image,
+                              mrcal_image_void_t* image,
                               int* bits_per_pixel,
                               int* channels,
                               // input

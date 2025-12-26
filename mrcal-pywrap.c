@@ -3568,8 +3568,7 @@ PyObject* load_image(PyObject* NPY_UNUSED(self),
     int         bits_per_pixel = -1;
     int         channels       = -1;
 
-    // could be any type; not just uint8
-    mrcal_image_uint8_t image = {};
+    mrcal_image_void_t image = {};
 
     PyObject* image_array = NULL;
 

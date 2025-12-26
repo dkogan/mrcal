@@ -140,7 +140,8 @@ functions:
   =mrcal_cameramodel_VOID_t=.
 
 - Added =mrcal_image_void_t= image type for generic functions that aren't meant
-  to interface with any particular image type.
+  to interface with any particular image type. The [[https://www.github.com/dkogan/mrcal/blob/master/image.h][=mrcal_image_anytype_load()=]]
+  function now uses that type.
 
 - Some fiels in the [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]] type and the saved =.cameramodel= files
   and the =optimization_inputs= C and Python interfaces were renamed:
@@ -239,7 +240,8 @@ functions:
   - =types.h=
   - =internal.h=
 
-
+- The [[https://www.github.com/dkogan/mrcal/blob/master/image.h][=mrcal_image_anytype_load()=]] function uses the =mrcal_image_void_t= image
+  type. The semantics are identical, but older code might need to be tweaked.
 
 * todo
 
