@@ -2,19 +2,26 @@
 #+OPTIONS: toc:nil
 
 * New in mrcal 2.5
-This is yet another mostly-maintenance release. The bulk implementation of some
-new big features is committed, but not yet completed and tested. These are thus
-undocumented, until they're done and finally appear in mrcal 3.0:
+This is yet another mostly-maintenance release. /Most/ of the implementation of
+some new big features is committed, but not yet completed and tested. These are
+thus lightly tested and documented, until they're done and finally appear in
+mrcal 3.0:
 
 - Cross-reprojection uncertainty, to be able to perform full calibrations with a
   splined model and /without/ a chessboard
+- More general view of uncertainty. I want to support extrinsics and/or
+  intrinsics uncertainty computation, in lots of scenarios
 - Implicit point solves, using the triangulation routines in the optimization
-  cost function. Should produce more efficient SFM
+  cost function. Should produce more efficient structure-from-motion solves.
+  This is all the "triangulated-features" stuff.
+
+And other than that, there are lots and lots of smaller fixes and improvements.
 
 ** General fixes
 
-- poseutils: more careful handling of rotations near singularities. Rotations
-  by ~ 180deg in particular weren't implemented properly, and had bugs
+- Poseutils: more careful handling of rotations near singularities. Rotations by
+  ~ 180deg in particular weren't implemented properly, and had bugs that are now
+  fixed.
 
 - Renamed "residuals" -> "measurements" to clarify the nomenclature. These are
   similar except for scaling and the "measurements" may also contain
@@ -30,28 +37,30 @@ undocumented, until they're done and finally appear in mrcal 3.0:
   the path. The general min-heap implementation at the core of this computation
   is available in =heap.h=
 
-- [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] has a higher minimum
-  points-per-chessboard-observation threshold. We now throw out any images where
-  a chessboard detection has fewer than =2*min(gridn_width,gridn_height)=
-  points. This is irrelevant for =mrgingham=, which produces all-or-nothing
-  detections, but other detectors could produce barely-adequate detections that
-  could cause problems previously
+- [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] and [[file:mrcal-python-api-reference.html#-compute_chessboard_corners][=mrcal.compute_chessboard_corners()=]] have a
+  higher minimum points-per-chessboard-observation threshold (new
+  =Npoint_observations_per_board_min= kwarg in the function). We now throw out
+  any images where a chessboard detection has fewer than
+  =2*min(gridn_width,gridn_height)= points. This is irrelevant for =mrgingham=,
+  which produces all-or-nothing detections, but other detectors could produce
+  barely-adequate detections that could cause problems previously
 
-- [[file:mrcal-stereo.html][=mrcal-stereo=]]: =--equalization= implies =--force-grayscale=
+- [[file:mrcal-python-api-reference.html#-compute_chessboard_corners][=mrcal.compute_chessboard_corners()=]] has new =image_path_prefix= and
+  =image_directory= kwargs to provide more options for interpreting paths in the
+  given =corners_cache_vnl=. This is analogous to how other parts of mrcal work
+  (for instance the [[file:mrcal-show-residuals-board-observation.html][=mrcal-show-residuals-board-observation=]] tool).
 
-- =mrcal_rectified_system()= and [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]] fail if the
-  rectified camera looks near the direction of the baseline vector. If =az0_deg=
-  is being auto-detected, it will be shifted to avoid looking along the baseline
-
-- [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] has =--image-path-prefix= and =--image-directory=.
-  Useful to make =--imagersize= unnecessary and to have image overlays working
-  with =--explore=. This are especially helpful if calibrating a system with
-  different-resolution cameras. In that case =--imagersize= doesn't work, and
-  finding the images on disk is required
+- The [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] use that function, and now has
+  =--image-path-prefix= and =--image-directory=. Useful to make =--imagersize=
+  unnecessary and to have image overlays working with =--explore=. This are
+  especially helpful if calibrating a system with different-resolution cameras.
+  In that case =--imagersize= doesn't work, and finding the images on disk is
+  required
 
 - Added [[https://www.github.com/dkogan/mrcal/blob/master/analyses/validate-input-noise.py][=analyses/validate-input-noise.py=]] and
-  [[https://www.github.com/dkogan/mrcal/blob/master/analyses/validate-uncertainty.py][=analyses/validate-uncertainty.py=]] tools. These are /very/ useful to check the
-  various assumptions made by the mrcal processing
+  [[https://www.github.com/dkogan/mrcal/blob/master/analyses/validate-uncertainty.py][=analyses/validate-uncertainty.py=]] and [[https://www.github.com/dkogan/mrcal/blob/master/analyses/validate-noncentral.py][=analyses/validate-noncentral.py=]]
+  tools. These are /very/ useful to check the various assumptions made by the
+  mrcal processing
 
 - The [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]] tool has =--all= to write out /all/ the models
   from a joint re-solve
@@ -59,19 +68,83 @@ undocumented, until they're done and finally appear in mrcal 3.0:
 - Added new [[file:mrcal-python-api-reference.html#-model_resolution__deg_pixel][=mrcal.model_resolution__deg_pixel()=]] function and the
   [[file:mrcal-show-model-resolution.html][=mrcal-show-model-resolution=]] tool
 
-- [[file:mrcal-python-api-reference.html#-show_distortion_off_pinhole_radial][=mrcal.show_distortion_off_pinhole_radial()=]] works with non-opencv models
+- [[file:mrcal-python-api-reference.html#-show_distortion_off_pinhole_radial][=mrcal.show_distortion_off_pinhole_radial()=]] works with all models, not just
+  opencv ones
 
 - The image load/save functions no longer use [[https://freeimage.sourceforge.io/][libfreeimage]], since that library
-  is no longer maintained. I'm using [[https://github.com/nothings/stb][libstb]] for image-reading and [[https://www.libpng.org/pub/png/libpng.html][libpng]] and
+  is unmaintained. I'm using [[https://github.com/nothings/stb][libstb]] for image-reading and [[https://www.libpng.org/pub/png/libpng.html][libpng]] and
   [[https://libjpeg-turbo.org/][libjpeg-turbo]] for image-writing. libstb can write images too, but there were
   several limitations that made it necessary to use the dedicated libraries.
   This means that currently I can write /only/ =.png= and =.jpg= images. This
   can be extended if needed.
 
-** C API 
-Some guts of the calibration machinery have been ported to C and exposed as C
-functions:
+- The [[file:mrcal-cull-corners.html][=mrcal-cull-corners=]] tool has =--cull-rad-off-center-board= to throw out
+  chessboard edges. Useful if we dont trust the chessboard shape
 
+- Added [[file:mrcal-python-api-reference.html#cameramodel-optimization_inputs_reset][=mrcal.cameramodel.optimization_inputs_reset()=]] and
+  [[file:mrcal-python-api-reference.html#cameramodel-valid_intrinsics_region_reset][=mrcal.cameramodel.valid_intrinsics_region_reset()=]] to unset these fields in a
+  [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]].
+
+- Added the [[https://www.github.com/dkogan/mrcal/blob/master/analyses/mrcal-convert-lensmodel-from-kalibr-fov][=analyses/mrcal-convert-lensmodel-from-kalibr-fov=]] tool to fit a
+  Kalibr "fov" model into something that mrcal supports. This isn't
+  general-enough or tested-enough to be fully distributed yet, so run it from
+  the mrcal source tree if you need it
+
+- Added =mrcal_cameramodel_converter()= "converter" function that can be used
+  with =O&= conversions in [[https://docs.python.org/3/c-api/arg.html#c.PyArg_ParseTupleAndKeywords][=PyArg_ParseTupleAndKeywords()=]] calls. Can interpret
+  either path strings or [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]] objects as
+  =mrcal_cameramodel_VOID_t= C structures. Useful for writing Python extension
+  modules for C code that uses =mrcal_cameramodel_VOID_t=.
+
+- Some fields in the [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]] type and the saved =.cameramodel= files
+  and the =optimization_inputs= C and Python interfaces were renamed:
+
+  \begin{aligned}
+  &\mathrm{extrinsics\_rt\_fromref} & \rightarrow & \mathrm{rt\_cam\_ref} \\
+  &\mathrm{extrinsics\_Rt\_fromref} & \rightarrow & \mathrm{Rt\_cam\_ref} \\
+  &\mathrm{extrinsics\_rt\_toref} & \rightarrow & \mathrm{rt\_ref\_cam} \\
+  &\mathrm{extrinsics\_Rt\_toref} & \rightarrow & \mathrm{Rt\_ref\_cam} \\
+  &\mathrm{frames\_rt\_fromref} & \rightarrow & \mathrm{rt\_frame\_ref} \\
+  &\mathrm{frames\_Rt\_fromref} & \rightarrow & \mathrm{Rt\_frame\_ref} \\
+  &\mathrm{frames\_rt\_toref} & \rightarrow & \mathrm{rt\_ref\_frame} \\
+  &\mathrm{frames\_Rt\_toref} & \rightarrow & \mathrm{Rt\_ref\_frame} \\
+  &\end{aligned}
+
+  This makes things more consistent. Compatibility logic is in place, so old
+  code and data should keep working. New =.cameramodel= files write both the new
+  and old fields, so old tools can read the new files.
+
+- Transform composition functions have new arguments: =inverted0= and
+  =inverted1=, to make it easier to use inverted transforms. The C macros
+  =mrcal_compose_Rt()=, =mrcal_compose_rt()=, =mrcal_compose_r()= are unchanged,
+  with new macros available to apply the inverses: =...._inverted0()=,
+  =...._inverted1()=, =...._inverted01()=. The corresponding
+  =mrcal_compose_..._full()= C functions have new arguments; *this breaks the
+  API and ABI*. The Python functions [[file:mrcal-python-api-reference.html#-compose_r][=mrcal.compose_r()=]] and
+  [[file:mrcal-python-api-reference.html#-compose_rt][=mrcal.compose_rt()=]] and [[file:mrcal-python-api-reference.html#-compose_R][=mrcal.compose_R()=]] have new kwargs with default
+  values, so this API remains compatible.
+
+** Stereo
+- =mrcal_rectified_system()= and [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]] fail if the
+  rectified camera looks near the direction of the baseline vector. If =az0_deg=
+  is being auto-detected, it will be shifted to avoid looking along the baseline
+
+- =mrcal_rectified_system2()= is a new flavor of =mrcal_rectified_system()= to
+  provide a new =az_edge_margin_deg= argument, to set the closest the rectified
+  view is allowed to get to $\mathrm{az}=\pm 90^\circ$. The legacy function
+  still exists, defaulting to =az_edge_margin_deg=10=. [[file:mrcal-stereo.html][=mrcal-stereo=]]
+  controls this via =--az-edge-margin-deg=
+
+- Similarly the Python [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]] function now takes this
+  =az_edge_margin_deg= argument also
+
+- [[file:mrcal-stereo.html][=mrcal-stereo=]]: =--equalization= implies =--force-grayscale=
+
+- [[file:mrcal-python-api-reference.html#-stereo_range][=mrcal.stereo_range()=]] has a better default for disparity_max to handle
+  invalid disparities reliably in the common case where the disparity is a
+  16-bit signed integer
+
+** C API 
 - Added C implementations of Procrustes fits:
   =mrcal_align_procrustes_vectors_R01()= and
   =mrcal_align_procrustes_points_Rt01()=. These are now the internal
@@ -98,84 +171,16 @@ functions:
   - =mrcal_Rt_print(Rt)=
   - =mrcal_rt_print(rt)=
 
-- =compose_r()=, =compose_rt()=, =compose_Rt()= have new arguments: =inverted0=
-  and =inverted1=, to make it easier to use inverted transforms. The C macros
-  =mrcal_compose_Rt()=, =mrcal_compose_rt()=, =mrcal_compose_r()= are unchanged,
-  with new macros =...._inverted0()=, =...._inverted1()=, =...._inverted01()=.
-  The corresponding =mrcal_compose_..._full()= functions have new arguments, and
-  the API has a breaking change. The Python functions [[file:mrcal-python-api-reference.html#-compose_r][=mrcal.compose_r()=]] and
-  [[file:mrcal-python-api-reference.html#-compose_rt][=mrcal.compose_rt()=]] and [[file:mrcal-python-api-reference.html#-compose_R][=mrcal.compose_R()=]] have new arguments, with default
-  values, so this API remains compatible.
-
 - =mrcal_image_uint8_load()= applies stretch equalization if given a 16-bit
   image. This is a reasonable default. If more specific processing is needed,
-  call =mrcal_image_uint16_load()=. And [[file:mrcal-python-api-reference.html#-load_image][=mrcal.load_image()=]]
-
-- The [[file:mrcal-cull-corners.html][=mrcal-cull-corners=]] tool has =--cull-rad-off-center-board= to throw out
-  chessboard edges. Useful if we dont trust the chessboard shape
-
-- Added [[file:mrcal-python-api-reference.html#cameramodel-optimization_inputs_reset][=mrcal.cameramodel.optimization_inputs_reset()=]] and
-  [[file:mrcal-python-api-reference.html#cameramodel-valid_intrinsics_region_reset][=mrcal.cameramodel.valid_intrinsics_region_reset()=]] to unset these fields in a
-  [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]].
-
-- Added the [[https://www.github.com/dkogan/mrcal/blob/master/analyses/mrcal-convert-lensmodel-from-kalibr-fov][=analyses/mrcal-convert-lensmodel-from-kalibr-fov=]] tool to fit a
-  Kalibr "fov" model into something that mrcal supports. This isn't
-  general-enough or tested-enough to be fully distributed yet, so run it from
-  the mrcal source tree if you need it
-
-- [[file:mrcal-python-api-reference.html#-compute_chessboard_corners][=mrcal.compute_chessboard_corners()=]] has new =image_path_prefix= and
-  =image_directory= kwargs to provide more options for interpreting paths in the
-  given =corners_cache_vnl=. This is analogous to how other parts of mrcal work
-  (for instance the [[file:mrcal-show-residuals-board-observation.html][=mrcal-show-residuals-board-observation=]] tool).
-
-- [[file:mrcal-python-api-reference.html#-compute_chessboard_corners][=mrcal.compute_chessboard_corners()=]] has new
-  =Npoint_observations_per_board_min= kwarg to set the floor for points per
-  board detection. Previously this was hardcoded to 3, which was far too low.
-  The new default is =2*min(board_width,board_height)=
-
-- Added =mrcal_cameramodel_converter()= "converter" function that can be used
-  with =O&= conversions in [[https://docs.python.org/3/c-api/arg.html#c.PyArg_ParseTupleAndKeywords][=PyArg_ParseTupleAndKeywords()=]] calls. Can interpret
-  either path strings or [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]] objects as =mrcal_cameramodel_VOID_t= C
-  structures. Useful for writing Python extension modules for C code that uses
-  =mrcal_cameramodel_VOID_t=.
+  call =mrcal_image_uint16_load()=. Applies to [[file:mrcal-python-api-reference.html#-load_image][=mrcal.load_image()=]] also.
 
 - Added =mrcal_image_void_t= image type for generic functions that aren't meant
   to interface with any particular image type. The [[https://www.github.com/dkogan/mrcal/blob/master/image.h][=mrcal_image_anytype_load()=]]
   function now uses that type.
 
-- Some fiels in the [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]] type and the saved =.cameramodel= files
-  and the =optimization_inputs= C and Python interfaces were renamed:
-
-  \begin{aligned}
-  &\mathrm{extrinsics\_rt\_fromref} & \rightarrow & \mathrm{rt\_cam\_ref} \\
-  &\mathrm{extrinsics\_Rt\_fromref} & \rightarrow & \mathrm{Rt\_cam\_ref} \\
-  &\mathrm{extrinsics\_rt\_toref} & \rightarrow & \mathrm{rt\_ref\_cam} \\
-  &\mathrm{extrinsics\_Rt\_toref} & \rightarrow & \mathrm{Rt\_ref\_cam} \\
-  &\mathrm{frames\_rt\_fromref} & \rightarrow & \mathrm{rt\_frame\_ref} \\
-  &\mathrm{frames\_Rt\_fromref} & \rightarrow & \mathrm{Rt\_frame\_ref} \\
-  &\mathrm{frames\_rt\_toref} & \rightarrow & \mathrm{rt\_ref\_frame} \\
-  &\mathrm{frames\_Rt\_toref} & \rightarrow & \mathrm{Rt\_ref\_frame} \\
-  &\end{aligned}
-
-  This makes things more consistent. Compatibility logic is in place, so old
-  code and data should keep working. New =.cameramodel= files write both the new
-  and old fields, so old tools can read the new files.
-
-- [[file:mrcal-python-api-reference.html#-stereo_range][=mrcal.stereo_range()=]] has a better default for dispairty_max to handle
-  invalid disparities reliably in the common case where the disparity is a
-  16-bit signed integer
-
 - All headers have C++ =extern "C"= wrappers for direct =#include= in C++
   projects
-
-- =mrcal_rectified_system2()= is a new flavor of =mrcal_rectified_system()= to
-  provide a new =az_edge_margin_deg= argument, to set the closest the rectified
-  view is allowed to get to $\mathrm{az}=\pm 90^\circ$. The legacy function
-  still exists. It's hardcoded to use =az_edge_margin_deg=10=. [[file:mrcal-stereo.html][=mrcal-stereo=]]
-  controls this via =--az-edge-margin-deg=
-
-- Similarly the Python [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]] function now takes this
-  =az_edge_margin_deg= argument also
 
 - Renamed =mrcal_cameramodel_t= -> =mrcal_cameramodel_VOID_t= to clarify that
   the specific lensmodel type is unknown here. The legacy alias
@@ -203,6 +208,22 @@ functions:
                                           const char* filename);
   #+end_src
 
+* Migration notes 2.4 -> 2.5
+
+- =mrcal_compose_rt_full()= and =mrcal_compose_Rt_full()= C functions have two
+  new arguments: =inverted0=, =inverted1=. Most callers use the
+  =mrcal_..._compose()= macros, so for them only the ABI has changed, and a
+  rebuild is sufficient.
+
+- =mrcal_compose_rt_full()= C function can return =dt01_dr1= and =dt01_dt0=.
+  Most callers use the =mrcal_..._compose()= macros, so for them only the ABI
+  has changed, and a rebuild is sufficient.
+
+- The C types =mrcal_cameramodel_XXX_t= no longer have a generic member
+  =mrcal_cameramodel_t m=. If you need a generic alias of
+  =mrcal_cameramodel_XXX_t* model= you now need to
+  =(mrcal_cameramodel_VOID_t*)model= instead of =&model->m=
+
 - All the headers renamed to remove =mrcal-= from their name. Everything is
   intended to be included as
 
@@ -210,38 +231,19 @@ functions:
   #include <mrcal/thing.h>
   #+end_src
 
-  So the =mrcal-= in the name was superfluous. Affected headers:
+  So the =mrcal-= in the name was superfluous. If you were including either of:
 
-  - =image.h=
-  - =types.h=
-  - =internal.h=
-
-* Migration notes 2.4 -> 2.5
-
-2024-12-06 compose_r(), compose_rt(), compose_Rt() have new args:
-  inverted0,inverted1 BREAKING C ABI,API change: mrcal_compose_..._full() take
-  the two new arguments. And mrcal_compose_rt_full() returns dt01/dr1 and
-  dt01/dt0. The mrcal_compose_r(), mrcal_compose_rt() macros and the Python
-  functions maintain the same interface
-
-- The C types =mrcal_cameramodel_XXX_t= no longer have a generic member
-  =mrcal_cameramodel_t m=. If you need a generic alias of
-  =mrcal_cameramodel_XXX_t* model= you now need to
-  =(mrcal_cameramodel_VOID_t*)model= instead of =&model->m=
-
-- All the headers have been renamed to remove =mrcal-= from their name. If your
-  code was =#include=-ing any of
   - =mrcal-image.h=
   - =mrcal-types.h=
-  - =mrcal-internal.h=
 
-  the code must be updated to instead =#include=
-  - =image.h=
-  - =types.h=
-  - =internal.h=
+  You should now include:
+
+  - =mrcal/image.h=
+  - =mrcal/types.h=
 
 - The [[https://www.github.com/dkogan/mrcal/blob/master/image.h][=mrcal_image_anytype_load()=]] function uses the =mrcal_image_void_t= image
-  type. The semantics are identical, but older code might need to be tweaked.
+  type. The semantics are identical, but older code might need a cast or a type
+  change to build.
 
 * todo
 
