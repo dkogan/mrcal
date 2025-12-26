@@ -825,13 +825,6 @@ angle_error__assume_small_arg0_normalized(const vec_withgrad_t<6,3>& v0,
 #warning "triangulated-solve: temporary hack to avoid dividing by 0"
 #endif
 
-    #warning "what is this? remove"
-    if(th_sq.x < 1e-21)
-    {
-        return val_withgrad_t<6>();
-    }
-
-
     if(th_sq.x < 0)
         // To handle roundoff errors
         th_sq.x = 0;
@@ -863,13 +856,6 @@ angle_error__assume_small_args_normalized(const vec_withgrad_t<6,3>& v0,
 #if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
 #warning "triangulated-solve: temporary hack to avoid dividing by 0"
 #endif
-
-    #warning "what is this? remove"
-    if(th_sq.x < 1e-21)
-    {
-        return val_withgrad_t<6>();
-    }
-
 
     if(th_sq.x < 0)
         // To handle roundoff errors
