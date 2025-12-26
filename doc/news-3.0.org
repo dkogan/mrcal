@@ -421,6 +421,8 @@ Doesn't work. q_baseline diverges a LOT from q_true. Something isn't right. This
 is already implemented and working in test-surveyed-calibration --do-sample. So
 the functionality is validated, it's the test that needs to be improved.
 
+* C stereo unproject
+
 
 * release checklist
 These are notes to myself containing the steps needed to roll a new release
