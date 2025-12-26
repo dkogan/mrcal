@@ -88,13 +88,6 @@ The strides are given in bytes, and work as expected. For a (for instance)
                           k*xxx_stride2 ]
 #+end_src
 
-There are convenience macros in [[https://www.github.com/dkogan/mrcal/blob/master/strides.h][=strides.h=]], so the above can be equivalently
-expressed as
-
-#+begin_src c
-P3(xxx, i,j,k)
-#+end_src
-
 These all have direct Python bindings. For instance the Python
 [[file:mrcal-python-api-reference.html#-rt_from_Rt][=mrcal.rt_from_Rt()=]] function wraps =mrcal_rt_from_Rt()= C function.
 
@@ -574,7 +567,7 @@ available functions are declared in [[https://www.github.com/dkogan/mrcal/blob/m
   internally, and there's no reason to call it directly. The Python wrapper is
   [[file:mrcal-python-api-reference.html#-rectified_resolution][=mrcal.rectified_resolution()=]], and further documentation is in its docstring
 
-- =mrcal_rectified_system()= computes the geometry of the rectified system. The
+- =mrcal_rectified_system2()= computes the geometry of the rectified system. The
   Python wrapper is [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]], and further documentation is in
   its docstring.
 
@@ -592,3 +585,22 @@ A number of triangulation routines are available in [[https://www.github.com/dko
 estimate the position of the 3D point that produced a given pair of
 observations.
 
+* Sensor topology
+=mrcal_traverse_sensor_links()= is available to compute the best path through a
+graph of sensors, trying to maximize the common observations between each
+successive pair of sensors in the path. This is used in the calibration seeding
+routine to initialize a solve where every sensor's observations don't overlap
+with every other sensor's observations.
+
+* Heap routines
+The [[https://www.github.com/dkogan/mrcal/blob/master/heap.h][=heap.h=]] header provides a simple min-priority-queue implementation. This
+exposes the STL code in a C API. This is for the most part an internal
+implementation detail of =mrcal_traverse_sensor_links()=, but could potentially
+be useful somewhere on its own, so I'm exposing it here
+
+* Python utilities
+=mrcal_cameramodel_converter()= is a "converter" function that can be used with
+=O&= conversions in [[https://docs.python.org/3/c-api/arg.html#c.PyArg_ParseTupleAndKeywords][=PyArg_ParseTupleAndKeywords()=]] calls. Can interpret either
+path strings or [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]] objects as =mrcal_cameramodel_VOID_t= C
+structures. Useful for writing Python extension modules for C code that uses
+=mrcal_cameramodel_VOID_t=
