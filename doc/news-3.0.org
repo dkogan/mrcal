@@ -423,6 +423,12 @@ the functionality is validated, it's the test that needs to be improved.
 
 * C stereo unproject
 
+* triangulate() should report stuff in the ref coords, not camera0 coords
+It doesn't make a whole lot of sense the way I'm doing it right now
+
+* mrcal c api stuff should mostly be double* instead of mrcal_point3_t
+
+
 
 * release checklist
 These are notes to myself containing the steps needed to roll a new release
