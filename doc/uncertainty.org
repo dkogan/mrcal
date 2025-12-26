@@ -283,3 +283,42 @@ of the chessboard dance]].
 See the [[file:tour-uncertainty.org][tour of mrcal]] for a simulation validating this approach of quantifying
 uncertainty and for some empirical results.
 
+
+
+* Other scenarios
+:PROPERTIES:
+:CUSTOM_ID: other-uncertainty-scenarios
+:END:
+
+The mrcal solver can represent a number of related optimization problems:
+
+- Single camera or multiple cameras in a rigid unit
+- Cameras moving or cameras stationary
+- Looking at chessboards or looking at points
+- Intrinsics and/or extrinsics can be fixed
+
+Different combinations of the above scenarios require very different uncertainty
+quantification logic. Today mrcal supports some of these cases well and some not
+at all; doing this better is something I'm actively working on. Prior to mrcal
+2.5, only the "normal" camera calibration case was considered: a set of
+stationary cameras observe a moving chessboard, and we want to compute the
+intrinsics and extrinsics. Since monocular calibrations were meant to be
+well-supported and these solves have no extrinsics, the primary focus was on
+computing the uncertainty of intrinsics only, compensating for any extrinsics
+shifts. This goes a /long/ way, but there are clear uses cases for the other
+scenarios.
+
+mrcal 2.5 introduces some limited support for point-only solves; much deeper
+support for those is coming in mrcal 3.0 ([[file:uncertainty-cross-reprojection.org][cross-reprojection uncertainty]]).
+Furthermore, mrcal 2.5 introduces an experimental [[file:mrcal-show-stereo-pair-diff.html][=mrcal-show-stereo-pair-diff=]]
+tool, to quantify the joint intrinsics+extrinsics difference between camera
+pairs from two different calibrations. And mrcal 2.5 has an experimental
+[[https://www.github.com/dkogan/mrcal/blob/master/analyses/extrinsics-stability.py][=analyses/extrinsics-stability.py=]] tool to report the extrinsics-only difference
+between two camera pairs (compensating for intrinsics shifts). A future mrcal
+release will test and thoroughly release both of these, and also implement the
+corresponding uncertainty routines.
+
+Another way to report uncertainty is what the [[https://github.com/dkogan/camera-lidar-calibration/][=camera-lidar-calibration= tool]]
+does: look only at geometry and report the reprojections as a function of some
+area in space, /not/ as pixel projections. Ideally all the methods and scenarios
+will be unified in a common framework, and we shall see what can be built.
