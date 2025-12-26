@@ -510,10 +510,14 @@ of very stable lenses mounted on a not-rigid-enough mount. Any mechanical stress
 wouldn't affect the intrinsics, but the extrinsics /would/ shift. And we want a
 method to quantify this shift .
 
+** Extrinsics only
 I haven't needed to do this very often, so the technique I'm using isn't mature
 yet. The extrinsics diff computation is implemented in the
 [[https://github.com/dkogan/mrcal/blob/master/analyses/extrinsics-stability.py][=extrinsics-stability.py= tool]]. This isn't stable yet, and only exists in the
 mrcal sources for now. But I used it several times, and it appears to work well.
+Here I'm describing an extrinsics-only method: I'm computing and applying an
+implied transform to cancel out any intrincs shift, leaving the effect of
+extrinsics only.
 
 In this description I will consider 2-camera systems, but the approach is
 general for any number of cameras. Let's say we have two calibrations (0 and 1)
@@ -619,3 +623,10 @@ rotation:    0.00deg around the axis [-0.43 -0.78  0.44]
 So with these calibrations we have strong evidence that no extrinsics drift has
 occurred. More testing and development of this method are planned, and this tool
 will be further documented and released.
+
+** Joint intrinsics+extrinsics
+There's also an experimental [[file:mrcal-show-stereo-pair-diff.html][=mrcal-show-stereo-pair-diff=]] tool that shows the
+pixel shift (not geometry shift) of the intrinsics and extrinsics together. This
+works, but more is needed to figure out when a intrinsics-only, extrinsics-only
+or joint diff is appropriate. More tooling is needed to support all the cases
+and to report the joint and extrinsics-only uncertainties
