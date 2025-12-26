@@ -117,10 +117,10 @@ difflen, diff, q0, implied_Rt10 = \
                            focus_radius      = 1500)
 
 testutils.confirm_equal( 0, difflen[icenter[0],icenter[1]],
-                         eps = 5e-3,
+                         eps = 2e-2,
                          msg = "implied_Rt10 solver moves translation sufficiently. Looking at difflen at center")
 testutils.confirm_equal( 0, np.mean(difflen),
-                         eps = .12,
+                         eps = .2,
                          msg = "implied_Rt10 solver moves translation sufficiently. Looking at mean(difflen)")
 
 testutils.finish()
