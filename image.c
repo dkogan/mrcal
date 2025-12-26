@@ -45,6 +45,7 @@ void bgr_tofrom_rgb(mrcal_image_bgr_t* image)
     }
 }
 
+static
 const char* get_extension(const char* filename)
 {
     const int filename_len = strlen(filename);
