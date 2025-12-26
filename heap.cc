@@ -9,6 +9,8 @@ extern "C"
 #include "heap.h"
 }
 
+// empty namespace to prevent C++ from exporting any symbols here
+namespace {
 struct Compare_nodes_greater
 {
     mrcal_heap_node_t* nodes;
@@ -18,6 +20,7 @@ struct Compare_nodes_greater
         return nodes[idx_a].cost > nodes[idx_b].cost;
     }
 };
+}
 
 extern "C"
 bool     mrcal_heap_empty (mrcal_heap_t* heap, mrcal_heap_node_t* nodes)
