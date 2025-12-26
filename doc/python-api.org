@@ -81,6 +81,7 @@ These are all backends for the corresponding [[file:commandline-tools.org][comma
 - [[file:mrcal-python-api-reference.html#-show_geometry][=mrcal.show_geometry()=]]: Visualize the world represented by some number of
   cameras and chessboards and points. For instance, result of a calibration run.
 - [[file:mrcal-python-api-reference.html#-show_projection_diff][=mrcal.show_projection_diff()=]]: Visualize the difference in projection between N models
+- [[file:mrcal-python-api-reference.html#-show_stereo_pair_diff][=mrcal.show_stereo_pair_diff()=]]: Visualize the difference in reprojection in 2 stereo pairs
 - [[file:mrcal-python-api-reference.html#-show_projection_uncertainty][=mrcal.show_projection_uncertainty()=]]: Visualize the uncertainty in camera projection
 - [[file:mrcal-python-api-reference.html#-show_projection_uncertainty_vs_distance][=mrcal.show_projection_uncertainty_vs_distance()=]]: Visualize the uncertainty in camera projection along one observation ray
 - [[file:mrcal-python-api-reference.html#-show_distortion_off_pinhole][=mrcal.show_distortion_off_pinhole()=]]: Visualize a lens's deviation from a pinhole projection: examine the difference across the imager
@@ -115,6 +116,11 @@ will run the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] to
 - [[file:mrcal-python-api-reference.html#-estimate_monocular_calobject_poses_Rt_tocam][=mrcal.estimate_monocular_calobject_poses_Rt_tocam()=]]: Estimate camera-referenced poses of the calibration object from monocular views
 - [[file:mrcal-python-api-reference.html#-estimate_joint_frame_poses][=mrcal.estimate_joint_frame_poses()=]]: Estimate world-referenced poses of the calibration object
 - [[file:mrcal-python-api-reference.html#-seed_stereographic][=mrcal.seed_stereographic()=]]: Compute an optimization seed for a camera calibration
+- [[file:mrcal-python-api-reference.html#-traverse_sensor_links][=mrcal.traverse_sensor_links()=]]: Compute the best path through a graph of
+  sensors, trying to maximize the common observations between each successive
+  pair of sensors in the path. This is used in the calibration seeding routine
+  to initialize a solve where every sensor's observations don't overlap with
+  every other sensor's observations.
 
 * Image transforms
 - [[file:mrcal-python-api-reference.html#-scale_focal__best_pinhole_fit][=mrcal.scale_focal__best_pinhole_fit()=]]: Compute the optimal focal-length scale for reprojection to a pinhole lens
@@ -127,6 +133,7 @@ will run the [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] to
 - [[file:mrcal-python-api-reference.html#-worst_direction_stdev][=mrcal.worst_direction_stdev()=]]: Compute the worst-direction standard deviation from a 2x2 covariance matrix
 - [[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty()=]]: Compute the [[file:uncertainty.org][projection uncertainty]] of a camera-referenced point
 - [[file:mrcal-python-api-reference.html#-projection_diff][=mrcal.projection_diff()=]]: Compute the [[file:differencing.org][difference in projection]] between N models
+- [[file:mrcal-python-api-reference.html#-stereo_pair_diff][=mrcal.stereo_pair_diff()=]]: Compute the [[file:differencing.org][difference in reprojection]] between 2 stereo pairs
 - [[file:mrcal-python-api-reference.html#-is_within_valid_intrinsics_region][=mrcal.is_within_valid_intrinsics_region()=]]: Which of the pixel coordinates fall within the valid-intrinsics region?
 - [[file:mrcal-python-api-reference.html#-model_resolution__deg_pixel][=mrcal.model_resolution__deg_pixel()=]]: Report the model resolution in deg/pixel
 
@@ -266,6 +273,6 @@ easy for those that don't already have other functions handy.
 - [[file:mrcal-python-api-reference.html#-close_contour][=mrcal.close_contour()=]]: Close a polyline, if it isn't already closed
 - [[file:mrcal-python-api-reference.html#-apply_homography][=mrcal.apply_homography()=]]: Apply a homogeneous-coordinate homography to a set of 2D points
 - [[file:mrcal-python-api-reference.html#-corresponding_icam_extrinsics][=mrcal.corresponding_icam_extrinsics()=]]: Return the icam_extrinsics corresponding to a given icam_intrinsics
-- [[file:mrcal-python-api-reference.html#-residuals_board][=mrcal.residuals_board()=]]: Compute and return the chessboard measurements (weighted reprojection errors)
-- [[file:mrcal-python-api-reference.html#-residuals_point][=mrcal.residuals_point()=]]: Compute and return the discrete point measurements (weighted reprojection errors)
+- [[file:mrcal-python-api-reference.html#-measurements_board][=mrcal.measurements_board()=]]: Compute and return the chessboard measurements (weighted reprojection errors)
+- [[file:mrcal-python-api-reference.html#-measurements_point][=mrcal.measurements_point()=]]: Compute and return the discrete point measurements (weighted reprojection errors)
 - [[file:mrcal-python-api-reference.html#-sorted_eig][=mrcal.sorted_eig()=]]: Compute eigenvalues, eigenvectors; sorted results returned
