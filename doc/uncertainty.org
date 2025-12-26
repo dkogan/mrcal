@@ -1,16 +1,35 @@
 #+TITLE: Projection uncertainty
 #+OPTIONS: toc:t
 
+* Overview
 After a calibration has been computed, it is essential to get a sense of how
-good the calibration is (how closely it represents reality). Traditional
-(non-mrcal) calibration routines rely on one metric of calibration quality: the
-residual fit error. This is clearly inadequate because we can always improve
-this metric by throwing away some input data, and it doesn't make sense that
-using less data would make a calibration /better/.
+good the calibration is: how closely it represents reality, and how much to
+trust it when using it in the field. Non-mrcal calibration routines rely on one
+metric of calibration quality: the residual fit error. This is clearly
+inadequate because we can always improve this metric by throwing away some input
+data, and it doesn't make sense that using less data would make a calibration
+/better/.
 
-There are two main sources of error in the calibration solve. Without these
-errors, the calibration data would fit perfectly, producing a solve residual
-vector that's exactly $\vec 0$. The two sources of error are:
+Being able to quantify the quality of a solve is a major goal of mrcal, and it
+does this by computing a meaningful /uncertainty/ metric that can be easily
+interpreted. On a high level, the uncertainty describes the statistical
+distribution of calibration output in response to known and expected noise in
+the calibration input. mrcal provides tools to compute both the uncertainty of a
+single solve and the [[file:differencing.org][difference between two solves]]. The difference is one sample
+of the error distribution, while the uncertainty describes the behavior of an
+infinite number of such samples. The [[https://www.github.com/dkogan/mrcal/blob/master/analyses/validate-uncertainty.py][=analyses/validate-uncertainty.py=]] tool
+demonstrates this idea empirically: it computes the uncertainty and takes many
+[[file:tour-cross-validation.org::#cross-validation-comparing-with-uncertainty][cross-validation-diff]] samples to show that their empirical distribution matches
+the uncertainty prediction.
+
+As of mrcal 2.5 we primarily focus on the uncertainty of intrinsics only,
+compensating for any extrinsics shifts. [[#other-uncertainty-scenarios][Other scenarios]] will be supported in the
+future.
+
+* How to quantify uncertainty?
+There are two main sources of error in a calibration solve. Without these
+errors, the calibration data would fit perfectly, producing a residual vector
+that's exactly $\vec 0$. The two sources of error are:
 
 - *Sampling error*. Our computations are based on fitting a model to
   observations of chessboard corners. These observations aren't perfect, and
@@ -22,12 +41,11 @@ vector that's exactly $\vec 0$. The two sources of error are:
   present, even the best set of parameters aren't able to completely fit the
   data. Some sources of model errors: motion blur, unsynchronized cameras,
   chessboard detector errors, too-simple (or unstable) [[file:lensmodels.org][lens models]] or chessboard
-  deformation models, and so on. Since these errors are unmodeled (by
-  definition), we can't analytically predict their effects. Instead we try hard
-  to force these errors to zero, so that we can ignore them. We do this by using
-  rich-enough models and by gathering clean data. To detect model errors we
-  [[file:how-to-calibrate.org::#interpreting-results][look at the solve
-  diagnostics]] and we compute [[file:tour-cross-validation.org][cross-validation diffs]].
+  deformation models, and so on. Since these errors are by definition unmodeled,
+  we can't analytically predict their effects. Instead we try hard to force
+  these errors to zero, so that we can ignore them. We do this by using
+  rich-enough models and by gathering clean data. To detect model errors we [[file:how-to-calibrate.org::#interpreting-results][look
+  at the solve diagnostics]] and we compute [[file:tour-cross-validation.org][cross-validation diffs]].
 
 Let's do as much as we can analytically: let's gauge the effects of sampling
 error by computing a /projection uncertainty/ for a model. Since /only/ the
@@ -176,10 +194,13 @@ Thus evaluating the projection uncertainty of $\vec p_\mathrm{cam}$, a point
 in camera coordinates is not meaningful: the coordinate system itself moves with
 each re-optimization. Currently mrcal has multiple methods to address this:
 
-- [[file:uncertainty-cross-reprojection.org][the /cross-reprojection/ uncertainty method]]: the new method available in mrcal
-  3.0. This is the preferred formulation
-- [[file:uncertainty-mean-pcam.org][the /mean-pcam/ method]]: the simpler but somewhat problematic method used in
-  earlier versions of mrcal
+- [[file:uncertainty-mean-pcam.org][the /mean-pcam/ method]]: the method implemented originally in mrcal; works
+  well, but has limitations that the work slated for mrcal 3.0 is meant to
+  address
+- [[file:uncertainty-cross-reprojection.org][the /cross-reprojection/ uncertainty method]]: the method that will be available
+  in mrcal 3.0. This is already mostly implemented and somewhat ready to use in
+  mrcal 2.5, but not yet ready-enough for prime time. This will be the preferred
+  formulation
 
 The goal of both of these methods is to compute a function $\vec q^+\left(\vec
 b\right)$ to represent the change in projected pixel $\vec q$ as the

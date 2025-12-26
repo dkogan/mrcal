@@ -5,11 +5,12 @@ A key part of the [[file:uncertainty.org][projection uncertainty propagation met
 function $\vec q^+\left(\vec b\right)$ to represent the change in projected
 pixel $\vec q$ as the optimization vector $\vec b$ moves around.
 
-mrcal has several methods of doing this, and the legacy /mean-pcam/ method is
-described here. This is accessible by calling
-[[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty(method = "mean-pcam")=]]. This method is simple,
-and has [[#uncertainty-mean-pcam-issues][some issues]] that are resolved by newer formulations: starting with mrcal
-3.0 the improved [[file:uncertainty-cross-reprojection.org][/cross-reprojection/ uncertainty]] method is recommended.
+mrcal has several methods of doing this, and the /mean-pcam/ method is described
+here. This is the method implemented in mrcal initially, and is recommended
+until [[file:uncertainty-cross-reprojection.org][cross-reprojection uncertainty]] replaces it in mrcal 3.0. This is
+accessible by calling [[file:mrcal-python-api-reference.html#-projection_uncertainty][=mrcal.projection_uncertainty(method = "mean-pcam")=]] (this
+is the default). This method is simple, and has [[#uncertainty-mean-pcam-issues][some issues]] that will be resolved by
+newer formulations.
 
 * Mean-pcam uncertainty
 The inputs of a calibration is chessboard observations, which are noisy, and we
@@ -106,7 +107,7 @@ allows us to handle moving cameras.
 :END:
 
 This "mean-pcam" uncertainty method works well, but has several issues. All of
-these are fixed in [[file:uncertainty-cross-reprojection.org][the newer =cross-reprojection-rrp-Jfp= method]].
+these will be fixed in [[file:uncertainty-cross-reprojection.org][the newer =cross-reprojection-rrp-Jfp= method]].
 
 ** Chessboards are a hard requirement
 The first step in the formulation presented above is to unproject the query
