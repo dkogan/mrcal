@@ -14,8 +14,8 @@
 
 #include "mrcal.h"
 #include "minimath/minimath-extra.h"
-#include "util.h"
-#include "strides.h"
+#include "_util.h"
+#include "_strides.h"
 #include "scales.h"
 
 

@@ -5,7 +5,7 @@
 #include <libgen.h>
 
 #include "../mrcal.h"
-#include "../util.h"
+#include "../_util.h"
 
 #include "test-harness.h"
 

@@ -6,7 +6,7 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
-#include "autodiff.hh"
+#include "_autodiff.hh"
 
 extern "C" {
 #include "triangulation.h"

@@ -14,7 +14,7 @@
 #include <math.h>
 
 #include "poseutils.h"
-#include "strides.h"
+#include "_strides.h"
 #include "minimath/minimath.h"
 
 // All arrays stored in row-major order

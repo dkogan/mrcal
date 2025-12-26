@@ -21,9 +21,9 @@
 
 #include "mrcal.h"
 #include "minimath/minimath.h"
-#include "cahvore.h"
+#include "_cahvore.h"
 #include "minimath/minimath-extra.h"
-#include "util.h"
+#include "_util.h"
 #include "scales.h"
 
 #define MSG_IF_VERBOSE(...) do { if(verbose) MSG( __VA_ARGS__ ); } while(0)

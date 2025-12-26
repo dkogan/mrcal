@@ -6,8 +6,8 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
-#include "autodiff.hh"
-#include "strides.h"
+#include "_autodiff.hh"
+#include "_strides.h"
 
 extern "C" {
 #include "poseutils.h"

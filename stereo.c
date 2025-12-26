@@ -14,7 +14,7 @@
 
 #include "mrcal.h"
 #include "minimath/minimath.h"
-#include "util.h"
+#include "_util.h"
 
 // The equivalent function in Python is _rectified_resolution_python() in
 // stereo.py
