@@ -26,13 +26,12 @@ for
 - Debian/trixie (13)
 - Debian/bookworm (12)
 - Debian/bullseye (11)
-- Debian/buster (10)
 - Ubuntu/noble (24.04 LTS)
 - Ubuntu/jammy (22.04 LTS)
 - Ubuntu/focal (20.04 LTS)
 
-=amd64= and =arm64= architectures only (except Debian/buster, which is
-=amd64-only=). To use these, add to your =/etc/apt/sources.list=:
+=amd64= and =arm64= architectures only. To use these, add to your
+=/etc/apt/sources.list=:
 
 #+begin_example
 deb [trusted=yes] http://mrcal.secretsauce.net/packages/DISTRO/public/ DISTRO main
@@ -43,7 +42,6 @@ where =DISTRO= is one of
 - =trixie=
 - =bookworm=
 - =bulleye=
-- =buster=
 - =noble=
 - =jammy=
 - =focal=
@@ -139,7 +137,7 @@ perl -pe "s/jammy/$distro/g; s/22.04/$V/g;" \
 To native-build (amd64) any dependency or mrcal itself:
 
 #+begin_src sh
-for distro (buster bullseye bookworm trixie) {
+for distro (bullseye bookworm trixie) {
     perl -a -p -i -e 'if($. == 1) { $F[1] =~ s/-([0-9]+).*\)/-$1'$distro'1)/; $F[2] = "'$distro';"; $_ = join(" ",@F) . "\n"; }' debian/changelog;
 
     DEB_BUILD_OPTIONS=nocheck \
