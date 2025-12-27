@@ -428,6 +428,13 @@ It doesn't make a whole lot of sense the way I'm doing it right now
 
 * mrcal c api stuff should mostly be double* instead of mrcal_point3_t
 
+* m-c-c should be able to do extrinsics-only solves better
+- I need to pass in intrinsics. Currently I do that with --seed, which is bad
+  because:
+  - It's ,-separated which breaks tab-completion
+  - I don't want to seed the extrinsics. I want to load the intrinsics and use
+    the normal seeding algorithm for extrinsics
+- In this case I should be able to have non-matching --lensmodel
 
 
 * release checklist

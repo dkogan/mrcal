@@ -244,7 +244,3 @@ And other than that, there are lots and lots of smaller fixes and improvements.
 - The [[https://www.github.com/dkogan/mrcal/blob/master/image.h][=mrcal_image_anytype_load()=]] function uses the =mrcal_image_void_t= image
   type. The semantics are identical, but older code might need a cast or a type
   change to build.
-
-* todo
-
-
