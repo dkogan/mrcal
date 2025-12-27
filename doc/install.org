@@ -60,7 +60,7 @@ these are available in most distros. Things that may not be:
 
 - [[https://www.github.com/dkogan/mrbuild][=mrbuild=]]: the build system. If you can't get it from the package manager,
   just run =make=, and follow the printed message to get a local copy of
-  =mrbuild=.
+  =mrbuild=. Version 1.14 or above is required.
 
 - [[https://github.com/dkogan/libdogleg/][=libdogleg-dev=]]: the optimization library. You need at least version 0.15.3.
 
