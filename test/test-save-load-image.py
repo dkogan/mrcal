@@ -82,22 +82,22 @@ def _check_load(filename, image_ref, what,
                                     msg = "Shapes match. Loading 8bpp-1channel image")
             testutils.confirm_equal(image_check.ndim, 2,
                                     msg = "channels match. Loading 8bpp-1channel image")
-            testutils.confirm_equal(image_check.dtype, np.uint8,
-                                    msg = "dtype match. Loading 8bpp-1channel image")
+            testutils.confirm(image_check.dtype == np.uint8,
+                              msg = "dtype match. Loading 8bpp-1channel image")
         elif bpp_load == 16:
             testutils.confirm_equal(image_check.shape, (H,W),
                                     msg = "Shapes match. Loading 16bpp-1channel image")
             testutils.confirm_equal(image_check.ndim, 2,
                                     msg = "channels match. Loading 16bpp-1channel image")
-            testutils.confirm_equal(image_check.dtype, np.uint16,
-                                    msg = "dtype match. Loading 16bpp-1channel image")
+            testutils.confirm(image_check.dtype == np.uint16,
+                              msg = "dtype match. Loading 16bpp-1channel image")
         elif bpp_load == 24:
             testutils.confirm_equal(image_check.shape, (H,W,3),
                                     msg = "Shapes match. Loading 24bpp-3channel image")
             testutils.confirm_equal(image_check.ndim, 3,
                                     msg = "channels match. Loading 24bpp-3channel image")
-            testutils.confirm_equal(image_check.dtype, np.uint8,
-                                    msg = "dtype match. Loading 24bpp-3channel image")
+            testutils.confirm(image_check.dtype == np.uint8,
+                              msg = "dtype match. Loading 24bpp-3channel image")
 
     if compare_value:
         # jpg is approximate
