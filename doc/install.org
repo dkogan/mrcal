@@ -27,14 +27,12 @@ for
 - Debian/bookworm (12)
 - Debian/bullseye (11)
 - Debian/buster (10)
-- Debian/sid (bleeding-edge)
 - Ubuntu/noble (24.04 LTS)
 - Ubuntu/jammy (22.04 LTS)
 - Ubuntu/focal (20.04 LTS)
-- Ubuntu/bionic (18.04 LTS)
 
-=amd64= and =arm64= architectures only (except Debian/buster and Ubuntu/bionic,
-which are =amd64-only=). To use these, add to your =/etc/apt/sources.list=:
+=amd64= and =arm64= architectures only (except Debian/buster, which is
+=amd64-only=). To use these, add to your =/etc/apt/sources.list=:
 
 #+begin_example
 deb [trusted=yes] http://mrcal.secretsauce.net/packages/DISTRO/public/ DISTRO main
@@ -49,7 +47,6 @@ where =DISTRO= is one of
 - =noble=
 - =jammy=
 - =focal=
-- =bionic=
 
 Then, =apt update && apt install mrcal=. The chessboard corner finder, while not
 strictly required, is needed if you're doing chessboard-based calibrations. =apt
@@ -142,7 +139,7 @@ perl -pe "s/jammy/$distro/g; s/22.04/$V/g;" \
 To native-build (amd64) any dependency or mrcal itself:
 
 #+begin_src sh
-for distro (buster bullseye bookworm trixie sid) {
+for distro (buster bullseye bookworm trixie) {
     perl -a -p -i -e 'if($. == 1) { $F[1] =~ s/-([0-9]+).*\)/-$1'$distro'1)/; $F[2] = "'$distro';"; $_ = join(" ",@F) . "\n"; }' debian/changelog;
 
     DEB_BUILD_OPTIONS=nocheck \
@@ -164,7 +161,7 @@ I think I need to do ubuntu separately because they have other suites I need
 https://lists.debian.org/debian-cross/2025/10/msg00010.html
 
 #+begin_src sh
-for distro (bionic focal jammy noble) {
+for distro (focal jammy noble) {
     perl -a -p -i -e 'if($. == 1) { $F[1] =~ s/-([0-9]+).*\)/-$1'$distro'1)/; $F[2] = "'$distro';"; $_ = join(" ",@F) . "\n"; }' debian/changelog;
 
     DEB_BUILD_OPTIONS=nocheck \
@@ -190,7 +187,7 @@ deb [trusted=yes arch=amd64] http://archive.ubuntu.com/ubuntu/     ${distro}-pro
 To cross-build for arm64:
 
 #+begin_src sh
-for distro (bullseye bookworm trixie sid) {
+for distro (bullseye bookworm trixie) {
     perl -a -p -i -e 'if($. == 1) { $F[1] =~ s/-([0-9]+).*\)/-$1'$distro'1)/; $F[2] = "'$distro';"; $_ = join(" ",@F) . "\n"; }' debian/changelog;
 
     DEB_BUILD_OPTIONS=nocheck \
