@@ -25,7 +25,7 @@
 #include <math.h>
 
 #include "mrcal.h"
-#include "util.h"
+#include "_util.h"
 
 #define DEBUG 0
 
