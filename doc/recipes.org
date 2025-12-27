@@ -1105,3 +1105,28 @@ furthest-away building has an expected range error that approaches 500m. Clearly
 these are rough estimates, but they allow us to quickly gauge the ranging
 capabilities of a system for a particular scene.
 
+* Aligning non-camera sensors
+It is a very common to have a sensor suite that has more than just cameras,
+whose geometry should be aligned. For instance, a ground vehicle might have some
+cameras, a few LIDAR units and maybe an IMU. Today, the mrcal optimizer does not
+support non-camera sensors. But it is quite easy to use the mrcal library to
+construct cost functions for other optimizers. It might be slower and it might
+be difficult to do the full uncertainty propagation, but achieving parity with
+existing tooling isn't difficult.
+
+Examples of such usages follow.
+
+** Camera-LIDAR calibration
+A geometry-only routine to align a set of cameras and a set of LIDARs is
+available in the [[https://github.com/dkogan/camera-lidar-calibration/][=camera-lidar-calibration= repo]]. This aligns the geometry
+/only/ and works for a LIDAR-only system as well. This tool assumes the camera
+intrinsics are /perfect/ and it does uncertainty propagation of the output. It
+is decently well-tested and works well. Documentation and interfaces are still
+unideal, but improvements are welcome!
+
+** Camera-IMU calibration
+A geometry-only routine to align a set of cameras and an IMU is available in
+[[https://www.github.com/dkogan/mrcal/blob/master/analyses/calibrate-camera-imu.py][=analyses/calibrate-camera-imu.py=]]. This is also geometry-only and also trusts
+the intrinsics 100%. It's fairly simplistic, but highly usable and on-par with
+existing methods. Improvements welcome!
+
