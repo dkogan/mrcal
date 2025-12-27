@@ -163,19 +163,26 @@ def test_geometry( Rt01, p, whatgeometry,
                                                 eps = 1e-6)
 
                     # I take the gradient corresponding to the least error
-                    grad_empirical_best = \
-                        np.take_along_axis(grad_empirical,
-                                           np.argmin(np.abs( err_empirical),
-                                                     axis=0,
-                                                     keepdims=True),
-                                           axis=0 )
+                    try:
+                        grad_empirical_best = \
+                            np.take_along_axis(grad_empirical,
+                                               np.argmin(np.abs( err_empirical),
+                                                         axis=0,
+                                                         keepdims=True),
+                                               axis=0 )
+                        have_keepdims = True
+                    except TypeError:
+                        have_keepdims = False
 
-                    testutils.confirm_equal( grads[ivar][ipoint], grad_empirical_best,
-                                             relative  = True,
-                                             worstcase = True,
-                                             msg = f"{what}: grad(ipoint={ipoint}, ivar={ivar})",
-                                             eps = 3e-2,
-                                             reldiff_eps = 1e-6)
+                    if not have_keepdims:
+                        print("SKIPPING GRADIENT TEST; this numpy is too old")
+                    else:
+                        testutils.confirm_equal( grads[ivar][ipoint], grad_empirical_best,
+                                                 relative  = True,
+                                                 worstcase = True,
+                                                 msg = f"{what}: grad(ipoint={ipoint}, ivar={ivar})",
+                                                 eps = 3e-2,
+                                                 reldiff_eps = 1e-6)
 
 
         if f is mrcal.triangulation._triangulated_error:

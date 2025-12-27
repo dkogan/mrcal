@@ -14,7 +14,7 @@ testdir = os.path.dirname(os.path.realpath(__file__))
 sys.path[:0] = f"{testdir}/..",
 import mrcal
 
-import scipy
+import scipy.linalg
 
 
 def R_from_r(r):
