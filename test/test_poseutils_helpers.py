@@ -91,11 +91,22 @@ def r_from_R(R):
     if axis.size != 3:
         raise Exception("Reference r_from_R implementation did something wrong...")
 
-    # r_from_R_core() has comments. I use this:   R - Rt = 2 sin(th) V
-    V = mrcal.skew_symmetric(axis).ravel()
-    i = np.abs(V) > 0.1
-    V[~i] = 1. # to avoid warnings
-    sinth = np.mean( ((R - R.T).ravel() / V / 2.)[i] )
+    # r_from_R_core() has comments. I use this: R - Rt = 2 sin(th) V where V =
+    # skew_symmetric(axis)
+    #
+    # -> sin(th) ~ (R - Rt) / 2V
+    #
+    # The diagonals of both are 0. Both are anti-symmetric. So I need to look at
+    # the 3 off-diagonal elements only.
+    #
+    # The top-right corner of V is    {-axis[2] axis[1] -axis[0]}
+    # The top-right corner of R-Rt is {R01-R10  R02-R20 R12-R21}
+    Roffdiag = np.array( (R[0,1]-R[1,0],
+                          R[0,2]-R[2,0],
+                          R[1,2]-R[2,1]))
+    Voffdiag = np.array((-axis[2], axis[1], -axis[0]))
+    i = np.abs(Voffdiag) > 0.1
+    sinth = np.mean( Roffdiag[i] / Voffdiag[i] ) / 2.
     th = np.arctan2(sinth,costh)
     return axis*th
 
