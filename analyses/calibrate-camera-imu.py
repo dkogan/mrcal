@@ -1,5 +1,43 @@
 #!/usr/bin/python3
 
+r'''A simple camera-IMU alignment method
+
+This routine takes measurements from rigid rig containing an IMU and some
+cameras, and compuites their relative geometry. The cameras are assumed to have
+pre-calibrated intrinsics, which are currently trusted 100% by this tool
+(weighing by uncertainty would be an improvement). The IMU is assumed to be
+self-consistent, and we only use the measured gravity vector. This could be
+easily extended into a more complex routine that computes the IMU biases and
+such. We compute the relative translation and orientation of all the cameras,
+and only an orientation from the IMU.
+
+To gather the data, we place a stationary chessboard somewhere in the scene.
+Then we collect a small number of datasets by placing the camera+IMU rig in
+various orientation, where some set of cameras can observes the chessboard. We
+gather chessboard images and and gravity measurements from the IMU. This allows
+us to compute a set of poses to make all the measurements self-consistent.
+
+This is a bit simplistic and could be improved, but does work quite well.
+
+Reference coordinate system:
+- camera0
+
+Unknowns:
+- rt_cam_cam0[i]   for each camera i (6*(Ncameras-1) DOF)
+- rt_cam0_board[j] at each time j    (6*Nsnapshots   DOF)
+- r_imu_cam0                         (3 DOF)
+- g_board                            (2 DOF)
+
+Measurements:
+- q_board[i,j]
+- g_imu[j]
+
+Cost function for each i,j:
+- Reprojection error q_board[i,j] - project(rt_cam_cam0[i] rt_cam0_board[j] p_board)
+- r_imu_cam0 r_cam0_board[j] g_board - g_imu[j]
+
+'''
+
 import sys
 import numpy as np
 import numpysane as nps
@@ -11,23 +49,6 @@ import os
 import re
 import scipy
 
-
-# I have several measurements of stationary chessboards and the gravity vector
-# from a stationary camera+IMU rig
-
-# Unknowns:
-# - rt_cam_cam0[i]   for each camera i (6*(Ncameras-1) DOF)
-# - rt_cam0_board[j] at each time j    (6*Nsnapshots   DOF)
-# - r_imu_cam0                         (3 DOF)
-# - g_board                            (2 DOF)
-
-# Measurements:
-# - q_board[i,j]
-# - g_imu[j]
-
-# Cost function for each i,j:
-# - Reprojection error q_board[i,j] - project(rt_cam_cam0[i] rt_cam0_board[j] p_board)
-# - r_imu_cam0 r_cam0_board[j] g_board - g_imu[j]
 
 
 
@@ -51,8 +72,12 @@ tag_regex = '(20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9
 glob_files_gravity = f'{Din}/*-gravity.vnl'
 glob_files_corners = [f'{Din}/*-{cam}.vnl' for cam in cameras]
 
-gridn                          = 14
-object_spacing                 = 0.0588
+# chessboard
+gridn          = 14
+object_spacing = 0.0588
+
+# relative scale of pixels errors to IMU axis errors. These should match the
+# uncertainty of each respective measurement
 imu_err_scale__pixels_per_m_s2 = 0.3/0.05
 
 
