@@ -12,8 +12,10 @@ mrcal 3.0:
 - More general view of uncertainty. I want to support extrinsics and/or
   intrinsics uncertainty computation, in lots of scenarios
 - Implicit point solves, using the triangulation routines in the optimization
-  cost function. Should produce more efficient structure-from-motion solves.
-  This is all the "triangulated-features" stuff.
+  cost function. Should produce much more efficient structure-from-motion
+  solves. This is all the "triangulated-features" stuff. The
+  =_mrcal_triangulated_error()= function is the core part of the cost function,
+  and this is already demoed in [[https://www.github.com/dkogan/mrcal/blob/master/test/test-sfm-triangulated-points.py][=test/test-sfm-triangulated-points.py=]]
 
 And other than that, there are lots and lots of smaller fixes and improvements.
 
