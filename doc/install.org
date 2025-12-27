@@ -184,6 +184,47 @@ deb [trusted=yes arch=amd64] http://archive.ubuntu.com/ubuntu/     ${distro}-pro
 
 To cross-build for arm64:
 
+Distros prior to numpy 2 (everything that isn't trixie) needs this patch:
+
+#+begin_src diff
+diff --git a/debian/control b/debian/control
+index 374f20f..53e5d37 100644
+--- a/debian/control
++++ b/debian/control
+@@ -20,13 +20,12 @@ Build-Depends:
+  liblist-moreutils-perl:native,
+  vnlog,
+  chrpath,
+  re2c (>= 2),
+  python3-all-dev:any,
+  libpython3-all-dev,
+- python3-numpy-dev,
+ # Needed for *-genpywrap.py. Need arch:build for tests, but testing while
+ # cross-building doesn't work anyway
+  python3-numpy:native,
+ # Need this even when not running tests: *-genpywrap.py uses npsp
+ # Need at least 0.37 for the interactive pixel picking in mrcal-stereo to
+ # work
+diff --git a/debian/rules b/debian/rules
+index bf3f3d3..ac91b61 100755
+--- a/debian/rules
++++ b/debian/rules
+@@ -7,12 +7,13 @@ export VERSION_USE_LATEST_TAG  = 1
+ %:
+ 	dh $@ --with python3
+ 
+ # I build the python libraries for all the available python versions. The
+ # non-Python stuff shouldn't be rebuilt because Make should see that it's
+ # up-to-date
++override_dh_auto_build: CFLAGS+=-I/usr/lib/python3/dist-packages/numpy/core/include
+ override_dh_auto_build:
+ 	for v in `py3versions -s | sed s/python//g`; do		\
+ 	  rm -f *pywrap*.o;					\
+ 	  PYTHON_VERSION_FOR_EXTENSIONS=$$v dh_auto_build;	\
+ 	done
+ 
+#+end_src
+
 #+begin_src sh
 for distro (bullseye bookworm trixie) {
     perl -a -p -i -e 'if($. == 1) { $F[1] =~ s/-([0-9]+).*\)/-$1'$distro'1)/; $F[2] = "'$distro';"; $_ = join(" ",@F) . "\n"; }' debian/changelog;
