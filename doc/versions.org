@@ -1,8 +1,8 @@
 #+TITLE: mrcal releases
 #+OPTIONS: toc:nil
 
-Latest release is mrcal 2.4 (2024/01/22): [[https://mrcal.secretsauce.net/docs-2.4][documentation]] and [[https://github.com/dkogan/mrcal/releases/tag/v2.4][code]] and
-[[file:news-2.4.org][release and migration notes]]
+Latest release is mrcal 2.5 (2025/12/26): [[https://mrcal.secretsauce.net/docs-2.5][documentation]] and [[https://github.com/dkogan/mrcal/releases/tag/v2.5][code]] and [[file:news-2.5.org][release and
+migration notes]]
 
 * Releases
 - mrcal 1.0.1 (2021/02/23): [[https://mrcal.secretsauce.net/docs-1.0][documentation]] and [[https://github.com/dkogan/mrcal/releases/tag/v1.0.1][code]]
@@ -11,6 +11,7 @@ Latest release is mrcal 2.4 (2024/01/22): [[https://mrcal.secretsauce.net/docs-2
 - mrcal 2.2 (2022/10/03): [[https://mrcal.secretsauce.net/docs-2.2][documentation]] and [[https://github.com/dkogan/mrcal/releases/tag/v2.2][code]] and [[file:news-2.2.org][release and migration notes]]
 - mrcal 2.3 (2023/05/04): [[https://mrcal.secretsauce.net/docs-2.3][documentation]] and [[https://github.com/dkogan/mrcal/releases/tag/v2.3][code]] and [[file:news-2.3.org][release and migration notes]]
 - mrcal 2.4 (2024/01/22): [[https://mrcal.secretsauce.net/docs-2.4][documentation]] and [[https://github.com/dkogan/mrcal/releases/tag/v2.4][code]] and [[file:news-2.4.org][release and migration notes]]
+- mrcal 2.5 (2025/12/26): [[https://mrcal.secretsauce.net/docs-2.5][documentation]] and [[https://github.com/dkogan/mrcal/releases/tag/v2.5][code]] and [[file:news-2.5.org][release and migration notes]]
 
 * Future
 See the [[file:roadmap.org][roadmap]] for thoughts about future directions
