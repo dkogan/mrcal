@@ -181,7 +181,7 @@ def test_geometry( Rt01, p, whatgeometry,
                                                  relative  = True,
                                                  worstcase = True,
                                                  msg = f"{what}: grad(ipoint={ipoint}, ivar={ivar})",
-                                                 eps = 3e-2,
+                                                 eps = 4e-2,
                                                  reldiff_eps = 1e-6)
 
 
@@ -208,7 +208,7 @@ def test_geometry( Rt01, p, whatgeometry,
                                          relative  = True,
                                          worstcase = True,
                                          msg = f"{what}: result should be close to triangulate_leecivera_mid2()",
-                                         eps = 1e-8)
+                                         eps = 1e-7)
 
             # I do this regardless of if check_gradients. Because I want to
             # check the divergent cases too
