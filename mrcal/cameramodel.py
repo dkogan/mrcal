@@ -1879,6 +1879,15 @@ The optimization_inputs dict, or None if one isn't stored in this model.
             return None
         x = _deserialize_optimization_inputs(self._optimization_inputs_string)
         x['verbose'] = False
+
+        # The endian-ness of the data may not be native. If so, I
+        # reorder. The Python code doesn't need this at all: it knows
+        # the dtype when reading the data. But when passing this to C
+        # code, native data is expected
+        for k,v in x.items():
+            if isinstance(v, np.ndarray) and not v.dtype.isnative:
+                x[k] = v.view(v.dtype.newbyteorder()).byteswap()
+
         return x
 
 
