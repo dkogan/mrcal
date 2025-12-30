@@ -29,6 +29,7 @@
 
 #include "python-wrapping-utilities.h"
 
+#include "python-cameramodel-converter.h"
 
 
 // adds a reference to P,I,X, unless an error is reported
@@ -4268,6 +4269,65 @@ PyObject* traverse_sensor_links(PyObject* NPY_UNUSED(self),
     Py_XDECREF(connectivity_matrix);
     return result;
 }
+static
+PyObject* _test_python_cameramodel_converter(PyObject* NPY_UNUSED(self),
+                                             PyObject* args,
+                                             PyObject* kwargs)
+{
+    PyObject*      result     = NULL;
+    PyArrayObject* intrinsics = NULL;
+    PyArrayObject* imagersize = NULL;
+    PyArrayObject* rt_cam_ref = NULL;
+
+    char* const keywords[] = { "model",
+                               NULL };
+
+    mrcal_cameramodel_VOID_t* model = NULL;
+
+    if(!PyArg_ParseTupleAndKeywords( args, kwargs,
+                                     "O&:mrcal._test_python_cameramodel_converter",
+                                     keywords,
+                                     python_cameramodel_converter, &model))
+        goto done;
+
+    const int Nintrinsics = mrcal_lensmodel_num_params(&model->lensmodel);
+    intrinsics =
+        (PyArrayObject*)PyArray_SimpleNew(1,
+                                          ((npy_intp[]){Nintrinsics}),
+                                          NPY_DOUBLE);
+    if(intrinsics == NULL)
+        goto done;
+    memcpy(PyArray_DATA(intrinsics), model->intrinsics, Nintrinsics*sizeof(model->intrinsics[0]));
+
+    imagersize =
+        (PyArrayObject*)PyArray_SimpleNew(1,
+                                          ((npy_intp[]){2}),
+                                          NPY_UINT);
+    if(imagersize == NULL)
+        goto done;
+    memcpy(PyArray_DATA(imagersize), model->imagersize, 2*sizeof(model->imagersize[0]));
+
+    rt_cam_ref =
+        (PyArrayObject*)PyArray_SimpleNew(1,
+                                          ((npy_intp[]){6}),
+                                          NPY_DOUBLE);
+    if(rt_cam_ref == NULL)
+        goto done;
+    memcpy(PyArray_DATA(rt_cam_ref), model->rt_cam_ref, 6*sizeof(model->rt_cam_ref[0]));
+
+    result =
+        Py_BuildValue("{sssOsOsO}",
+                      "lensmodel",  mrcal_lensmodel_name_unconfigured(&model->lensmodel),
+                      "intrinsics", intrinsics,
+                      "imagersize", imagersize,
+                      "rt_cam_ref", rt_cam_ref);
+ done:
+    Py_XDECREF(intrinsics);
+    Py_XDECREF(imagersize);
+    Py_XDECREF(rt_cam_ref);
+
+    return result;
+}
 
 
 static const char state_index_intrinsics_docstring[] =
@@ -4391,6 +4451,9 @@ static const char _rectification_maps_docstring[] =
 static const char traverse_sensor_links_docstring[] =
 #include "traverse_sensor_links.docstring.h"
     ;
+static const char _test_cameramodel_load_docstring[] =
+"FUNCTION FOR TESTING"
+    ;
 static PyMethodDef methods[] =
     { PYMETHODDEF_ENTRY(,optimize,                         METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,optimizer_callback,               METH_VARARGS | METH_KEYWORDS),
@@ -4435,6 +4498,7 @@ static PyMethodDef methods[] =
       PYMETHODDEF_ENTRY(,_rectification_maps,          METH_VARARGS | METH_KEYWORDS),
 
       PYMETHODDEF_ENTRY(, traverse_sensor_links, METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(, _test_python_cameramodel_converter, METH_VARARGS | METH_KEYWORDS),
       {}
     };
 #if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS

@@ -61,7 +61,8 @@ TESTS=("test/test-pywrap-functions.py"
        "test/test-propagate-calibration-uncertainty.py"
        "test/test-heap"
        "test/test-traverse-sensor-links.py"
-       "test/test-sorted-eig.py")
+       "test/test-sorted-eig.py"
+       "test/test-python-cameramodel-converter.py")
 
 # Check the non-canonical problem definitions
 TESTS+=("test/test-projection-uncertainty.py --fixed cam0 --model opencv4 --Ncameras 1 --reproject-perturbed cross-reprojection-rrp-Jfp"
