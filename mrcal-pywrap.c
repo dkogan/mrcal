@@ -1723,7 +1723,7 @@ PyObject* _optimize(optimizemode_t optimizemode,
                                   indices_point_camintrinsics_camextrinsics);
 
         int Nobservations_point_triangulated = PyArray_DIMS(observations_point_triangulated)[0];
-        mrcal_observation_point_triangulated_t c_observations_point_triangulated[Nobservations_point_triangulated];
+        mrcal_observation_point_triangulated_t c_observations_point_triangulated[Nobservations_point_triangulated]; // might run out of stack space
         if( fill_c_observations_point_triangulated(c_observations_point_triangulated,
                                                    observations_point_triangulated,
                                                    &mrcal_lensmodel, c_intrinsics,
@@ -4287,7 +4287,7 @@ PyObject* _test_python_cameramodel_converter(PyObject* NPY_UNUSED(self),
     if(!PyArg_ParseTupleAndKeywords( args, kwargs,
                                      "O&:mrcal._test_python_cameramodel_converter",
                                      keywords,
-                                     python_cameramodel_converter, &model))
+                                     mrcal_cameramodel_converter, &model))
         goto done;
 
     const int Nintrinsics = mrcal_lensmodel_num_params(&model->lensmodel);
@@ -4451,7 +4451,7 @@ static const char _rectification_maps_docstring[] =
 static const char traverse_sensor_links_docstring[] =
 #include "traverse_sensor_links.docstring.h"
     ;
-static const char _test_cameramodel_load_docstring[] =
+static const char _test_python_cameramodel_converter_docstring[] =
 "FUNCTION FOR TESTING"
     ;
 static PyMethodDef methods[] =
