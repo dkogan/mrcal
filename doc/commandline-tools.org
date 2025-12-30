@@ -14,7 +14,9 @@ to write any code. The available tools, with links to their manpages:
 :CUSTOM_ID: commandline-tools-visualization
 :END:
 - [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]]: visualize the difference in projection between N
-  models
+  models due to intrinsics shifts
+- [[file:mrcal-show-stereo-pair-diff.html][=mrcal-show-stereo-pair-diff=]]: visualize the difference between two camera
+  pairs due to intrinsics+extrinsics shifts
 - [[file:mrcal-show-projection-uncertainty.html][=mrcal-show-projection-uncertainty=]]: visualize the expected projection error
   due to uncertainty in the calibration-time input
 - [[file:mrcal-show-valid-intrinsics-region.html][=mrcal-show-valid-intrinsics-region=]]: visualize the region where a model's

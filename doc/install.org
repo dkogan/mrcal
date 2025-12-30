@@ -85,11 +85,12 @@ these are available in most distros. Things that may not be:
 
 - [[https://github.com/yaml/pyyaml][=python3-yaml=]]: yaml parser used for the OpenCV, Kalibr model reading
 
-- [[https://pyfltk.sourceforge.io/][=python3-fltk=]]: Python bindings for the [[https://www.fltk.org/][FLTK]] GUI toolkit. Optional. Used only
-  in the visualizer in the [[file:mrcal-stereo.html][=mrcal-stereo=]] tool.
+- [[https://pyfltk.sourceforge.io/][=python3-fltk=]]: Python bindings for the [[https://www.fltk.org/][FLTK]] GUI toolkit. Optional. Most
+  notably used in the [[file:mrcal-stereo.html][=mrcal-stereo --viz stereo=]] visualizer, but will be used
+  more widely over time.
 
-- [[https://github.com/dkogan/GL_image_display][=python3-gl-image-display=]]: an image widget for FLTK. Optional. Used only in
-  the visualizer in the [[file:mrcal-stereo.html][=mrcal-stereo=]] tool.
+- [[https://github.com/dkogan/GL_image_display][=python3-gl-image-display=]]: an image widget for FLTK. Optional. Used together
+  with =python3-fltk=
 
 - [[https://www.cvlibs.net/software/libelas/][=libelas-dev=]]: the ELAS stereo matcher. Used as an option in the
   [[file:mrcal-stereo.html][=mrcal-stereo=]] tool. Optional.

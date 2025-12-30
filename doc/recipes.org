@@ -768,9 +768,8 @@ mrcal-show-model-resolution \
 
 So as we move outwards, each pixel covers less space. Note that at each pixel
 the projection behavior isn't necessarily isotropic: the resolution may be
-different if looking in different directions. The current implementation of the
-tool /does/ assume isotropic behavior, however, and it displays the mean
-resolution.
+different if looking in different directions. The =--mode= option to
+[[file:mrcal-show-model-resolution.html][=mrcal-show-model-resolution=]] selects which metric we want.
 
 * Estimating ranging errors caused by calibration errors
 Any particular application has requirements for how accurate the mapping and/or
