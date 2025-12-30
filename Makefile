@@ -127,6 +127,8 @@ DIST_BIN :=					\
 	mrcal-show-splined-model-correction	\
 	mrcal-show-projection-uncertainty	\
 	mrcal-show-projection-diff		\
+	mrcal-show-model-resolution		\
+	mrcal-show-stereo-pair-diff		\
 	mrcal-reproject-points			\
 	mrcal-reproject-image			\
 	mrcal-graft-models			\
