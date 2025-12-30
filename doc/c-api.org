@@ -603,4 +603,5 @@ be useful somewhere on its own, so I'm exposing it here
 =O&= conversions in [[https://docs.python.org/3/c-api/arg.html#c.PyArg_ParseTupleAndKeywords][=PyArg_ParseTupleAndKeywords()=]] calls. Can interpret either
 path strings or [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]] objects as =mrcal_cameramodel_VOID_t= C
 structures. Useful for writing Python extension modules for C code that uses
-=mrcal_cameramodel_VOID_t=
+=mrcal_cameramodel_VOID_t=. This allocates memory on success. Call
+=free(*model)= when done
