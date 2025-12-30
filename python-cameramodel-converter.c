@@ -71,8 +71,8 @@ int mrcal_cameramodel_converter(PyObject*             py_model,
             BARF_AND_GOTO_DONE("cameramodel.intrinsics() result isn't a tuple");
         if(2 != PyTuple_Size(call_result))
             BARF_AND_GOTO_DONE("cameramodel.intrinsics() result must be a tuple of length 2");
-        PyObject* py_lensmodel  = PyTuple_GET_ITEM(call_result,0);
-        PyObject* intrinsics    = PyTuple_GET_ITEM(call_result,1);
+        PyObject* py_lensmodel  = PyTuple_GetItem(call_result,0);
+        PyObject* intrinsics    = PyTuple_GetItem(call_result,1);
         if(!(PyUnicode_Check(py_lensmodel) && PyArray_Check(intrinsics)))
             BARF_AND_GOTO_DONE("cameramodel.intrinsics() result must contain (string,array)");
         const char* lensmodel = PyUnicode_AsUTF8(py_lensmodel);
