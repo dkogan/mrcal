@@ -90,7 +90,9 @@ def parse_args():
     parser.add_argument('--method',
                         choices=('mean-pcam', 'bestq', 'cross-reprojection-rrp-Jfp'),
                         default='mean-pcam',
-                        help='''Multiple uncertainty quantification methods are available. We default to 'mean-pcam' ''')
+                        help='''Multiple uncertainty quantification methods are
+                        available. We default to 'mean-pcam'; the others are
+                        experimental at this time''')
     parser.add_argument('--observations',
                         action='store_true',
                         default=False,
