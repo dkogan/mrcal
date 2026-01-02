@@ -65,14 +65,14 @@ LIB_SOURCES +=			\
 python-cameramodel-converter.o: %.o:%.c
 	$(c_build_rule) && mv $@ _$@
 	$(OBJCOPY) --wildcard --weaken-symbol='Py*' --weaken-symbol='_Py*' _$@ $@ && mv $@ _$@
-	$(NM) --undef _$@ | awk '$$1 == "U" && $$2 ~ "Py" { print $$2 }' > python-cameramodel-converter-py-symbol-refs
+	$(NM) -u _$@ | awk '$$1 == "U" && $$2 ~ "Py" { print $$2 }' > python-cameramodel-converter-py-symbol-refs
 	if [ -s python-cameramodel-converter-py-symbol-refs ]; then			\
 	  < python-cameramodel-converter-py-symbol-refs					\
 	    awk 'BEGIN {ORS=""; print "#define PY_REFS(_) " } {print "_("$$1") "} '	\
 	  > python-cameramodel-converter-py-symbol-refs.h				\
 	  &&										\
 	  $(c_build_rule) -DWEAKEN_PY_REFS;						\
-	  if $(NM) --undef $@ | grep -E -q '\sU\s+_?Py'; then				\
+	  if $(NM) -u $@ | grep -E -q '\sU\s+_?Py'; then				\
 	    echo "ERROR: Strong symbols remain! See the Makefile for notes";		\
 	    false;									\
 	  fi										\
