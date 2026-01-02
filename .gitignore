@@ -2,6 +2,7 @@
 *.d
 *.o
 *.so*
+*.dylib*
 *.docstring.h
 cscope*
 *.pyc
@@ -25,6 +26,9 @@ test/test-gradients
 test/test-lensmodel-string-manipulation
 test/test-cahvor
 test/test-parser-cameramodel
+test/test-heap
+
+python-cameramodel-converter-py-symbol-refs
 
 *.pod
 *GENERATED.*
@@ -33,3 +37,6 @@ test/test-parser-cameramodel
 *.fig.bak
 ltximg/
 doc/out
+
+mrbuild
+mrbuild/
