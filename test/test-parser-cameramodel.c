@@ -73,9 +73,15 @@ static void confirm_models_equal(const mrcal_cameramodel_VOID_t* a,
 } while(0)
 
 
+#if defined(__APPLE__)
+    #include <mach-o/dyld.h>
+    #include <libgen.h>
+#endif
 static void check_read_from_disk(void)
 {
     char self_exe[PATH_MAX];
+
+#if !defined(__APPLE__)
     const size_t bufsize_self_exe = sizeof(self_exe);
     ssize_t len_readlink = readlink("/proc/self/exe", self_exe, bufsize_self_exe);
     if(!confirm(len_readlink > 0))
@@ -84,6 +90,15 @@ static void check_read_from_disk(void)
         return;
 
     self_exe[len_readlink] = '\0';
+
+#else
+
+    uint32_t bufsize = sizeof(self_exe);
+    if(!confirm(0==_NSGetExecutablePath(self_exe, &bufsize)))
+        return;
+
+#endif
+
     const char* self_dir = dirname(self_exe);
 
     char path_model[PATH_MAX];
