@@ -12,16 +12,33 @@ questions like "how much data should I gather for a calibration?" and "how good
 is this calibration I just computed?" and "how different are these two models?"
 unanswerable. The previous state-of-the-art was good-enough for low-resolution
 cameras and long-focal-length lenses and low-range stereo. But today, the
-existing tools are often insufficient.
+existing tools are insufficient, and we can do better.
 
 This toolkit allows the user to confidently produce calibrations that are as
 good as possible. It provides lots of visualization capabilities to evaluate
 various properties of a model solution. And it provides powerful analysis
 methods, such as model differencing and quantification of projection and
 triangulation uncertainty. To fit the real-world lens behavior mrcal loosens
-many assumptions common in other toolkits: the calibration chessboard isn't
-assumed to be flat, lenses aren't assumed to follow simple parametric models,
-rectified stereo isn't done with a pinhole model, and so on.
+many assumptions common in other toolkits, and does things differently:
+
+- Homogeneous coordinates are not used anywhere for anything. These use a
+  pinhole projection, which is a very poor representation of real-world lenses
+- There is no concept of "distortion", and we never "undistort" anything. No
+  projection function can preserve object shapes /and/ object sizes /and/ the
+  straightness of lines, and you're always distorting /something/. The common
+  idea that you "undistort" into a pinhole projection introduces all sorts of
+  problems into sizes and shapes for all but the longest of lenses.
+- Rectified stereo isn't done with a pinhole model either, for the same reason.
+  A better projection function is available that is friendlier to wider lenses
+- Lenses aren't assumed to follow simple parametric models, because if you
+  actually look, as mrcal tools allow you to do, you can see that they all do
+  not fit well. A rich model is available.
+- Reprojection error is not used as a gauge of calibration quality. Because this
+  doesn't work. Uncertainty and cross-validation tools are provided instead
+- The calibration chessboard isn't assumed to be flat, with a parabolic
+  deformation model available.
+
+And so on.
 
 mrcal consists of
 
