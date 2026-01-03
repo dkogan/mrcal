@@ -15,7 +15,7 @@ USE_LIBELAS ?= 0
 USE_LOCAL_STB_IMPLEMENTATION ?= $(COND_DARWIN)
 
 # convert all USE_XXX:=0 to an empty string
-$(foreach v,$(filter USE_%,$(.VARIABLES)),$(if $(filter 0,${$v}),$(eval undefine $v)))
+$(foreach v,$(filter USE_%,$(.VARIABLES)),$(if $(filter 0,${$v}),$(eval $v =)))
 # to print them all: $(foreach v,$(filter USE_%,$(.VARIABLES)),$(warning $v = '${$v}'))
 
 
@@ -64,7 +64,7 @@ LIB_SOURCES +=			\
 # be done
 python-cameramodel-converter.o: %.o:%.c
 	$(c_build_rule) && mv $@ _$@
-	$(OBJCOPY) --wildcard --weaken-symbol='Py*' --weaken-symbol='_Py*' _$@ $@ && mv $@ _$@
+	-$(OBJCOPY) --wildcard --weaken-symbol='Py*' --weaken-symbol='_Py*' _$@ $@ && mv $@ _$@
 	$(NM) -u _$@ | awk '$$1 == "U" && $$2 ~ "Py" { print $$2 }' > python-cameramodel-converter-py-symbol-refs
 	if [ -s python-cameramodel-converter-py-symbol-refs ]; then			\
 	  < python-cameramodel-converter-py-symbol-refs					\
