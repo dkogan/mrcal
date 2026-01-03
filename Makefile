@@ -9,6 +9,10 @@ include $(MRBUILD_MK)/Makefile.common.header
 # on anything in non-free, so I default to not using libelas
 USE_LIBELAS ?= 0
 
+# If true, we compile libstb into image.o and libmrcal.so. If false, we link to
+# an external libstb.so. We default to building it ourselves on macos and using
+# the library otherwise
+USE_LOCAL_STB_IMPLEMENTATION ?= $(COND_DARWIN)
 
 # convert all USE_XXX:=0 to an empty string
 $(foreach v,$(filter USE_%,$(.VARIABLES)),$(if $(filter 0,${$v}),$(eval undefine $v)))
@@ -84,6 +88,9 @@ ifneq (${USE_LIBELAS},) # using libelas
 LIB_SOURCES := $(LIB_SOURCES) stereo-matching-libelas.cc
 endif
 
+ifneq ($(USE_LOCAL_STB_IMPLEMENTATION),)
+image.o: CFLAGS += -DSTB_IMAGE_IMPLEMENTATION=1
+endif
 
 BIN_SOURCES +=					\
   test/test-gradients.c				\
@@ -92,7 +99,7 @@ BIN_SOURCES +=					\
   test/test-parser-cameramodel.c                \
   test/test-heap.c
 
-LDLIBS += -ldogleg -lstb -lpng -ljpeg -llapack
+LDLIBS += -ldogleg $(if $(USE_LOCAL_STB_IMPLEMENTATION),,-lstb) -lpng -ljpeg -llapack
 
 ifneq (${USE_LIBELAS},) # using libelas
 LDLIBS += -lelas
