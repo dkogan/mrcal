@@ -195,7 +195,6 @@ mrcal-pywrap.o: $(addsuffix .h,$(wildcard *.docstring))
 mrcal/_mrcal$(PY_EXT_SUFFIX): mrcal-pywrap.o libmrcal.$(SO) libmrcal.$(SO).${ABI_VERSION}
 	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $(LDFLAGS) $< -lmrcal -lsuitesparseconfig -o $@
 
-CFLAGS += -I/usr/include/suitesparse
 PYTHON_OBJECTS := mrcal-pywrap.o python-cameramodel-converter.o $(ALL_NPSP_O)
 
 $(PYTHON_OBJECTS): CFLAGS += $(PY_MRBUILD_CFLAGS)
