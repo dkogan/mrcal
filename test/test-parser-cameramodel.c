@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <libgen.h>
+#include <limits.h>
 
 #include "../mrcal.h"
 #include "../_util.h"
@@ -74,7 +75,7 @@ static void confirm_models_equal(const mrcal_cameramodel_VOID_t* a,
 
 static void check_read_from_disk(void)
 {
-    char self_exe[1024];
+    char self_exe[PATH_MAX];
     const size_t bufsize_self_exe = sizeof(self_exe);
     ssize_t len_readlink = readlink("/proc/self/exe", self_exe, bufsize_self_exe);
     if(!confirm(len_readlink > 0))
@@ -85,7 +86,7 @@ static void check_read_from_disk(void)
     self_exe[len_readlink] = '\0';
     const char* self_dir = dirname(self_exe);
 
-    char path_model[1024];
+    char path_model[PATH_MAX];
     const int snprintf_bytes_would_write =
         snprintf(path_model, sizeof(path_model),
                  "%s/data/cam0.opencv8.cameramodel",
@@ -333,7 +334,7 @@ int main(int argc, char* argv[])
     if(write_cameramodel_succeeded)
     {
         FILE* fp = fopen("/tmp/test-parser-cameramodel.cameramodel", "r");
-        char buf[1024];
+        char buf[PATH_MAX];
         int Nbytes_read = fread(buf, 1, sizeof(buf), fp);
         fclose(fp);
         confirm(Nbytes_read > 0);
