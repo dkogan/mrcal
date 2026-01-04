@@ -228,7 +228,7 @@ $(PYTHON_OBJECTS): CFLAGS += $(PY_MRBUILD_CFLAGS)
 DIST_PY3_MODULES := mrcal
 
 all: mrcal/_mrcal$(PY_EXT_SUFFIX) $(ALL_NPSP_SO)
-EXTRA_CLEAN += mrcal/*.$(SO)
+EXTRA_CLEAN += mrcal/*$(PY_EXT_SUFFIX)
 
 
 TESTS_ALL_TARGETS := test-all test-nosampling test-triangulation-uncertainty test-external-data
