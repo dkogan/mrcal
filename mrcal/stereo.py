@@ -20,7 +20,7 @@ import numpysane as nps
 import mrcal
 import re
 
-def rectified_resolution(model,
+def rectified_resolution(model0,
                          *,
                          az_fov_deg,
                          el_fov_deg,
@@ -37,7 +37,7 @@ SYNOPSIS
 
     pixels_per_deg_az,  \
     pixels_per_deg_el = \
-        mrcal.rectified_resolution(model,
+        mrcal.rectified_resolution(model0,
                                    az_fov_deg = 120,
                                    el_fov_deg = 100,
                                    az0_deg    = 0,
@@ -68,7 +68,7 @@ image. This is only possible for LENSMODEL_LATLON and LENSMODEL_LONLAT.
 
 ARGUMENTS
 
-- model: the model of the camera that captured the image that will be
+- model0: the model of the camera that captured the image that will be
   reprojected. In a stereo pair this is the FIRST camera. Used to determine the
   angular resolution of the input image. Only the intrinsics are used.
 
@@ -81,6 +81,9 @@ ARGUMENTS
 - az0_deg: required value for the azimuth center of the rectified images.
 
 - el0_deg: required value for the elevation center of the rectified system.
+
+- R_cam0_rect0: required rotation matrix relating the input-camera and
+  rectified-camera systems
 
 - pixels_per_deg_az: optional value for the azimuth resolution of the rectified
   image. If a resolution of >0 is requested, the value is used as is. If a
@@ -99,9 +102,10 @@ ARGUMENTS
 RETURNED VALUES
 
 A tuple (pixels_per_deg_az,pixels_per_deg_el)
-'''
+
+    '''
     # The guts of this function are implemented in C. Call that
-    return mrcal._mrcal._rectified_resolution(*model.intrinsics(),
+    return mrcal._mrcal._rectified_resolution(*model0.intrinsics(),
                                               R_cam0_rect0        = np.ascontiguousarray(R_cam0_rect0),
                                               az_fov_deg          = az_fov_deg,
                                               el_fov_deg          = el_fov_deg,
@@ -111,7 +115,7 @@ A tuple (pixels_per_deg_az,pixels_per_deg_el)
                                               pixels_per_deg_el   = pixels_per_deg_el,
                                               rectification_model = rectification_model)
 
-def _rectified_resolution_python(model,
+def _rectified_resolution_python(model0,
                                  *,
                                  az_fov_deg,
                                  el_fov_deg,
@@ -143,37 +147,37 @@ should catch any differences.
         # match the resolution of the cameras. I just look at camera0. If your
         # two cameras are different, pass in the pixels_per_deg yourself
         #
-        # I look at the center of the stereo field of view. There I have q =
-        # project(v) where v is a unit projection vector. I compute dq/dth where
-        # th is an angular perturbation applied to v.
+        # I look at the center of the stereo field of view. There I have qrect =
+        # project(vrect) where vrect is a unit projection vector. I compute
+        # dqrect/dth where th is an angular perturbation applied to vrect.
         if rectification_model == 'LENSMODEL_LATLON':
-            q0_normalized = azel0
-            v,dv_dazel = \
-                mrcal.unproject_latlon( q0_normalized,
+            q0rect_normalized = azel0
+            vrect,dvrect_dazel = \
+                mrcal.unproject_latlon( q0rect_normalized,
                                         get_gradients = True )
         elif rectification_model == 'LENSMODEL_LONLAT':
-            q0_normalized = azel0
-            v,dv_dazel = \
-                mrcal.unproject_lonlat( q0_normalized,
+            q0rect_normalized = azel0
+            vrect,dvrect_dazel = \
+                mrcal.unproject_lonlat( q0rect_normalized,
                                         get_gradients = True )
         elif rectification_model == 'LENSMODEL_PINHOLE':
-            q0_normalized = np.tan(azel0)
-            v,dv_dq0normalized = \
-                mrcal.unproject_pinhole( q0_normalized,
+            q0rect_normalized = np.tan(azel0)
+            vrect,dv_dq0normalized = \
+                mrcal.unproject_pinhole( q0rect_normalized,
                                          get_gradients = True )
-            # dq/dth = dtanth/dth = 1/cos^2(th)
-            dv_dazel = dv_dq0normalized
+            # dqrect/dth = dtanth/dth = 1/cos^2(th)
+            dvrect_dazel = dv_dq0normalized
 
             cos_azel0 = np.cos(azel0)
-            dv_dazel /= cos_azel0*cos_azel0
+            dvrect_dazel /= cos_azel0*cos_azel0
 
         else:
             raise Exception("Unsupported rectification model")
 
-        v0         = mrcal.rotate_point_R(R_cam0_rect0, v)
-        dv0_dazel  = nps.matmult(R_cam0_rect0, dv_dazel)
+        v0         = mrcal.rotate_point_R(R_cam0_rect0, vrect)
+        dv0_dazel  = nps.matmult(R_cam0_rect0, dvrect_dazel)
 
-        _,dq_dv0,_ = mrcal.project(v0, *model.intrinsics(), get_gradients = True)
+        _,dq_dv0,_ = mrcal.project(v0, *model0.intrinsics(), get_gradients = True)
 
         # More complex method that's probably not any better
         #
