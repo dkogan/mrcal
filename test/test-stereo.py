@@ -32,16 +32,6 @@ for lensmodel in ('LENSMODEL_LATLON', 'LENSMODEL_PINHOLE'):
 
     # made-up numbers. I'm just making sure rectified_resolution() does what it
     # is supposed to
-    pixels_per_deg_azel_computed = \
-        mrcal.rectified_resolution( model0,
-                                    az_fov_deg = az_fov_deg,
-                                    el_fov_deg = el_fov_deg,
-                                    az0_deg = -4.,
-                                    el0_deg = 6.,
-                                    R_cam0_rect0 = mrcal.identity_R(),
-                                    pixels_per_deg_az = -1./8.,
-                                    pixels_per_deg_el = -1./4.,
-                                    rectification_model = lensmodel)
     pixels_per_deg_azel_ref = \
         mrcal.stereo._rectified_resolution_python( model0,
                                                    az_fov_deg = az_fov_deg,
@@ -52,18 +42,20 @@ for lensmodel in ('LENSMODEL_LATLON', 'LENSMODEL_PINHOLE'):
                                                    pixels_per_deg_az = -1./8.,
                                                    pixels_per_deg_el = -1./4.,
                                                    rectification_model = lensmodel)
+    pixels_per_deg_azel_computed = \
+        mrcal.rectified_resolution( model0,
+                                    az_fov_deg = az_fov_deg,
+                                    el_fov_deg = el_fov_deg,
+                                    az0_deg = -4.,
+                                    el0_deg = 6.,
+                                    R_cam0_rect0 = mrcal.identity_R(),
+                                    pixels_per_deg_az = -1./8.,
+                                    pixels_per_deg_el = -1./4.,
+                                    rectification_model = lensmodel)
     testutils.confirm_equal(pixels_per_deg_azel_computed,
                             pixels_per_deg_azel_ref,
                             msg=f'computed resolution matches between the C and Python implementations ({lensmodel})')
 
-
-    models_rectified = \
-        mrcal.rectified_system( (model0, model1),
-                                az_fov_deg = az_fov_deg,
-                                el_fov_deg = el_fov_deg,
-                                pixels_per_deg_az = -1./8.,
-                                pixels_per_deg_el = -1./4.,
-                                rectification_model = lensmodel)
 
     models_rectified_ref = \
         mrcal.stereo._rectified_system_python( (model0, model1),
@@ -72,6 +64,13 @@ for lensmodel in ('LENSMODEL_LATLON', 'LENSMODEL_PINHOLE'):
                                                pixels_per_deg_az = -1./8.,
                                                pixels_per_deg_el = -1./4.,
                                                rectification_model = lensmodel)
+    models_rectified = \
+        mrcal.rectified_system( (model0, model1),
+                                az_fov_deg = az_fov_deg,
+                                el_fov_deg = el_fov_deg,
+                                pixels_per_deg_az = -1./8.,
+                                pixels_per_deg_el = -1./4.,
+                                rectification_model = lensmodel)
     for icam in (0,1):
         testutils.confirm_equal(models_rectified    [icam].intrinsics()[0],
                                 models_rectified_ref[icam].intrinsics()[0],
@@ -192,16 +191,6 @@ for lensmodel in ('LENSMODEL_LATLON', 'LENSMODEL_PINHOLE'):
 
     # made-up numbers. I'm just making sure rectified_resolution() does what it
     # is supposed to
-    pixels_per_deg_azel_computed = \
-        mrcal.rectified_resolution( model0,
-                                    az_fov_deg = az_fov_deg,
-                                    el_fov_deg = el_fov_deg,
-                                    az0_deg = 4.,
-                                    el0_deg = 6.,
-                                    R_cam0_rect0 = mrcal.identity_R(),
-                                    pixels_per_deg_az = -1./8.,
-                                    pixels_per_deg_el = -1./4.,
-                                    rectification_model = lensmodel)
     pixels_per_deg_azel_ref = \
         mrcal.stereo._rectified_resolution_python( model0,
                                                    az_fov_deg = az_fov_deg,
@@ -212,21 +201,22 @@ for lensmodel in ('LENSMODEL_LATLON', 'LENSMODEL_PINHOLE'):
                                                    pixels_per_deg_az = -1./8.,
                                                    pixels_per_deg_el = -1./4.,
                                                    rectification_model = lensmodel)
+    pixels_per_deg_azel_computed = \
+        mrcal.rectified_resolution( model0,
+                                    az_fov_deg = az_fov_deg,
+                                    el_fov_deg = el_fov_deg,
+                                    az0_deg = 4.,
+                                    el0_deg = 6.,
+                                    R_cam0_rect0 = mrcal.identity_R(),
+                                    pixels_per_deg_az = -1./8.,
+                                    pixels_per_deg_el = -1./4.,
+                                    rectification_model = lensmodel)
     testutils.confirm_equal(pixels_per_deg_azel_computed,
                             pixels_per_deg_azel_ref,
                             msg=f'computed resolution matches between the C and Python implementations ({lensmodel})')
 
 
     el0_deg = 10.0
-    models_rectified = \
-        mrcal.rectified_system( (model0, model1),
-                                az_fov_deg = az_fov_deg,
-                                el_fov_deg = el_fov_deg,
-                                el0_deg    = el0_deg,
-                                pixels_per_deg_az = -1./8.,
-                                pixels_per_deg_el = -1./4.,
-                                rectification_model = lensmodel)
-
     models_rectified_ref = \
         mrcal.stereo._rectified_system_python( (model0, model1),
                                                az_fov_deg = az_fov_deg,
@@ -235,6 +225,14 @@ for lensmodel in ('LENSMODEL_LATLON', 'LENSMODEL_PINHOLE'):
                                                pixels_per_deg_az = -1./8.,
                                                pixels_per_deg_el = -1./4.,
                                                rectification_model = lensmodel)
+    models_rectified = \
+        mrcal.rectified_system( (model0, model1),
+                                az_fov_deg = az_fov_deg,
+                                el_fov_deg = el_fov_deg,
+                                el0_deg    = el0_deg,
+                                pixels_per_deg_az = -1./8.,
+                                pixels_per_deg_el = -1./4.,
+                                rectification_model = lensmodel)
     for icam in (0,1):
         testutils.confirm_equal(models_rectified    [icam].intrinsics()[0],
                                 models_rectified_ref[icam].intrinsics()[0],
