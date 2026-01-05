@@ -35,6 +35,29 @@ for lensmodel in ('LENSMODEL_LATLON', 'LENSMODEL_PINHOLE'):
                                 pixels_per_deg_az = -1./8.,
                                 pixels_per_deg_el = -1./4.,
                                 rectification_model = lensmodel)
+
+    models_rectified_ref = \
+        mrcal.stereo._rectified_system_python( (model0, model1),
+                                               az_fov_deg = az_fov_deg,
+                                               el_fov_deg = el_fov_deg,
+                                               pixels_per_deg_az = -1./8.,
+                                               pixels_per_deg_el = -1./4.,
+                                               rectification_model = lensmodel)
+    for icam in (0,1):
+        testutils.confirm_equal(models_rectified    [icam].intrinsics()[0],
+                                models_rectified_ref[icam].intrinsics()[0],
+                                msg=f'model{icam} has a matching lensmodel between the C and Python implementations ({lensmodel})')
+        testutils.confirm_equal(models_rectified    [icam].intrinsics()[1],
+                                models_rectified_ref[icam].intrinsics()[1],
+                                msg=f'model{icam} has a matching intrinsics between the C and Python implementations ({lensmodel})')
+        testutils.confirm_equal(models_rectified    [icam].rt_ref_cam(),
+                                models_rectified_ref[icam].rt_ref_cam(),
+                                msg=f'model{icam} has a matching extrinsics between the C and Python implementations ({lensmodel})')
+        testutils.confirm_equal(models_rectified    [icam].imagersize(),
+                                models_rectified_ref[icam].imagersize(),
+                                msg=f'model{icam} has a matching imagersize between the C and Python implementations ({lensmodel})')
+
+
     az0 = 0.
     el0 = 0.
 
@@ -145,6 +168,32 @@ for lensmodel in ('LENSMODEL_LATLON', 'LENSMODEL_PINHOLE'):
                                 pixels_per_deg_az = -1./8.,
                                 pixels_per_deg_el = -1./4.,
                                 rectification_model = lensmodel)
+
+    models_rectified_ref = \
+        mrcal.stereo._rectified_system_python( (model0, model1),
+                                               az_fov_deg = az_fov_deg,
+                                               el_fov_deg = el_fov_deg,
+                                               el0_deg    = el0_deg,
+                                               pixels_per_deg_az = -1./8.,
+                                               pixels_per_deg_el = -1./4.,
+                                               rectification_model = lensmodel)
+    for icam in (0,1):
+        testutils.confirm_equal(models_rectified    [icam].intrinsics()[0],
+                                models_rectified_ref[icam].intrinsics()[0],
+                                msg=f'model{icam} has a matching lensmodel between the C and Python implementations ({lensmodel})')
+        testutils.confirm_equal(models_rectified    [icam].intrinsics()[1],
+                                models_rectified_ref[icam].intrinsics()[1],
+                                msg=f'model{icam} has a matching intrinsics between the C and Python implementations ({lensmodel})')
+        testutils.confirm_equal(models_rectified    [icam].rt_ref_cam(),
+                                models_rectified_ref[icam].rt_ref_cam(),
+                                msg=f'model{icam} has a matching extrinsics between the C and Python implementations ({lensmodel})')
+        testutils.confirm_equal(models_rectified    [icam].imagersize(),
+                                models_rectified_ref[icam].imagersize(),
+                                msg=f'model{icam} has a matching imagersize between the C and Python implementations ({lensmodel})')
+
+
+
+
     el0 = el0_deg*np.pi/180.
     # az0 is the "forward" direction of the two cameras, relative to the
     # baseline vector

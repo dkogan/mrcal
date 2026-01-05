@@ -510,9 +510,8 @@ The main implementation is written in C in stereo.c:
 
   mrcal_rectified_system()
 
-This should be identical to the rectified_system() function above. There's no
-explicit test to compare the two implementations, but test/test-stereo.py should
-catch any differences.
+This should be identical to the rectified_system() function above. Tests compare
+the two implementations to make sure.
 
 NOTE: THE C IMPLEMENTATION HANDLES LENSMODEL_LATLON only. The
 mrcal.rectified_system() wrapper above calls THIS function in that case
