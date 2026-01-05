@@ -74,16 +74,16 @@ for lensmodel in ('LENSMODEL_LATLON', 'LENSMODEL_PINHOLE'):
     for icam in (0,1):
         testutils.confirm_equal(models_rectified    [icam].intrinsics()[0],
                                 models_rectified_ref[icam].intrinsics()[0],
-                                msg=f'model{icam} has a matching lensmodel between the C and Python implementations ({lensmodel})')
+                                msg=f'model{icam} has matching lensmodel between the C and Python implementations ({lensmodel})')
         testutils.confirm_equal(models_rectified    [icam].intrinsics()[1],
                                 models_rectified_ref[icam].intrinsics()[1],
-                                msg=f'model{icam} has a matching intrinsics between the C and Python implementations ({lensmodel})')
+                                msg=f'model{icam} has matching intrinsics between the C and Python implementations ({lensmodel})')
         testutils.confirm_equal(models_rectified    [icam].rt_ref_cam(),
                                 models_rectified_ref[icam].rt_ref_cam(),
-                                msg=f'model{icam} has a matching extrinsics between the C and Python implementations ({lensmodel})')
+                                msg=f'model{icam} has matching extrinsics between the C and Python implementations ({lensmodel})')
         testutils.confirm_equal(models_rectified    [icam].imagersize(),
                                 models_rectified_ref[icam].imagersize(),
-                                msg=f'model{icam} has a matching imagersize between the C and Python implementations ({lensmodel})')
+                                msg=f'model{icam} has matching imagersize between the C and Python implementations ({lensmodel})')
 
 
     az0 = 0.
@@ -236,16 +236,16 @@ for lensmodel in ('LENSMODEL_LATLON', 'LENSMODEL_PINHOLE'):
     for icam in (0,1):
         testutils.confirm_equal(models_rectified    [icam].intrinsics()[0],
                                 models_rectified_ref[icam].intrinsics()[0],
-                                msg=f'model{icam} has a matching lensmodel between the C and Python implementations ({lensmodel})')
+                                msg=f'model{icam} has matching lensmodel between the C and Python implementations ({lensmodel})')
         testutils.confirm_equal(models_rectified    [icam].intrinsics()[1],
                                 models_rectified_ref[icam].intrinsics()[1],
-                                msg=f'model{icam} has a matching intrinsics between the C and Python implementations ({lensmodel})')
+                                msg=f'model{icam} has matching intrinsics between the C and Python implementations ({lensmodel})')
         testutils.confirm_equal(models_rectified    [icam].rt_ref_cam(),
                                 models_rectified_ref[icam].rt_ref_cam(),
-                                msg=f'model{icam} has a matching extrinsics between the C and Python implementations ({lensmodel})')
+                                msg=f'model{icam} has matching extrinsics between the C and Python implementations ({lensmodel})')
         testutils.confirm_equal(models_rectified    [icam].imagersize(),
                                 models_rectified_ref[icam].imagersize(),
-                                msg=f'model{icam} has a matching imagersize between the C and Python implementations ({lensmodel})')
+                                msg=f'model{icam} has matching imagersize between the C and Python implementations ({lensmodel})')
 
 
 
