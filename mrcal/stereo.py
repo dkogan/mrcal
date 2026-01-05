@@ -132,9 +132,8 @@ The main implementation is written in C in stereo.c:
 
   mrcal_rectified_resolution()
 
-This should be identical to the rectified_resolution() function above. There's
-no explicit test to compare the two implementations, but test/test-stereo.py
-should catch any differences.
+This should be identical to the rectified_resolution() function above. Tests
+compare the two implementations to make sure.
 
     '''
 
