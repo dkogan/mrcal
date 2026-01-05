@@ -151,7 +151,7 @@ for distro (bullseye bookworm trixie) {
       --anything-failed-commands '%s' \
       --extra-repository="deb [trusted=yes] http://mrcal.secretsauce.net/packages/$distro/public/ $distro main"
 
-    dput -u digitalocean_mrcal_$distro ../*${distro}*.changes(om[1])
+    dput -u digitalocean_mrcal ../*${distro}*.changes(om[1])
 }
 #+end_src
 
@@ -179,7 +179,7 @@ deb [trusted=yes arch=amd64] http://archive.ubuntu.com/ubuntu/     ${distro}-pro
 \" > \$1/etc/apt/sources.list" \
       --extra-repository="deb [trusted=yes] http://mrcal.secretsauce.net/packages/$distro/public/ $distro main"
 
-    dput -u digitalocean_mrcal_$distro ../*${distro}*.changes(om[1])
+    dput -u digitalocean_mrcal ../*${distro}*.changes(om[1])
 }
 #+end_src
 
@@ -241,7 +241,7 @@ for distro (bullseye bookworm trixie) {
       --anything-failed-commands '%s' \
       --extra-repository="deb [trusted=yes] http://mrcal.secretsauce.net/packages/$distro/public/ $distro main"
 
-    dput -u digitalocean_mrcal_$distro ../*${distro}*.changes(om[1])
+    dput -u digitalocean_mrcal ../*${distro}*.changes(om[1])
 }
 
 for distro (focal jammy noble) {
@@ -268,6 +268,6 @@ deb [trusted=yes arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ ${distro}-pro
 \" > \$1/etc/apt/sources.list" \
       --extra-repository="deb [trusted=yes] http://mrcal.secretsauce.net/packages/$distro/public/ $distro main"
 
-    dput -u digitalocean_mrcal_$distro ../*${distro}*.changes(om[1])
+    dput -u digitalocean_mrcal ../*${distro}*.changes(om[1])
 }
 #+end_src
