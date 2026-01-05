@@ -28,6 +28,35 @@ for lensmodel in ('LENSMODEL_LATLON', 'LENSMODEL_PINHOLE'):
 
     az_fov_deg = 90
     el_fov_deg = 50
+
+
+    # made-up numbers. I'm just making sure rectified_resolution() does what it
+    # is supposed to
+    pixels_per_deg_azel_computed = \
+        mrcal.rectified_resolution( model0,
+                                    az_fov_deg = az_fov_deg,
+                                    el_fov_deg = el_fov_deg,
+                                    az0_deg = -4.,
+                                    el0_deg = 6.,
+                                    R_cam0_rect0 = mrcal.identity_R(),
+                                    pixels_per_deg_az = -1./8.,
+                                    pixels_per_deg_el = -1./4.,
+                                    rectification_model = lensmodel)
+    pixels_per_deg_azel_ref = \
+        mrcal.stereo._rectified_resolution_python( model0,
+                                                   az_fov_deg = az_fov_deg,
+                                                   el_fov_deg = el_fov_deg,
+                                                   az0_deg = -4.,
+                                                   el0_deg = 6.,
+                                                   R_cam0_rect0 = mrcal.identity_R(),
+                                                   pixels_per_deg_az = -1./8.,
+                                                   pixels_per_deg_el = -1./4.,
+                                                   rectification_model = lensmodel)
+    testutils.confirm_equal(pixels_per_deg_azel_computed,
+                            pixels_per_deg_azel_ref,
+                            msg=f'computed resolution matches between the C and Python implementations ({lensmodel})')
+
+
     models_rectified = \
         mrcal.rectified_system( (model0, model1),
                                 az_fov_deg = az_fov_deg,
@@ -159,6 +188,35 @@ for lensmodel in ('LENSMODEL_LATLON', 'LENSMODEL_PINHOLE'):
     rt01 = np.array((0.1, 0.2, 0.05,  3.0, 0.2, 1.0))
     model1.rt_ref_cam( mrcal.compose_rt(model0.rt_ref_cam(),
                                         rt01))
+
+
+    # made-up numbers. I'm just making sure rectified_resolution() does what it
+    # is supposed to
+    pixels_per_deg_azel_computed = \
+        mrcal.rectified_resolution( model0,
+                                    az_fov_deg = az_fov_deg,
+                                    el_fov_deg = el_fov_deg,
+                                    az0_deg = 4.,
+                                    el0_deg = 6.,
+                                    R_cam0_rect0 = mrcal.identity_R(),
+                                    pixels_per_deg_az = -1./8.,
+                                    pixels_per_deg_el = -1./4.,
+                                    rectification_model = lensmodel)
+    pixels_per_deg_azel_ref = \
+        mrcal.stereo._rectified_resolution_python( model0,
+                                                   az_fov_deg = az_fov_deg,
+                                                   el_fov_deg = el_fov_deg,
+                                                   az0_deg = 4.,
+                                                   el0_deg = 6.,
+                                                   R_cam0_rect0 = mrcal.identity_R(),
+                                                   pixels_per_deg_az = -1./8.,
+                                                   pixels_per_deg_el = -1./4.,
+                                                   rectification_model = lensmodel)
+    testutils.confirm_equal(pixels_per_deg_azel_computed,
+                            pixels_per_deg_azel_ref,
+                            msg=f'computed resolution matches between the C and Python implementations ({lensmodel})')
+
+
     el0_deg = 10.0
     models_rectified = \
         mrcal.rectified_system( (model0, model1),
