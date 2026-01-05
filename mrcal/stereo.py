@@ -714,7 +714,7 @@ mrcal.rectified_system() wrapper above calls THIS function in that case
             if len(C) == 0:
                 raise Exception("Couldn't compute the rectified pinhole center pixel. Something is wrong.")
 
-            # I should have exactly one solution let. Due to some numerical
+            # I should have exactly one solution left. Due to some numerical
             # fuzz, I might have more, and I pick the most positive one in the
             # condition above
             return C[np.argmax(cosfov*(1 - K*C - C*C))] * fxy
