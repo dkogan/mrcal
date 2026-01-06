@@ -20,7 +20,7 @@
 #include <dogleg.h>
 
 #if (CHOLMOD_VERSION > (CHOLMOD_VER_CODE(2,2))) && (CHOLMOD_VERSION < (CHOLMOD_VER_CODE(4,0)))
-#include <cholmod_function.h>
+#include <suitesparse/cholmod_function.h>
 #endif
 
 #include "mrcal.h"
