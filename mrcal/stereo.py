@@ -489,6 +489,7 @@ def _rectified_system_python(models,
                              el_fov_deg,
                              az0_deg             = None,
                              el0_deg             = 0,
+                             az_edge_margin_deg  = 10.,
                              pixels_per_deg_az   = -1.,
                              pixels_per_deg_el   = -1.,
                              rectification_model = 'LENSMODEL_LATLON',
@@ -565,8 +566,16 @@ the two implementations to make sure.
     ######## Done with the geometry! Now to get the az/el grid. I need to figure
     ######## out the resolution and the extents
 
+    # I loosen the checks a bit, so that the checks pass after the correction
+    # despite any float error that might exist
+    az_edge_margin_deg_loose = az_edge_margin_deg - 1e-3
+
     if az0_deg is not None:
         az0 = az0_deg * np.pi/180.
+
+        if not (az0_deg - az_fov_deg/2. > -90.+az_edge_margin_deg_loose and \
+                az0_deg + az_fov_deg/2. <  90.-az_edge_margin_deg_loose):
+            raise Exception(f"rectified view looks along the baseline vector. Reduce az_fov_deg or move az0_deg closer to the center. Have {az0_deg=} {az_fov_deg=} {az_edge_margin_deg=}")
 
     else:
         # In the rectified system az=0 sits perpendicular to the baseline.
@@ -596,6 +605,23 @@ the two implementations to make sure.
         # center azimuth az0.
         az0 = np.arcsin( forward01_proj_right / nps.mag(forward01) )
         az0_deg = az0 * 180./np.pi
+
+        if not (az0_deg - az_fov_deg/2. > -90.+az_edge_margin_deg_loose and \
+                az0_deg + az_fov_deg/2. <  90.-az_edge_margin_deg_loose):
+            # The detected az0 makes us look along the baseline. I shift it to
+            # avoid that
+            if az_fov_deg > 180. - 2.*az_edge_margin_deg:
+                raise Exception(f"rectified view cannot avoid looking along the baseline vector: az_fov_deg is too large. Have {az_fov_deg=} {az_edge_margin_deg=}")
+
+            if not (az0_deg - az_fov_deg/2. > -90.+az_edge_margin_deg_loose):
+                # We're off on this side
+                az0_deg = -90.+az_edge_margin_deg + az_fov_deg/2.
+            else:
+                # Off on the other side
+                az0_deg = 90.-az_edge_margin_deg - az_fov_deg/2.
+
+            az0 = az0_deg /180.*np.pi
+
 
     el0 = el0_deg * np.pi/180.
 

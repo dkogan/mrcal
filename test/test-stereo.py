@@ -499,4 +499,44 @@ for lensmodel in ('LENSMODEL_LATLON', 'LENSMODEL_PINHOLE'):
                              msg=f'stereo_unproject (scalar) reports the right thing ({lensmodel})')
 
 
+
+
+    # check the python/c difference with a larger margin to make sure that this
+    # is handled identically
+    az_edge_margin_deg = 40.
+    models_rectified_ref = \
+        mrcal.stereo._rectified_system_python( (model0, model1),
+                                               az_fov_deg = az_fov_deg,
+                                               el_fov_deg = el_fov_deg,
+                                               el0_deg    = el0_deg,
+                                               pixels_per_deg_az = -1./8.,
+                                               pixels_per_deg_el = -1./4.,
+                                               az_edge_margin_deg = az_edge_margin_deg,
+                                               rectification_model = lensmodel)
+    models_rectified = \
+        mrcal.rectified_system( (model0, model1),
+                                az_fov_deg = az_fov_deg,
+                                el_fov_deg = el_fov_deg,
+                                el0_deg    = el0_deg,
+                                pixels_per_deg_az = -1./8.,
+                                pixels_per_deg_el = -1./4.,
+                                az_edge_margin_deg = az_edge_margin_deg,
+                                rectification_model = lensmodel)
+    for icam in (0,1):
+        testutils.confirm_equal(models_rectified    [icam].intrinsics()[0],
+                                models_rectified_ref[icam].intrinsics()[0],
+                                msg=f'model{icam} has matching lensmodel between the C and Python implementations ({az_edge_margin_deg=} {lensmodel})')
+        testutils.confirm_equal(models_rectified    [icam].intrinsics()[1],
+                                models_rectified_ref[icam].intrinsics()[1],
+                                msg=f'model{icam} has matching intrinsics between the C and Python implementations ({az_edge_margin_deg=} {lensmodel})')
+        testutils.confirm_equal(models_rectified    [icam].rt_ref_cam(),
+                                models_rectified_ref[icam].rt_ref_cam(),
+                                msg=f'model{icam} has matching extrinsics between the C and Python implementations ({az_edge_margin_deg=} {lensmodel})')
+        testutils.confirm_equal(models_rectified    [icam].imagersize(),
+                                models_rectified_ref[icam].imagersize(),
+                                msg=f'model{icam} has matching imagersize between the C and Python implementations ({az_edge_margin_deg=} {lensmodel})')
+
+
+
+
 testutils.finish()
