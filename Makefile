@@ -95,8 +95,8 @@ endif
 BIN_SOURCES +=					\
   test/test-gradients.c				\
   test/test-cahvor.c				\
-  test/test-lensmodel-string-manipulation.c     \
-  test/test-parser-cameramodel.c                \
+  test/test-lensmodel-string-manipulation.c	\
+  test/test-parser-cameramodel.c		\
   test/test-heap.c
 
 LDLIBS += -ldogleg $(if $(USE_LOCAL_STB_IMPLEMENTATION),,-lstb) -lpng -ljpeg -llapack
@@ -121,8 +121,8 @@ DIST_INCLUDE +=			\
 	poseutils.h		\
 	triangulation.h		\
 	types.h			\
-	stereo.h                \
-	heap.h                  \
+	stereo.h		\
+	heap.h			\
 	python-cameramodel-converter.h
 
 
@@ -148,9 +148,9 @@ DIST_BIN :=					\
 	mrcal-show-valid-intrinsics-region	\
 	mrcal-is-within-valid-intrinsics-region \
 	mrcal-triangulate			\
-	mrcal-cull-corners                      \
-	mrcal-show-residuals-board-observation  \
-	mrcal-show-residuals                    \
+	mrcal-cull-corners			\
+	mrcal-show-residuals-board-observation	\
+	mrcal-show-residuals			\
 	mrcal-stereo
 
 # generate manpages from distributed binaries, and ship them. This is a hoaky
