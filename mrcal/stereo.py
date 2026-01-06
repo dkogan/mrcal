@@ -427,19 +427,6 @@ else:                   we return this tuple of models, dict of metadata
             else:
                 raise Exception("Stereo rectification is only possible with a central projection. Please centralize your models")
 
-    if rectification_model == 'LENSMODEL_PINHOLE':
-        # The pinhole rectification path is not implemented in C yet. Call the
-        # Python
-        return _rectified_system_python(models,
-                                        az_fov_deg          = az_fov_deg,
-                                        el_fov_deg          = el_fov_deg,
-                                        az0_deg             = az0_deg,
-                                        el0_deg             = el0_deg,
-                                        pixels_per_deg_az   = pixels_per_deg_az,
-                                        pixels_per_deg_el   = pixels_per_deg_el,
-                                        rectification_model = rectification_model,
-                                        return_metadata     = return_metadata)
-
     # The guts of this function are implemented in C. Call that
     pixels_per_deg_az, \
     pixels_per_deg_el, \
@@ -515,10 +502,6 @@ The main implementation is written in C in stereo.c:
 
 This should be identical to the rectified_system() function above. Tests compare
 the two implementations to make sure.
-
-NOTE: THE C IMPLEMENTATION HANDLES LENSMODEL_LATLON only. The
-mrcal.rectified_system() wrapper above calls THIS function in that case
-
     '''
 
 
@@ -698,7 +681,7 @@ mrcal.rectified_system() wrapper above calls THIS function in that case
             # Similarly, I allow a bit of numerical fuzz in the logic below
             C = np.real(C)
 
-            # I solve my quadratic polynomial numerically. I get 4 solutions,
+            # I solve my quartic polynomial numerically. I get 4 solutions,
             # and I need to throw out the invalid ones.
             #
             # fov may be > 90deg, so cos(fov) may be <0. The solution will make

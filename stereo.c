@@ -171,6 +171,219 @@ bool mrcal_rectified_resolution( // output and input
     return true;
 }
 
+
+// lapack eigenvalue solver, for the below root finder
+extern
+int dgeev_(char*   jobvl,
+           char*   jobvr,
+           int*    n,
+           double* a,
+           int*    lda,
+           double* wr,
+           double* wi,
+           double* vl,
+           int*    ldvl,
+           double* vr,
+           int*    ldvr,
+           double* work,
+           int*    lwork,
+           int*    info);
+
+
+/* Find the real roots of a polynomial of order n using the companion matrix
+   method:
+
+     https://en.wikipedia.org/wiki/Companion_matrix
+
+   The polynomial is c[0] + c[1]*x + c[2]*x^2 + .... + x^n
+
+   The coefficient on the highest term is assumed to be 1.0. So we accept n
+   coefficients
+
+   Returns the number of real roots found, at most n. Imaginary roots are
+   ignored. Returns <0 on error.
+*/
+static
+int roots_real_polynomial(// out
+                          double* roots,  // length n
+                          // in
+                          const int n,
+                          const double* c // length n
+                         )
+{
+    // Column-major storage, for Fortran. Visually looks like the transpose of
+    // what's in the wikipedia article above
+    double C[n*n];
+    for(int i=0; i<n-1; i++)
+        for(int j=0; j<n; j++)
+            if(j == i+1) C[i*4 + j] = 1.;
+            else         C[i*4 + j] = 0.;
+    for(int j=0; j<n; j++)
+        C[(n-1)*4 + j] = -c[j];
+
+
+    double wr[n];
+    double wi[n];
+
+    // I ask it how much storage it needs
+    double lwork_double;
+    int info;
+    dgeev_((char[]){'N'}, (char[]){'N'}, (int[]){n},
+           C, (int[]){n},
+           wr, wi,
+           NULL, (int[]){1},
+           NULL, (int[]){1},
+           &lwork_double, (int[]){-1},
+           &info);
+    if(info != 0)
+    {
+        MSG("ERROR: storage query failed");
+        return -1;
+    }
+
+    int lwork = (int)lwork_double;
+    if(lwork < 0 || lwork > 2048)
+    {
+        MSG("ERROR: requested storage size unexpectedly large");
+        return -1;
+    }
+
+    double work[lwork];
+
+    dgeev_((char[]){'N'}, (char[]){'N'}, (int[]){n},
+           C, (int[]){n},
+           wr, wi,
+           NULL, (int[]){1},
+           NULL, (int[]){1},
+           work, &lwork,
+           &info);
+    if(info != 0)
+    {
+        MSG("ERROR: dgeev() failed");
+        return -1;
+    }
+
+    int nroots = 0;
+    for(int i=0; i<n; i++)
+        if(fabs(wi[i]) <= 1e-7)
+            roots[nroots++] = wr[i];
+
+    return nroots;
+}
+
+// I want
+//
+//  tan(az0)*fx + cx = (Naz-1)/2
+//
+//  inner( normalized(unproject(x=0)),
+//         normalized(unproject(x=Naz-1)) ) = cos(fov)
+//
+// unproject(x=0    ) = [ (0     - cx)/fx, 0, 1]
+// unproject(x=Naz-1) = [ (Naz-1 - cx)/fx, 0, 1]
+//
+// -> v0 ~ [ -cx/fx,           0, 1]
+// -> v1 ~ [ 2*tanaz0 + cx/fx, 0, 1]
+//
+// Let K = 2*tanaz0 (we have K). Let C = cx/fx (we want to find C)
+// -> v0 ~ [-C,1], v1 ~ [K+C,1]
+// -> cosfov = (1 - K*C - C^2) / sqrt( (1+C^2)*(1+C^2+K^2+2*K*C))
+// -> cos2fov*(1+C^2)*(1+C^2+K^2+2*K*C) - (1 - K*C - C^2)^2 = 0
+// -> 0 =
+//        C^4 * (cos2fov - 1) +
+//        C^3 * 2 K (cos2fov - 1 ) +
+//        C^2 * (cos2fov K^2 + 2 cos2fov - K^2 + 2) +
+//        C   * 2 K ( cos2fov + 1 ) +
+//        cos2fov ( K^2 + 1 ) - 1
+//
+// I solve this numerically
+static
+bool compute_pinhole_cxy(// out
+                         double* cxy,
+                         // in
+                         const double fxy,
+                         const double tanazel0,
+                         const double fov_deg)
+{
+    const double cosfov  = cos(fov_deg*M_PI/180.);
+    const double cos2fov = cosfov*cosfov;
+    const double K       = 2.*tanazel0;
+
+    double C[4];
+    int nroots =
+        roots_real_polynomial(// out
+                              C,
+                              // in
+                              4,
+                              (double[]){ K*K + 1. + K*K / (cos2fov - 1),
+                                          2.*K  + K*4.   / (cos2fov - 1),
+                                          K*K+2 +   4.   / (cos2fov - 1),
+                                          2.*K } );
+    if(nroots <= 0) return false;
+
+    // I solve my quartic polynomial numerically. I get 4 solutions,
+    // and I need to throw out the invalid ones.
+    //
+    // fov may be > 90deg, so cos(fov) may be <0. The solution will make
+    // sure that cos^2(fov) matches up, but the solution may assume the
+    // wrong sign for cos(fov). From above:
+    //
+    //   cosfov = (1 - K*C - C^2) / sqrt( (1+C^2)*(1+C^2+K^2+2*K*C))
+    //
+    // So I must have cosfov*(1 - K*C - C^2) > 0
+    for(int i=0; i<nroots; i++)
+    {
+        const double c = C[i];
+        if(cosfov*(1. - K*c - c*c) >= -1e-9)
+            continue;
+
+        // This root is bad. Throw it out by putting the last one in its
+        // place, and doing this again
+        if(i != nroots-1)
+        {
+            C[i] = C[nroots-1];
+            i--;
+        }
+        nroots--;
+    }
+    if(nroots <= 0) return false;
+
+    // And the implied imager size MUST be positive
+    for(int i=0; i<nroots; i++)
+    {
+        const double c = C[i];
+        if((tanazel0*fxy + c*fxy)*2. + 1. > 0)
+            continue;
+
+        // This root is bad. Throw it out by putting the last one in its
+        // place, and doing this again
+        if(i != nroots-1)
+        {
+            C[i] = C[nroots-1];
+            i--;
+        }
+        nroots--;
+    }
+    if(nroots <= 0) return false;
+
+    // I should have exactly one solution left. Due to some numerical
+    // fuzz, I might have more, and I pick the most positive one in the
+    // condition above
+    double val_max = -DBL_MAX;
+    int    i_max   = -1;
+    for(int i=0; i<nroots; i++)
+    {
+        const double c = C[i];
+        const double val = cosfov*(1. - K*c - c*c);
+        if(val > val_max)
+        {
+            val_max = val;
+            i_max   = i;
+        }
+    }
+    *cxy = C[i_max] * fxy;
+    return true;
+}
+
 // The equivalent function in Python is _rectified_system_python() in stereo.py
 //
 // Documentation is in the docstring of mrcal.rectified_system()
@@ -253,16 +466,6 @@ bool mrcal_rectified_system2(// output
             return false;
         }
     }
-
-    ///// TODAY this C implementation supports MRCAL_LENSMODEL_LATLON only. This
-    ///// isn't a design choice, I just don't want to do the extra work yet. The
-    ///// API already is general enough to support both rectification schemes.
-    if( rectification_model_type != MRCAL_LENSMODEL_LATLON )
-    {
-        MSG("Today this C implementation supports MRCAL_LENSMODEL_LATLON only.");
-        return false;
-    }
-
 
     if(*pixels_per_deg_az == 0)
     {
@@ -450,20 +653,53 @@ bool mrcal_rectified_system2(// output
     fxycxy_rectified[0] = *pixels_per_deg_az / M_PI*180.;
     fxycxy_rectified[1] = *pixels_per_deg_el / M_PI*180.;
 
-    // if rectification_model == 'LENSMODEL_LATLON':
-    //     # The angular resolution is consistent everywhere, so fx,fy are already
-    //     # set. Let's set cx,cy such that
-    //     # (az0,el0) = unproject(imager center)
-    //     Naz = round(az_fov_deg*pixels_per_deg_az)
-    //     Nel = round(el_fov_deg*pixels_per_deg_el)
-    imagersize_rectified[0] = (int)round(azel_fov_deg->x * (*pixels_per_deg_az));
-    imagersize_rectified[1] = (int)round(azel_fov_deg->y * (*pixels_per_deg_el));
+    if(rectification_model_type == MRCAL_LENSMODEL_LATLON)
+    {
+        // The angular resolution is consistent everywhere, so fx,fy are already
+        // set. Let's set cx,cy such that
+        // (az0,el0) = unproject(imager center)
+        imagersize_rectified[0] = (int)round(azel_fov_deg->x * (*pixels_per_deg_az));
+        imagersize_rectified[1] = (int)round(azel_fov_deg->y * (*pixels_per_deg_el));
 
-    // fxycxy[2:] =
-    //     np.array(((Naz-1.)/2.,(Nel-1.)/2.)) -
-    //     np.array((az0,el0)) * fxycxy[:2]
-    fxycxy_rectified[2] = ((double)(imagersize_rectified[0] - 1)) / 2 - azel0.x * fxycxy_rectified[0];
-    fxycxy_rectified[3] = ((double)(imagersize_rectified[1] - 1)) / 2 - azel0.y * fxycxy_rectified[1];
+        // fxycxy[2:] =
+        //     np.array(((Naz-1.)/2.,(Nel-1.)/2.)) -
+        //     np.array((az0,el0)) * fxycxy[:2]
+        fxycxy_rectified[2] = ((double)(imagersize_rectified[0] - 1)) / 2 - azel0.x * fxycxy_rectified[0];
+        fxycxy_rectified[3] = ((double)(imagersize_rectified[1] - 1)) / 2 - azel0.y * fxycxy_rectified[1];
+    }
+    else
+    {
+        // MRCAL_LENSMODEL_PINHOLE
+        const double cos_az0 = cos(azel0.x);
+        const double cos_el0 = cos(azel0.y);
+        fxycxy_rectified[0] *= cos_az0*cos_az0;
+        fxycxy_rectified[1] *= cos_el0*cos_el0;
+
+        // fx,fy are set. Let's set cx,cy. Unlike the LENSMODEL_LATLON case, this
+        // is asymmetric, so I explicitly solve for (cx,Naz). cy,Nel work the
+        // same way.
+        const double tanaz0 = tan(azel0.x);
+        const double tanel0 = tan(azel0.y);
+        if(!compute_pinhole_cxy(// out
+                                &fxycxy_rectified[2],
+                                // in
+                                fxycxy_rectified[0], tanaz0, azel_fov_deg->x))
+        {
+            MSG("Couldn't compute the rectified pinhole cx. Something is wrong.");
+            return false;
+        }
+        if(!compute_pinhole_cxy(// out
+                                &fxycxy_rectified[3],
+                                // in
+                                fxycxy_rectified[1], tanel0, azel_fov_deg->y))
+        {
+            MSG("Couldn't compute the rectified pinhole cy. Something is wrong.");
+            return false;
+        }
+
+        imagersize_rectified[0] = (int)round((tanaz0*fxycxy_rectified[0] + fxycxy_rectified[2])*2.) + 1;
+        imagersize_rectified[1] = (int)round((tanel0*fxycxy_rectified[1] + fxycxy_rectified[3])*2.) + 1;
+    }
 
     if(imagersize_rectified[1] <= 0)
     {
