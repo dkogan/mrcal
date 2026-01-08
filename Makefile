@@ -37,7 +37,8 @@ LIB_SOURCES +=			\
   triangulation.cc              \
   cahvore.cc                    \
   traverse-sensor-links.c       \
-  heap.cc
+  heap.cc                       \
+  python-cameramodel-converter.c
 
 
 ifneq (${USE_LIBELAS},) # using libelas
@@ -78,7 +79,9 @@ DIST_INCLUDE +=			\
 	triangulation.h		\
 	types.h			\
 	stereo.h                \
-	heap.h
+	heap.h                  \
+	python-cameramodel-converter.h
+
 
 
 DIST_BIN :=					\
@@ -132,28 +135,13 @@ ALL_PY_EXTENSION_MODULES   := _mrcal $(patsubst %,_%_npsp,$(ALL_NPSP_EXTENSION_M
 
 ######### python stuff
 
-ifeq ($(COND_DARWIN),)
-
-# I don't build the python-cameramodel-converter on macos. It's possible, but
-# needs more work than I am willing to put in. Let me know if you're interested
-# in it. I'm seeing that objcopy isn't available, so I essentially make it
-# always fail by using this line instead:
-#
-#  ( $(OBJCOPY) --wildcard --weaken-symbol='Py*' --weaken-symbol='_Py*' _$@ $@ 2>/dev/null && mv $@ _$@ ) || true
-#
-# This works as written, but the linker than complains about the undefined
-# symbols. On Linux, weakening the symbols is the thing that was supposed to
-# make this ok, but here that's not enough
-
-
-LIB_SOURCES += python-cameramodel-converter.c
-
-# This is a utility function for external Python wrapping. I link this into
-# libmrcal.so, but libmrcal.so does NOT link with libpython. 99% of the usage of
-# libmrcal.so will not use this, so it should work without libpython. People
-# using this function will be doing so as part of PyArg_ParseTupleAndKeywords(),
-# so they will be linking to libpython anyway. Thus I weaken all the references
-# to libpython here. c_build_rule is the default logic in mrbuild
+# python-cameramodel-converter contains a utility function for external Python
+# wrapping. I link this into libmrcal.so, but libmrcal.so does NOT link with
+# libpython. 99% of the usage of libmrcal.so will not use this, so it should
+# work without libpython. People using this function will be doing so as part of
+# PyArg_ParseTupleAndKeywords(), so they will be linking to libpython anyway.
+# Thus I weaken all the references to libpython here. c_build_rule is the
+# default logic in mrbuild
 #
 # This is a DEEP rabbithole. With Debian/trixie (released summer 2025) objcopy
 # --weaken works to weaken the symbols after compiling. With older objcopy (not
@@ -169,6 +157,16 @@ LIB_SOURCES += python-cameramodel-converter.c
 # calling are not weakened. I catch this case here, and throw an error. In the
 # very near future, few people are going to have the too-old binutils, and we'll
 # be done
+#
+# The above is all for Linux. On macos weak symbols are more work. The userspace
+# tools aren't available, and I THINK the semantics aren't the same. But I can
+# tell the loader to allow undefined references to exist, if those functions
+# aren't called. I pass that option, and I'm done
+ifneq ($(COND_DARWIN),)
+   $(info libmrcal.$(SO): LDFLAGS += -Wl,-undefined,dynamic_lookup)
+   libmrcal.$(SO): LDFLAGS += -Wl,-undefined,dynamic_lookup
+else
+
 python-cameramodel-converter.o: %.o:%.c
 	$(c_build_rule) && mv $@ _$@
 	$(OBJCOPY) --wildcard --weaken-symbol='Py*' --weaken-symbol='_Py*' _$@ $@ && mv $@ _$@
@@ -191,10 +189,6 @@ EXTRA_CLEAN += \
   python-cameramodel-converter-py-symbol-refs.h \
   _python-cameramodel-converter.o
 
-
-DIST_INCLUDE += python-cameramodel-converter.h
-
-PYTHON_OBJECTS := python-cameramodel-converter.o
 
 endif
 
@@ -219,7 +213,7 @@ mrcal-pywrap.o: $(addsuffix .h,$(wildcard *.docstring))
 mrcal/_mrcal$(PY_EXT_SUFFIX): mrcal-pywrap.o libmrcal.$(SO) libmrcal.$(SO).${ABI_VERSION}
 	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $(LDFLAGS) $< -lmrcal -lsuitesparseconfig -o $@
 
-PYTHON_OBJECTS += mrcal-pywrap.o $(ALL_NPSP_O)
+PYTHON_OBJECTS := mrcal-pywrap.o python-cameramodel-converter.o $(ALL_NPSP_O)
 
 $(PYTHON_OBJECTS): CFLAGS += $(PY_MRBUILD_CFLAGS)
 

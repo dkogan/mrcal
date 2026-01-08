@@ -29,9 +29,8 @@
 
 #include "python-wrapping-utilities.h"
 
-#if !defined(__APPLE__)
 #include "python-cameramodel-converter.h"
-#endif
+
 
 // adds a reference to P,I,X, unless an error is reported
 static PyObject* csr_from_cholmod_sparse( PyObject* P,
@@ -4270,8 +4269,6 @@ PyObject* traverse_sensor_links(PyObject* NPY_UNUSED(self),
     Py_XDECREF(connectivity_matrix);
     return result;
 }
-
-#if !defined(__APPLE__)
 static
 PyObject* _test_python_cameramodel_converter(PyObject* NPY_UNUSED(self),
                                              PyObject* args,
@@ -4331,10 +4328,6 @@ PyObject* _test_python_cameramodel_converter(PyObject* NPY_UNUSED(self),
 
     return result;
 }
-static const char _test_python_cameramodel_converter_docstring[] =
-"FUNCTION FOR TESTING"
-    ;
-#endif
 
 
 static const char state_index_intrinsics_docstring[] =
@@ -4458,6 +4451,9 @@ static const char _rectification_maps_docstring[] =
 static const char traverse_sensor_links_docstring[] =
 #include "traverse_sensor_links.docstring.h"
     ;
+static const char _test_python_cameramodel_converter_docstring[] =
+"FUNCTION FOR TESTING"
+    ;
 static PyMethodDef methods[] =
     { PYMETHODDEF_ENTRY(,optimize,                         METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,optimizer_callback,               METH_VARARGS | METH_KEYWORDS),
@@ -4502,9 +4498,7 @@ static PyMethodDef methods[] =
       PYMETHODDEF_ENTRY(,_rectification_maps,          METH_VARARGS | METH_KEYWORDS),
 
       PYMETHODDEF_ENTRY(, traverse_sensor_links, METH_VARARGS | METH_KEYWORDS),
-#if !defined(__APPLE__)
       PYMETHODDEF_ENTRY(, _test_python_cameramodel_converter, METH_VARARGS | METH_KEYWORDS),
-#endif
       {}
     };
 #if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS

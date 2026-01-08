@@ -4,8 +4,6 @@ GREEN="\x1b[32m"
 RED="\x1b[31m"
 COLOR_RESET="\x1b[0m"
 
-[ "$(uname -s)" = "Darwin" ] && COND_DARWIN=1
-
 
 # The test suite no longer runs in parallel, but it ALWAYS tries to run all the
 # tests, even without 'make -k'
@@ -63,12 +61,8 @@ TESTS=("test/test-pywrap-functions.py"
        "test/test-propagate-calibration-uncertainty.py"
        "test/test-heap"
        "test/test-traverse-sensor-links.py"
-       "test/test-sorted-eig.py")
-
-if [[ -z "$COND_DARWIN" ]] {
-       TESTS+=("test/test-python-cameramodel-converter.py")
-}
-
+       "test/test-sorted-eig.py"
+       "test/test-python-cameramodel-converter.py")
 
 # Check the non-canonical problem definitions
 TESTS+=("test/test-projection-uncertainty.py --fixed cam0 --model opencv4 --Ncameras 1 --reproject-perturbed cross-reprojection-rrp-Jfp"
