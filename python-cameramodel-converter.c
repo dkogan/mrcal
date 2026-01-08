@@ -13,6 +13,20 @@
 
 #define NPY_NO_DEPRECATED_API NPY_API_VERSION
 
+// I'm not linking against libpython, so I'm not tying myself to any particular
+// ABI version of libpython. To make this work regardless, I use the "limited"
+// API:
+//   https://docs.python.org/3/c-api/stable.html#stable
+// I'm calling PyUnicode_AsUTF8AndSize(), which entered the limited API in 3.10.
+// I still allow this to build in older Python, but I don't explicitly declare
+// the limited api. In that case, it is possible that using the binary
+// libmrcal.so built with <3.10 with a later Python might cause issues
+#if PY_VERSION_HEX >= 0x030A0000
+  #define Py_LIMITED_API 0x030A0000
+#else
+  #warning "This Python is older than 3.10. This binary will PROBABLY work with newer python, but there's no guarantee"
+#endif
+
 #include <Python.h>
 #include <numpy/arrayobject.h>
 
