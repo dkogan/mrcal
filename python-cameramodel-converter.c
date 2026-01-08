@@ -55,7 +55,7 @@ int mrcal_cameramodel_converter(PyObject*             py_model,
     else if(PyUnicode_Check(py_model))
     {
         // This is a string. Assume it's a filename.
-        const char* filename = PyUnicode_AsUTF8(py_model);
+        const char* filename = PyUnicode_AsUTF8AndSize(py_model, NULL);
         if(filename == NULL)
             BARF_AND_GOTO_DONE("The model argument claims to be a string, but I could not get this string out of it");
         *model = mrcal_read_cameramodel_file(filename);
@@ -75,7 +75,7 @@ int mrcal_cameramodel_converter(PyObject*             py_model,
         PyObject* intrinsics    = PyTuple_GetItem(call_result,1);
         if(!(PyUnicode_Check(py_lensmodel) && PyArray_Check(intrinsics)))
             BARF_AND_GOTO_DONE("cameramodel.intrinsics() result must contain (string,array)");
-        const char* lensmodel = PyUnicode_AsUTF8(py_lensmodel);
+        const char* lensmodel = PyUnicode_AsUTF8AndSize(py_lensmodel, NULL);
         if(lensmodel == NULL)
             BARF_AND_GOTO_DONE("The lensmodel claims to be a string, but I could not get this string out of it");
         CHECK_LAYOUT3(intrinsics, NPY_DOUBLE, {-1});
