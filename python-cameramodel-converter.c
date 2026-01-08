@@ -21,6 +21,11 @@
 // I still allow this to build in older Python, but I don't explicitly declare
 // the limited api. In that case, it is possible that using the binary
 // libmrcal.so built with <3.10 with a later Python might cause issues
+//
+// I include this to get PY_VERSION_HEX before I pull in the API. Page that says
+// this is ok: https://docs.python.org/3.13/c-api/apiabiversion.html Bug to see
+// if it is still ok: https://github.com/python/cpython/issues/143578
+#include <patchlevel.h>
 #if PY_VERSION_HEX >= 0x030A0000
   #define Py_LIMITED_API 0x030A0000
 #else
