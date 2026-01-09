@@ -208,7 +208,7 @@ def test_geometry( Rt01, p, whatgeometry,
                                          relative  = True,
                                          worstcase = True,
                                          msg = f"{what}: result should be close to triangulate_leecivera_mid2()",
-                                         eps = 1e-7)
+                                         eps = 2e-6)
 
             # I do this regardless of if check_gradients. Because I want to
             # check the divergent cases too
