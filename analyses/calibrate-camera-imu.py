@@ -3,9 +3,9 @@
 r'''A simple camera-IMU alignment method
 
 This routine takes measurements from rigid rig containing an IMU and some
-cameras, and compuites their relative geometry. The cameras are assumed to have
-pre-calibrated intrinsics, which are currently trusted 100% by this tool
-(weighing by uncertainty would be an improvement). The IMU is assumed to be
+cameras, and computes their relative geometry. The cameras are assumed to have
+pre-calibrated intrinsics, which are currently trusted 100% by this tool;
+weighing by uncertainty would be an improvement. The IMU is assumed to be
 self-consistent, and we only use the measured gravity vector. This could be
 easily extended into a more complex routine that computes the IMU biases and
 such. We compute the relative translation and orientation of all the cameras,
@@ -17,7 +17,10 @@ various orientation, where some set of cameras can observes the chessboard. We
 gather chessboard images and and gravity measurements from the IMU. This allows
 us to compute a set of poses to make all the measurements self-consistent.
 
-This is a bit simplistic and could be improved, but does work quite well.
+Here I'm optimizing for ALL the geometry, but I could assume the camera-camera
+transforms are already available, to simplify
+
+This is all a bit simplistic and could be improved, but does work quite well.
 
 Reference coordinate system:
 - camera0
@@ -56,8 +59,8 @@ import scipy
 Dout = '/tmp'
 Din  = '/tmp'
 
-cameras = ('cam0', 'cam1', 'cam2',)
-models  = [mrcal.cameramodel(f"{cam}.cameramodel") \
+cameras = ['cam0', 'cam1', 'cam2',]
+models  = [mrcal.cameramodel(f"{Din}/{cam}.cameramodel") \
           for cam in cameras]
 
 # The data is in vnl tables with the given columns. Each table is in a separate
@@ -68,9 +71,9 @@ models  = [mrcal.cameramodel(f"{cam}.cameramodel") \
 # at the end of the filename instead.
 dtype_gravity = np.dtype( [('acc0 acc1 acc2', float,(3,))])
 dtype_corners = np.dtype( [('x y',            float,(2,))])
-tag_regex = '(20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9])'
+tag_regex = '/([0-9][0-9]-[0-9][0-9]-[0-9][0-9])'
 glob_files_gravity = f'{Din}/*-gravity.vnl'
-glob_files_corners = [f'{Din}/*-{cam}.vnl' for cam in cameras]
+glob_files_corners = [f'{Din}/*-{cam}-corners.vnl' for cam in cameras]
 
 # chessboard
 gridn          = 14
