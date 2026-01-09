@@ -210,7 +210,7 @@ if args.cull_left_of              is not None or \
             sys.stdout.write(l)
             break
 
-        print("This tool REQUIRES a vnlog with legend matching EXACTLY '# filename x y level'. Giving up", file=sys.stderr)
+        print("This tool REQUIRES a .vnl file with legend matching EXACTLY '# filename x y level'. Giving up", file=sys.stderr)
         sys.exit(1)
 
     xy_pt            = np.array((0,0), dtype=int)
