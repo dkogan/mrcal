@@ -1124,7 +1124,7 @@ is decently well-tested and works well. Documentation and interfaces are still
 unideal, but improvements are welcome!
 
 ** Camera-IMU calibration
-A geometry-only routine to align a set of cameras and an IMU is available in
+A routine to align a set of cameras and an IMU is available in
 [[https://www.github.com/dkogan/mrcal/blob/master/analyses/calibrate-camera-imu.py][=analyses/calibrate-camera-imu.py=]]. This is also geometry-only and also trusts
 the intrinsics 100%. It's fairly simplistic, but highly usable and on-par with
 existing methods. Improvements welcome!

@@ -1,25 +1,74 @@
-#+TITLE: mrcal 2.5 release notes
+#+TITLE: mrcal 2.5.1 release notes
 #+OPTIONS: toc:nil
 
-* New in mrcal 2.5
+* New in mrcal 2.5.1
 This is yet another mostly-maintenance release. /Most/ of the implementation of
-some new big features is committed, but not yet completed and tested. These are
-thus lightly tested and documented, until they're done and finally appear in
-mrcal 3.0:
+some new big features is written and committed, but it's still incomplete. The
+new stuff is there, but is lightly tested and documented. This will be completed
+eventually in mrcal 3.0:
 
-- Cross-reprojection uncertainty, to be able to perform full calibrations with a
-  splined model and /without/ a chessboard
-- More general view of uncertainty. I want to support extrinsics and/or
-  intrinsics uncertainty computation, in lots of scenarios
+- [[file:uncertainty-cross-reprojection.org][Cross-reprojection uncertainty]], to be able to perform full calibrations with a
+  splined model and /without/ a chessboard. [[file:mrcal-show-projection-uncertainty.html][=mrcal-show-projection-uncertainty
+  --method cross-reprojection-rrp-Jfp=]] is available today, and works in the
+  usual moving-chessboard-stationary camera case. Fully boardless coming later.
+- More general view of uncertainty and diffs. I want to support extrinsics-only
+  and/or intrinsics computations-only in lots of scenarios. Uncertainty in point
+  solves is already available in some conditions, for instance if the points are
+  fixed. New [[file:mrcal-show-stereo-pair-diff.html][=mrcal-show-stereo-pair-diff= tool]] reports an extrinsics+intrinsics
+  diff between two calibrations of a stereo pair; experimental
+  [[https://www.github.com/dkogan/mrcal/blob/master/analyses/extrinsics-stability.py][=analyses/extrinsics-stability.py=]] tool reports an extrinsics-only diff. These
+  are in contrast to the intrinsics-only uncertainty and diffs in the existing
+  [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]] and [[file:mrcal-show-projection-uncertainty.html][=mrcal-show-projection-uncertainty=]] tools.
+  Some documentation in the [[file:uncertainty.org][uncertainty]] and [[file:differencing.org][differencing]] pages.
 - Implicit point solves, using the triangulation routines in the optimization
   cost function. Should produce much more efficient structure-from-motion
-  solves. This is all the "triangulated-features" stuff. The
-  =_mrcal_triangulated_error()= function is the core part of the cost function,
-  and this is already demoed in [[https://www.github.com/dkogan/mrcal/blob/master/test/test-sfm-triangulated-points.py][=test/test-sfm-triangulated-points.py=]]
+  solves. This is all the "triangulated-features" stuff. The cost function is
+  primarily built around =_mrcal_triangulated_error()=. This is demoed in
+  [[https://www.github.com/dkogan/mrcal/blob/master/test/test-sfm-triangulated-points.py][=test/test-sfm-triangulated-points.py=]]. And I've been using
+  =_mrcal_triangulated_error()= in structure-from-motion implementations within
+  other optimization routines.
 
-And other than that, there are lots and lots of smaller fixes and improvements.
+** Experimental tools
+A number of new tools have been written that are very useful, but are still a
+bit rough, and need to be finished
+
+- A new [[https://www.github.com/dkogan/mrcal/blob/master/analyses/mrcal-pick-features][=analyses/mrcal-pick-features=]] tool is available to interactively pick
+  matching features from a stereo pair's images, and to compute the relative
+  extrinsics off them. This is very useful for a narrow application, and the
+  optimal solver details are unclear, so this is not-yet released today. The
+  assisted gui feature-picker and solver will be used for /something/
+  eventually, but today it's there, waiting to be finished.
+
+- New validation tools [[https://www.github.com/dkogan/mrcal/blob/master/analyses/validate-input-noise.py][=analyses/validate-input-noise.py=]] and
+  [[https://www.github.com/dkogan/mrcal/blob/master/analyses/validate-uncertainty.py][=analyses/validate-uncertainty.py=]] and [[https://www.github.com/dkogan/mrcal/blob/master/analyses/validate-noncentral.py][=analyses/validate-noncentral.py=]] are
+  useful to check the various assumptions made by the mrcal processing. Used for
+  sanity-checking a solve and for algorithm development. Documented somewhat
+  [[file:tour-cross-validation.org::#cross-validation-comparing-with-uncertainty][here]] and [[file:formulation.org::#estimating-input-noise][here]].
+
+- The mrcal library has now been used in multiple projects to align non-camera
+  sensors with great success:
+
+  - A geometry-only routine to align a set of cameras and a set of LIDARs is
+    available in the [[https://github.com/dkogan/camera-lidar-calibration/][=camera-lidar-calibration= repo]]. This aligns the geometry
+    /only/ and works for a LIDAR-only camera-less system as well. This tool
+    assumes the camera intrinsics are /perfect/ and it does uncertainty
+    propagation of the output. It is decently well-tested and works well.
+    Documentation and interfaces are still unideal, but improvements are
+    welcome!
+
+  - A routine to align a set of cameras and an IMU is available in
+    [[https://www.github.com/dkogan/mrcal/blob/master/analyses/calibrate-camera-imu.py][=analyses/calibrate-camera-imu.py=]]. This is also geometry-only and also
+    trusts the intrinsics 100%. It's fairly simplistic, but highly usable and
+    on-par with existing methods. If needed a full kalibr-style
+    sensor-bias-fitting thing will probably be implemented eventually.
+    Improvements welcome!
 
 ** General fixes
+
+- Thanks to [[https://github.com/thatcomputerguy0101][Alan Everett]], mrcal and the adjacent tooling now all build with
+  macos. If anybody wants to see support for more OSs and distribution
+  mechanisms (homebrew? fedora? pip?), and is willing to help with the
+  implementation and the maintenance, please get in touch with me.
 
 - Poseutils: more careful handling of rotations near singularities. Rotations by
   ~ 180deg in particular weren't implemented properly, and had bugs that are now
@@ -36,8 +85,9 @@ And other than that, there are lots and lots of smaller fixes and improvements.
 - Added =mrcal_traverse_sensor_links()= in C and =mrcal.traverse_sensor_links()=
   in Python. These compute the best path through a graph of sensors, trying to
   maximize the common observations between each successive pair of sensors in
-  the path. The general min-heap implementation at the core of this computation
-  is available in =heap.h=
+  the path. This is a part of the seeding algorithm, and is now exposed for
+  other usages. The general min-heap implementation at the core of this
+  computation is available in =mrcal/heap.h=
 
 - [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] and [[file:mrcal-python-api-reference.html#-compute_chessboard_corners][=mrcal.compute_chessboard_corners()=]] have a
   higher minimum points-per-chessboard-observation threshold (new
@@ -54,15 +104,10 @@ And other than that, there are lots and lots of smaller fixes and improvements.
 
 - The [[file:mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras=]] use that function, and now has
   =--image-path-prefix= and =--image-directory=. Useful to make =--imagersize=
-  unnecessary and to have image overlays working with =--explore=. This are
+  unnecessary and to have image overlays working with =--explore=. This is
   especially helpful if calibrating a system with different-resolution cameras.
   In that case =--imagersize= doesn't work, and finding the images on disk is
   required
-
-- Added [[https://www.github.com/dkogan/mrcal/blob/master/analyses/validate-input-noise.py][=analyses/validate-input-noise.py=]] and
-  [[https://www.github.com/dkogan/mrcal/blob/master/analyses/validate-uncertainty.py][=analyses/validate-uncertainty.py=]] and [[https://www.github.com/dkogan/mrcal/blob/master/analyses/validate-noncentral.py][=analyses/validate-noncentral.py=]]
-  tools. These are /very/ useful to check the various assumptions made by the
-  mrcal processing
 
 - The [[file:mrcal-convert-lensmodel.html][=mrcal-convert-lensmodel=]] tool has =--all= to write out /all/ the models
   from a joint re-solve
@@ -102,15 +147,15 @@ And other than that, there are lots and lots of smaller fixes and improvements.
   and the =optimization_inputs= C and Python interfaces were renamed:
 
   \begin{aligned}
-  &\mathrm{extrinsics\_rt\_fromref} & \rightarrow & \mathrm{rt\_cam\_ref} \\
-  &\mathrm{extrinsics\_Rt\_fromref} & \rightarrow & \mathrm{Rt\_cam\_ref} \\
-  &\mathrm{extrinsics\_rt\_toref} & \rightarrow & \mathrm{rt\_ref\_cam} \\
-  &\mathrm{extrinsics\_Rt\_toref} & \rightarrow & \mathrm{Rt\_ref\_cam} \\
-  &\mathrm{frames\_rt\_fromref} & \rightarrow & \mathrm{rt\_frame\_ref} \\
-  &\mathrm{frames\_Rt\_fromref} & \rightarrow & \mathrm{Rt\_frame\_ref} \\
-  &\mathrm{frames\_rt\_toref} & \rightarrow & \mathrm{rt\_ref\_frame} \\
-  &\mathrm{frames\_Rt\_toref} & \rightarrow & \mathrm{Rt\_ref\_frame} \\
-  &\end{aligned}
+  \mathrm{extrinsics\_rt\_fromref} & \to \mathrm{rt\_cam\_ref}   \\
+  \mathrm{extrinsics\_Rt\_fromref} & \to \mathrm{Rt\_cam\_ref}   \\
+  \mathrm{extrinsics\_rt\_toref}   & \to \mathrm{rt\_ref\_cam}   \\
+  \mathrm{extrinsics\_Rt\_toref}   & \to \mathrm{Rt\_ref\_cam}   \\
+  \mathrm{frames\_rt\_fromref}     & \to \mathrm{rt\_frame\_ref} \\
+  \mathrm{frames\_Rt\_fromref}     & \to \mathrm{Rt\_frame\_ref} \\
+  \mathrm{frames\_rt\_toref}       & \to \mathrm{rt\_ref\_frame} \\
+  \mathrm{frames\_Rt\_toref}       & \to \mathrm{Rt\_ref\_frame} \\
+  \end{aligned}
 
   This makes things more consistent. Compatibility logic is in place, so old
   code and data should keep working. New =.cameramodel= files write both the new
@@ -127,18 +172,21 @@ And other than that, there are lots and lots of smaller fixes and improvements.
   values, so this API remains compatible.
 
 ** Stereo
-- =mrcal_rectified_system()= and [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]] fail if the
-  rectified camera looks near the direction of the baseline vector. If =az0_deg=
-  is being auto-detected, it will be shifted to avoid looking along the baseline
-
 - =mrcal_rectified_system2()= is a new flavor of =mrcal_rectified_system()= to
   provide a new =az_edge_margin_deg= argument, to set the closest the rectified
   view is allowed to get to $\mathrm{az}=\pm 90^\circ$. The legacy function
-  still exists, defaulting to =az_edge_margin_deg=10=. [[file:mrcal-stereo.html][=mrcal-stereo=]]
-  controls this via =--az-edge-margin-deg=
+  still exists, defaulting to =az_edge_margin_deg=10=. [[file:mrcal-stereo.html][=mrcal-stereo=]] controls
+  this via =--az-edge-margin-deg=. If =az0_deg= is being auto-detected, it will
+  be shifted to avoid looking along the baseline
 
 - Similarly the Python [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]] function now takes this
   =az_edge_margin_deg= argument also
+
+- The C function =mrcal_rectified_system2()= now supports pinhole rectification,
+  something only the Python [[file:mrcal-python-api-reference.html#-rectified_system][=mrcal.rectified_system()=]] call did previously. This
+  is strictly worse than the [[file:stereo.org::#stereo-rectification-models][=LENSMODEL_LATLON= rectification]] used by default,
+  but is good to have for testing, since this is the traditional scheme used by
+  every other tool.
 
 - [[file:mrcal-stereo.html][=mrcal-stereo=]]: =--equalization= implies =--force-grayscale=
 
@@ -212,6 +260,8 @@ And other than that, there are lots and lots of smaller fixes and improvements.
 
 * Migration notes 2.4 -> 2.5
 
+The C API got a few updates that require a few minor changes to user code:
+
 - =mrcal_compose_rt_full()= and =mrcal_compose_Rt_full()= C functions have two
   new arguments: =inverted0=, =inverted1=. Most callers use the
   =mrcal_..._compose()= macros, so for them only the ABI has changed, and a
@@ -246,3 +296,19 @@ And other than that, there are lots and lots of smaller fixes and improvements.
 - The [[https://www.github.com/dkogan/mrcal/blob/master/image.h][=mrcal_image_anytype_load()=]] function uses the =mrcal_image_void_t= image
   type. The semantics are identical, but older code might need a cast or a type
   change to build.
+
+And some nomenclature changed: some fields in the [[file:mrcal-python-api-reference.html#cameramodel][=mrcal.cameramodel=]] type and
+the saved =.cameramodel= files and the =optimization_inputs= C and Python
+interfaces were renamed. The old naming mostly still works, but transitioning to
+the new naming would be a good thing to do:
+
+  \begin{aligned}
+  \mathrm{extrinsics\_rt\_fromref} & \to \mathrm{rt\_cam\_ref}   \\
+  \mathrm{extrinsics\_Rt\_fromref} & \to \mathrm{Rt\_cam\_ref}   \\
+  \mathrm{extrinsics\_rt\_toref}   & \to \mathrm{rt\_ref\_cam}   \\
+  \mathrm{extrinsics\_Rt\_toref}   & \to \mathrm{Rt\_ref\_cam}   \\
+  \mathrm{frames\_rt\_fromref}     & \to \mathrm{rt\_frame\_ref} \\
+  \mathrm{frames\_Rt\_fromref}     & \to \mathrm{Rt\_frame\_ref} \\
+  \mathrm{frames\_rt\_toref}       & \to \mathrm{rt\_ref\_frame} \\
+  \mathrm{frames\_Rt\_toref}       & \to \mathrm{Rt\_ref\_frame} \\
+  \end{aligned}

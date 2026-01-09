@@ -1,6 +1,8 @@
 #+TITLE: mrcal roadmap
 #+OPTIONS: toc:nil
 
+This is from 2022. Not entirely up-to-date...
+
 * New, big features being considered for a future release
 - Triangulation in the optimization loop. This will allow efficient SFM since
   the coordinates of each observed 3D point don't need to be explicitly

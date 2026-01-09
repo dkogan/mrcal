@@ -11,7 +11,9 @@ migration notes]]
 - mrcal 2.2 (2022/10/03): [[https://mrcal.secretsauce.net/docs-2.2][documentation]] and [[https://github.com/dkogan/mrcal/releases/tag/v2.2][code]] and [[file:news-2.2.org][release and migration notes]]
 - mrcal 2.3 (2023/05/04): [[https://mrcal.secretsauce.net/docs-2.3][documentation]] and [[https://github.com/dkogan/mrcal/releases/tag/v2.3][code]] and [[file:news-2.3.org][release and migration notes]]
 - mrcal 2.4 (2024/01/22): [[https://mrcal.secretsauce.net/docs-2.4][documentation]] and [[https://github.com/dkogan/mrcal/releases/tag/v2.4][code]] and [[file:news-2.4.org][release and migration notes]]
-- mrcal 2.5 (2025/12/26): [[https://mrcal.secretsauce.net/docs-2.5][documentation]] and [[https://github.com/dkogan/mrcal/releases/tag/v2.5][code]] and [[file:news-2.5.org][release and migration notes]]
+- mrcal 2.5.1 (2025/12/26): [[https://mrcal.secretsauce.net/docs-2.5][documentation]] and [[https://github.com/dkogan/mrcal/releases/tag/v2.5.1][code]] and [[file:news-2.5.org][release and migration notes]]
 
 * Future
-See the [[file:roadmap.org][roadmap]] for thoughts about future directions
+The [[file:news-2.5.org][release notes from 2.5.1]] talk about various things are half-done and need to
+be finished. An older [[file:roadmap.org][roadmap]] page exist for earlier thoughts about future
+directions.
