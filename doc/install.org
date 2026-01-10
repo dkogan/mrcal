@@ -149,8 +149,7 @@ for distro (bullseye bookworm trixie) {
       --source \
       -d ${distro} \
       --anything-failed-commands '%s' \
-      --extra-repository="deb [trusted=yes] http://mrcal.secretsauce.net/packages/$distro/public/ $distro main"
-
+      --extra-repository="deb [trusted=yes] http://mrcal.secretsauce.net/packages/$distro/public/ $distro main" && \
     dput -u digitalocean_mrcal ../*${distro}*.changes(om[1])
 }
 #+end_src
@@ -177,8 +176,7 @@ deb [trusted=yes arch=amd64] http://archive.ubuntu.com/ubuntu/     ${distro}-sec
 deb [trusted=yes arch=amd64] http://archive.ubuntu.com/ubuntu/     ${distro}-updates  main restricted universe multiverse
 deb [trusted=yes arch=amd64] http://archive.ubuntu.com/ubuntu/     ${distro}-proposed main restricted universe multiverse
 \" > \$1/etc/apt/sources.list" \
-      --extra-repository="deb [trusted=yes] http://mrcal.secretsauce.net/packages/$distro/public/ $distro main"
-
+      --extra-repository="deb [trusted=yes] http://mrcal.secretsauce.net/packages/$distro/public/ $distro main" && \
     dput -u digitalocean_mrcal ../*${distro}*.changes(om[1])
 }
 #+end_src
@@ -239,8 +237,7 @@ for distro (bullseye bookworm trixie) {
       --profiles=nocheck,cross \
       -d ${distro} \
       --anything-failed-commands '%s' \
-      --extra-repository="deb [trusted=yes] http://mrcal.secretsauce.net/packages/$distro/public/ $distro main"
-
+      --extra-repository="deb [trusted=yes] http://mrcal.secretsauce.net/packages/$distro/public/ $distro main" && \
     dput -u digitalocean_mrcal ../*${distro}*.changes(om[1])
 }
 
@@ -266,8 +263,7 @@ deb [trusted=yes arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ ${distro}-sec
 deb [trusted=yes arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ ${distro}-updates  main restricted universe multiverse
 deb [trusted=yes arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ ${distro}-proposed main restricted universe multiverse
 \" > \$1/etc/apt/sources.list" \
-      --extra-repository="deb [trusted=yes] http://mrcal.secretsauce.net/packages/$distro/public/ $distro main"
-
+      --extra-repository="deb [trusted=yes] http://mrcal.secretsauce.net/packages/$distro/public/ $distro main" && \
     dput -u digitalocean_mrcal ../*${distro}*.changes(om[1])
 }
 #+end_src
