@@ -13,9 +13,37 @@ and only an orientation from the IMU.
 
 To gather the data, we place a stationary chessboard somewhere in the scene.
 Then we collect a small number of datasets by placing the camera+IMU rig in
-various orientation, where some set of cameras can observes the chessboard. We
+various orientations, where some set of cameras can observes the chessboard. We
 gather chessboard images and and gravity measurements from the IMU. This allows
 us to compute a set of poses to make all the measurements self-consistent.
+
+In the sample dataset we have a set of files:
+
+- HH-MM-SS-cami-corners.vnl: these contain the chessboard corner detections at
+  time HH-MM-SS for camera i
+- HH-MM-SS-gravity.vnl: these contain the IMU gravity reading at time HH-MM-SS
+
+The HH-MM-SS timestamp is simultaneous for sets of corner observations and
+gravity vectors. This timestamp is how we associate the measurements. In the
+sample dataset we have:
+
+  $ head 19-05-28-cam1-corners.vnl
+
+  # filename x y level
+  frame0000470-topic01.png 1498.253008 1150.991979 0
+  frame0000470-topic01.png 1449.015013 1147.971314 0
+  frame0000470-topic01.png 1399.162738 1144.527778 0
+  frame0000470-topic01.png 1349.262867 1140.191815 0
+  frame0000470-topic01.png 1299.681151 1134.854061 0
+  frame0000470-topic01.png 1250.829060 1128.855706 0
+  frame0000470-topic01.png 1202.280117 1122.228303 0
+  frame0000470-topic01.png 1154.992317 1114.797872 0
+  frame0000470-topic01.png 1108.771253 1107.425066 0
+
+
+  $ head 19-05-28-gravity.vnl
+  # acc0 acc1 acc2
+  -0.8886457681655884 -7.7616963386535645 -5.7020673751831055
 
 Here I'm optimizing for ALL the geometry, but I could assume the camera-camera
 transforms are already available, to simplify
@@ -57,9 +85,9 @@ import scipy
 
 # Write the results here
 Dout = '/tmp'
-Din  = '/tmp'
+Din  = '/tmp/2026-01--calibrate-camera-imu-sample/',
 
-cameras = ['cam0', 'cam1', 'cam2',]
+cameras = ['cam0', 'cam1',]
 models  = [mrcal.cameramodel(f"{Din}/{cam}.cameramodel") \
           for cam in cameras]
 
@@ -337,6 +365,24 @@ if True:
     mrcal.show_geometry( nps.glue( rt_cam_cam0_mounted,
                                    rt_imu_cam0,
                                    axis = -2),
+                         title = "Camera-IMU calibration result",
                          cameranames = cameras + ['imu'],
                          wait = True)
 
+
+    if True:
+        # plots for the documentation
+        mrcal.show_geometry( nps.glue( rt_cam_cam0_mounted,
+                                       rt_imu_cam0,
+                                       axis = -2),
+                             cameranames = cameras + ['imu'],
+                             title = "Camera-IMU calibration result",
+                             hardcopy="/home/dima/projects/mrcal-doc-external/figures/2026-01--calibrate-camera-imu-sample/geometry.png",
+                             terminal='pngcairo size 1024,768 transparent noenhanced crop font ",12"')
+        mrcal.show_geometry( nps.glue( rt_cam_cam0_mounted,
+                                       rt_imu_cam0,
+                                       axis = -2),
+                             cameranames = cameras + ['imu'],
+                             title = "Camera-IMU calibration result",
+                             hardcopy="/home/dima/projects/mrcal-doc-external/figures/2026-01--calibrate-camera-imu-sample/geometry.pdf",
+                             terminal='pdf size 8in,6in noenhanced solid color   font ",16"')

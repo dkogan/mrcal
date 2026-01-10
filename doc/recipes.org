@@ -1124,8 +1124,22 @@ is decently well-tested and works well. Documentation and interfaces are still
 unideal, but improvements are welcome!
 
 ** Camera-IMU calibration
-A routine to align a set of cameras and an IMU is available in
+:PROPERTIES:
+:CUSTOM_ID: camera-imu-calibration
+:END:
+A routine to align a set of cameras and an IMU in a rigid rig is available in
 [[https://www.github.com/dkogan/mrcal/blob/master/analyses/calibrate-camera-imu.py][=analyses/calibrate-camera-imu.py=]]. This is also geometry-only and also trusts
 the intrinsics 100%. It's fairly simplistic, but highly usable and on-par with
-existing methods. Improvements welcome!
+existing methods. The tool is hard-coded to process the [[file:external/2026-01--calibrate-camera-imu-sample][sample data on the
+server]]. Here we gather data from several stationary observations of a stationary
+chessboard and the gravity vector from the IMU. With each observation we move
+the camera+IMU rig, while leaving the chessboard where it is. We make sure to
+sample many different orientations, we run the tool, and we get the result:
 
+[[file:external/figures/2026-01--calibrate-camera-imu-sample/geometry.pdf]]
+
+The IMU orientation is recovered, without a translation. This makes a number of
+assumptions, doesn't detect outliers or evaluate uncertainty, but nevertheless
+is quite usable, and all the extra stuff will be added as needed. A full
+kalibr-style sensor-bias-fitting thing will be implemented eventually, if
+somebody needs it. Improvements welcome!
