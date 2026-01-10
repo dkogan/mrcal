@@ -1136,7 +1136,7 @@ chessboard and the gravity vector from the IMU. With each observation we move
 the camera+IMU rig, while leaving the chessboard where it is. We make sure to
 sample many different orientations, we run the tool, and we get the result:
 
-[[file:external/figures/2026-01--calibrate-camera-imu-sample/geometry.pdf]]
+[[file:external/figures/2026-01--calibrate-camera-imu-sample/geometry.png]]
 
 The IMU orientation is recovered, without a translation. This makes a number of
 assumptions, doesn't detect outliers or evaluate uncertainty, but nevertheless
