@@ -13,7 +13,7 @@ mrcal_traverse_sensor_links(), but could potentially be useful somewhere
 on its own, so I'm exposing it here
  */
 
-
+#include <assert.h>
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -23,13 +23,7 @@ typedef struct
     bool     done : 1;
     uint64_t cost : 47;
 } mrcal_heap_node_t;
-// I can't find a single static assertion invocation that works in both C++ and
-// C. The below is ugly, but works
-#ifdef __cplusplus
-static_assert( sizeof(mrcal_heap_node_t) == 8, "mrcal_heap_node_t has expected size");
-#else
-_Static_assert(sizeof(mrcal_heap_node_t) == 8, "mrcal_heap_node_t has expected size");
-#endif
+static_assert(sizeof(mrcal_heap_node_t) == 8, "mrcal_heap_node_t has expected size");
 
 typedef struct
 {

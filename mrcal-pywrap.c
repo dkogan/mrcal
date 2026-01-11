@@ -8,6 +8,7 @@
 
 #define NPY_NO_DEPRECATED_API NPY_API_VERSION
 
+#include <assert.h>
 #include <stdbool.h>
 #include <Python.h>
 #include <structmember.h>
@@ -59,7 +60,7 @@ static PyObject* csr_from_cholmod_sparse( PyObject* P,
     }
 
     // Here I'm assuming specific types in my cholmod arrays. I tried to
-    // _Static_assert it, but internally cholmod uses void*, so I can't do that
+    // static_assert it, but internally cholmod uses void*, so I can't do that
     PyObject* MatrixDef = PyTuple_Pack(3, X, I, P);
     args                = PyTuple_Pack(1, MatrixDef);
     Py_DECREF(MatrixDef);
@@ -983,7 +984,7 @@ static bool optimize_validate_args( // out
                                     CROSS_REPROJECTION_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(ARG_LIST_DEFINE)
                                     void* dummy MRCAL_UNUSED)
 {
-    _Static_assert( sizeof(mrcal_pose_t)/sizeof(double) == 6, "mrcal_pose_t is assumed to contain 6 elements");
+    static_assert( sizeof(mrcal_pose_t)/sizeof(double) == 6, "mrcal_pose_t is assumed to contain 6 elements");
 
     OPTIMIZE_ARGUMENTS_REQUIRED(CHECK_LAYOUT);
     OPTIMIZE_ARGUMENTS_OPTIONAL(CHECK_LAYOUT);
