@@ -32,15 +32,18 @@
   #warning "This Python is older than 3.10. This binary will PROBABLY work with newer python, but there's no guarantee"
 #endif
 
-#include <Python.h>
-#include <numpy/arrayobject.h>
-
 #ifdef WEAKEN_PY_REFS
   #include "python-cameramodel-converter-py-symbol-refs.h"
-  #define WEAKEN(f) extern __typeof__(f) f __attribute__((weak));
+  #ifdef __APPLE__
+    #define WEAKEN(f) __asm__(".weak_reference " #f);
+  #else
+    #define WEAKEN(f) __asm__(".weak "           #f);
+  #endif
   PY_REFS(WEAKEN)
 #endif
 
+#include <Python.h>
+#include <numpy/arrayobject.h>
 
 #include "mrcal.h"
 
