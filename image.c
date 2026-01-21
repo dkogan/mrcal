@@ -160,11 +160,11 @@ bool generic_save_jpg(const char* filename,
 
 static
 bool generic_save(const char* filename,
-                  /* This really is const */ mrcal_image_void_t* image,
+                  const mrcal_image_void_t* image,
                   const int bits_per_pixel)
 {
     bool result = false;
-    char* buf = NULL;
+    mrcal_image_bgr_t _image = {}; // used in case bgr <-> rgb
 
     if(image->w == 0 || image->h == 0)
     {
@@ -187,22 +187,28 @@ bool generic_save(const char* filename,
     if(bits_per_pixel == 24)
     {
         // bgr/rgb
-        buf = malloc(image->w*image->h*3);
-        if(buf == NULL)
+
+        // make a copy of the image structure, allocate a new data buffer, and
+        // populate it from the original data
+        _image = (mrcal_image_bgr_t){.width  = image->width,
+                                     .height = image->height,
+                                     .stride = image->width*3,
+                                     .data   = malloc(image->w*image->h*3 )};
+        if(_image.data == NULL)
         {
             MSG("Could not malloc buffer for bgr<->rgb");
             goto done;
         }
-        if(image->stride == image->width*3)
-            memcpy(buf, image->data, image->w*image->h*3);
+        if(_image.stride == image->stride)
+            memcpy(_image.data, image->data, _image.w*_image.h*3);
         else
-            for(int i=0; i<image->h; i++)
-                memcpy(&buf[i*image->width*3],
+            for(int i=0; i<_image.h; i++)
+                memcpy(&((uint8_t*)_image.data)[i*_image.stride],
                        &((uint8_t*)image->data)[i*image->stride],
-                       image->width*3);
-        image->data = (uint8_t*)buf;
-        image->stride = image->width*3;
-        bgr_tofrom_rgb( (mrcal_image_bgr_t*)image);
+                       _image.width*3);
+        bgr_tofrom_rgb( (mrcal_image_bgr_t*)&_image);
+
+        image = (const mrcal_image_void_t*)&_image;
     }
 
     // stb_image_write() cannot write 16-bit png files. So I use stb for
@@ -249,7 +255,7 @@ bool generic_save(const char* filename,
     result = true;
 
  done:
-    free(buf);
+    free(_image.data);
     return result;
 }
 
