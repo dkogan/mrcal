@@ -414,19 +414,24 @@ def parse_args():
                             type=int,
                             nargs=2,
                             default=(11,11),
-                            help='''The correlator window size: WIDTH HEIGHT''')
+                            help='''Used with libsad5. The correlator window
+                            size: WIDTH HEIGHT. Defaults to (11,11)''')
         parser.add_argument('--prefilter-kernel-size',
                             type=int,
                             default=0,
-                            help='''The kernel size of the prefilter''')
+                            help='''Used with libsad5. The kernel size of the
+                            prefilter. Disabled if <= 0; defaults to 0''')
         parser.add_argument('--postfilter-blob-area',
                             type=int,
                             default=0,
-                            help='''The minimum blob size to keep in the postfilter''')
+                            help='''Used with libsad5. The minimum blob size to
+                            keep in the postfilter. Disabled if <= 0; defaults
+                            to 0''')
         parser.add_argument('--lr-limit',
                             type=float,
                             default=0.7,
-                            help='''Threshold for the left-right line-of-sight check''')
+                            help='''Used with libsad5. Threshold for the
+                            left-right line-of-sight check. Defaults to 0.7''')
 
     parser.add_argument('--write-point-cloud',
                         action='store_true',
