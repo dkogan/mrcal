@@ -141,8 +141,11 @@ To native-build (amd64) any dependency or mrcal itself:
 for distro (bullseye bookworm trixie) {
     perl -a -p -i -e 'if($. == 1) { $F[1] =~ s/-([0-9]+).*\)/-$1'$distro'1)/; $F[2] = "'$distro';"; $_ = join(" ",@F) . "\n"; }' debian/changelog;
 
+    git clean -idx
+
     DEB_BUILD_OPTIONS=nocheck \
     sbuild \
+      --no-clean-source \
       --host=amd64 \
       --arch-any \
       --arch-all \
@@ -162,8 +165,11 @@ https://lists.debian.org/debian-cross/2025/10/msg00010.html
 for distro (focal jammy noble) {
     perl -a -p -i -e 'if($. == 1) { $F[1] =~ s/-([0-9]+).*\)/-$1'$distro'1)/; $F[2] = "'$distro';"; $_ = join(" ",@F) . "\n"; }' debian/changelog;
 
+    git clean -idx
+
     DEB_BUILD_OPTIONS=nocheck \
     sbuild \
+      --no-clean-source \
       --host=amd64 \
       --arch-any \
       --arch-all \
@@ -228,8 +234,11 @@ index bf3f3d3..ac91b61 100755
 for distro (bullseye bookworm trixie) {
     perl -a -p -i -e 'if($. == 1) { $F[1] =~ s/-([0-9]+).*\)/-$1'$distro'1)/; $F[2] = "'$distro';"; $_ = join(" ",@F) . "\n"; }' debian/changelog;
 
+    git clean -idx
+
     DEB_BUILD_OPTIONS=nocheck \
     sbuild \
+      --no-clean-source \
       --host=arm64 \
       --arch-any \
       --no-arch-all \
@@ -244,8 +253,11 @@ for distro (bullseye bookworm trixie) {
 for distro (focal jammy noble) {
     perl -a -p -i -e 'if($. == 1) { $F[1] =~ s/-([0-9]+).*\)/-$1'$distro'1)/; $F[2] = "'$distro';"; $_ = join(" ",@F) . "\n"; }' debian/changelog;
 
+    git clean -idx
+
     DEB_BUILD_OPTIONS=nocheck \
     sbuild \
+      --no-clean-source \
       --host=arm64 \
       --arch-any \
       --no-arch-all \
