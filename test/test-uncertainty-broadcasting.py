@@ -67,7 +67,7 @@ def parse_args():
                         operation, so they will have some amount of correlation.
                         If given, this argument specifies how much correlation.
                         This is a value in [0,1] scaling the stdev. 0 means
-                        "independent" (the default). 1.0 means "100%
+                        "independent" (the default). 1.0 means "100%%
                         correlated".''')
     parser.add_argument('--baseline',
                         type    = float,
