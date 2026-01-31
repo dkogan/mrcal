@@ -1,5 +1,11 @@
 # -*- Makefile -*-
 
+##### This is uesd to build the documentation at https://mrcal.secretsauce.net
+##### The primary intent isn't for end-users to build these, so this isn't
+##### well-tested in many scenarios. Expect fiddling with dependencies and such
+##### if you need to re-build this stuff
+
+
 # To use the latest tag in the documentation, run
 #
 # VERSION_USE_LATEST_TAG=1 make
