@@ -1,6 +1,9 @@
 #+TITLE: Projection uncertainty: cross-reprojection
 #+OPTIONS: toc:t
 
+#+LATEX_HEADER: \usepackage[all,cmtip,color,matrix,arrow]{xy}
+#+LATEX_HEADER: \usepackage{color}
+
 
 A key part of the [[file:uncertainty.org][uncertainty-in-intrinsics method]] is to compute a function
 $\vec q^+\left(\vec b\right)$ to represent the change in projected pixel $\vec
@@ -395,9 +398,3 @@ With these expressions I can compute the gradient of $\vec q^+$ in respect to
 all the variables, and I can propagate those gradients to get
 
 \[ \mathrm{Var}\left( \vec q^+ \right) = \frac{\partial \vec q^+}{\partial \vec b} \mathrm{Var}\left( \vec b \right) \frac{\partial \vec q^+}{\partial \vec b}^T \]
-
-* init                                                             :noexport:
-Need to do this to render the latex snippets with C-c C-x C-l
-
-(add-to-list 'org-latex-packages-alist '("all,cmtip,color,matrix,arrow" "xy" t))
-(add-to-list 'org-latex-packages-alist '("" "color" t))

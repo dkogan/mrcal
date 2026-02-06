@@ -1,6 +1,9 @@
 #+TITLE: Projection uncertainty of intrinsics: mean-pcam
 #+OPTIONS: toc:nil
 
+#+LATEX_HEADER: \usepackage[all,cmtip,color,matrix,arrow]{xy}
+#+LATEX_HEADER: \usepackage{color}
+
 A key part of the [[file:uncertainty.org][projection uncertainty propagation method]] is to compute a
 function $\vec q^+\left(\vec b\right)$ to represent the change in projected
 pixel $\vec q$ as the optimization vector $\vec b$ moves around.
@@ -234,8 +237,3 @@ analyses/dancing/dance-study.py           \
 As expected, the low-range uncertainty is unaffected by the 10m observations,
 but the far-range uncertainty is improved.
 
-* init                                                             :noexport:
-Need to do this to render the latex snippets with C-c C-x C-l
-
-(add-to-list 'org-latex-packages-alist '("all,cmtip,color,matrix,arrow" "xy" t))
-(add-to-list 'org-latex-packages-alist '("" "color" t))
