@@ -34,11 +34,12 @@ elements (horizontal, vertical error) of the measurements vector:
 The data flow is:
 
 \[
+\xymatrixcolsep{5em}
 \xymatrix{
-\vec p_\mathrm{board}   \ar[d]^{T_\mathrm{rf}} \\
-\vec p_\mathrm{ref}     \ar[d]^{T_\mathrm{cr}} \\
-\vec p_\mathrm{cam}     \ar[d]^{\vec b_\mathrm{intrinsics} } \\
-\vec q
+\vec q &
+\vec p_\mathrm{cam}     \ar[l]^{\vec b_\mathrm{intrinsics} } &
+\vec p_\mathrm{ref}     \ar[l]^{T_\mathrm{cr}} &
+\vec p_\mathrm{board}   \ar[l]^{T_\mathrm{rf}}
 }
 \]
 
@@ -48,10 +49,11 @@ $T_\mathrm{rf}$ and $\vec b_\mathrm{intrinsics}$. When optimizing discrete
 points the flow is slightly different:
 
 \[
+\xymatrixcolsep{5em}
 \xymatrix{
-\vec p_\mathrm{point}   \ar[d]^{T_\mathrm{cr}} \\
-\vec p_\mathrm{cam}     \ar[d]^{\vec b_\mathrm{intrinsics} } \\
-\vec q
+\vec q &
+\vec p_\mathrm{cam}     \ar[l]^{\vec b_\mathrm{intrinsics} } &
+\vec p_\mathrm{point}   \ar[l]^{T_\mathrm{cr}}
 }
 \]
 
@@ -65,11 +67,12 @@ q_\mathrm{ref} + \Delta \vec q_\mathrm{ref}$ and reoptimize, then we get
 different quantities in this same data flow:
 
 \[
+\xymatrixcolsep{5em}
 \xymatrix{
-\vec p^+_\mathrm{board}  \ar[d]^{T_\mathrm{r^+f^+}} \\
-\vec p^+_\mathrm{ref}    \ar[d]^{T_\mathrm{c^+r^+}} \\
-\vec p^+_\mathrm{cam}    \ar[d]^{\vec b^+_\mathrm{intrinsics} } \\
-\vec q^+
+\vec q^+ &
+\vec p^+_\mathrm{cam}    \ar[l]^{\vec b^+_\mathrm{intrinsics} } &
+\vec p^+_\mathrm{ref}    \ar[l]^{T_\mathrm{c^+r^+}} &
+\vec p^+_\mathrm{board}  \ar[l]^{T_\mathrm{r^+f^+}}
 }
 \]
 
@@ -86,16 +89,16 @@ and perturbed optimizations. The data flow in this cross-reprojection
 optimization appears in red:
 
 \[
+\xymatrixcolsep{5em}
 \xymatrix{
-  \vec p  _\mathrm{board}  \ar[d]^{T_\mathrm{rf}}
-& {\color{red} \vec p^+_\mathrm{board}}  \ar@[red][d]^{\color{red} T_\mathrm{r^+f^+}} \\
-  {\color{red} \vec p  _\mathrm{ref}}    \ar@[red][d]^{\color{red} T_\mathrm{cr}}
-& {\color{red} \vec p^+_\mathrm{ref}}    \ar[d]^{T_\mathrm{c^+r^+}}
-  \ar@[red][l]^{\color{red} T_\mathrm{rr^+}} \\
-  {\color{red} \vec p  _\mathrm{cam}}    \ar@[red][d]^{\color{red} \vec b_\mathrm{intrinsics} }
-& \vec p^+_\mathrm{cam}    \ar[d]^{\vec b^+_\mathrm{intrinsics} } \\
-  {\color{red} \vec q}
-& \vec q^+
+  {\color{red} \vec q}                                                                          &
+  {\color{red} \vec p  _\mathrm{cam}}    \ar@[red][l]^{\color{red} \vec b_\mathrm{intrinsics} } &
+  {\color{red} \vec p  _\mathrm{ref}}    \ar@[red][l]^{\color{red} T_\mathrm{cr}}               &
+  \vec p  _\mathrm{board}  \ar[l]^{T_\mathrm{rf}}                                               \\
+  \vec q^+                                                                                                      &
+  \vec p^+_\mathrm{cam}    \ar[l]^{\vec b^+_\mathrm{intrinsics} }                                               &
+  {\color{red} \vec p^+_\mathrm{ref}}    \ar[l]^{T_\mathrm{c^+r^+}}  \ar@[red][u]^{\color{red} T_\mathrm{rr^+}} &
+  {\color{red} \vec p^+_\mathrm{board}}  \ar@[red][l]^{\color{red} T_\mathrm{r^+f^+}}
 }
 \]
 
@@ -107,7 +110,7 @@ In this red data flow I look at the /perturbed/ chessboard,points,frames ($\vec
 p^+_\mathrm{board}$, $\vec p^+_\mathrm{point}$, $T_\mathrm{r^+f^+}$) and the
 /unperturbed/ camera extrinsics,intrinsics ($T_\mathrm{cr}$, $\vec
 b_\mathrm{intrinsics}$). Note that I could have traversed this data flow diagram
-from the top-left to the bottom-right instead. This produces a [[#cross-reprojection-rt-rpr][different
+from the top-right to the bottom-left instead. This produces a [[#cross-reprojection-rt-rpr][different
 formulation, described below]].
 
 So let's compute $T_\mathrm{rr^+}$. For a given perturbation $\Delta \vec
@@ -182,18 +185,19 @@ the optimal measurements $\vec x^*$ and their gradient $J$:
 Once again, we have this data flow:
 
 \[
+\xymatrixcolsep{5em}
 \xymatrix{
-  \vec p  _\mathrm{board}  \ar[d]^{T_\mathrm{rf}}
-& {\color{red} \vec p^+_\mathrm{board}}  \ar@[red][d]^{\color{red} T_\mathrm{r^+f^+}} \\
-  {\color{red} \vec p  _\mathrm{ref}}    \ar@[red][d]^{\color{red} T_\mathrm{cr}}
-& {\color{red} \vec p^+_\mathrm{ref}}    \ar[d]^{T_\mathrm{c^+r^+}}
-  \ar@[red][l]^{\color{red} T_\mathrm{rr^+}} \\
-  {\color{red} \vec p  _\mathrm{cam}}    \ar@[red][d]^{\color{red} \vec b_\mathrm{intrinsics} }
-& \vec p^+_\mathrm{cam}    \ar[d]^{\vec b^+_\mathrm{intrinsics} } \\
-  {\color{red} \vec q}
-& \vec q^+
+  {\color{red} \vec q}                                                                          &
+  {\color{red} \vec p  _\mathrm{cam}}    \ar@[red][l]^{\color{red} \vec b_\mathrm{intrinsics} } &
+  {\color{red} \vec p  _\mathrm{ref}}    \ar@[red][l]^{\color{red} T_\mathrm{cr}}               &
+  \vec p  _\mathrm{board}  \ar[l]^{T_\mathrm{rf}}                                               \\
+  \vec q^+                                                                                      &
+  \vec p^+_\mathrm{cam}    \ar[l]^{\vec b^+_\mathrm{intrinsics} }                               &
+  {\color{red} \vec p^+_\mathrm{ref}}    \ar[l]^{T_\mathrm{c^+r^+}} \ar@[red][u]^{\color{red} T_\mathrm{rr^+}} &
+  {\color{red} \vec p^+_\mathrm{board}}  \ar@[red][l]^{\color{red} T_\mathrm{r^+f^+}}
 }
 \]
+
 
 implying this cost vector:
 
@@ -290,19 +294,19 @@ depends on the various $J$ matrices that are constant for each solve.
 :END:
 
 I can also go the other way: traversing the data flow diagram above from the
-top-left to bottom-right:
+top-right to bottom-left:
 
 \[
+\xymatrixcolsep{5em}
 \xymatrix{
-  {\color{red}\vec p  _\mathrm{board}} \ar@[red][d]^{\color{red} T_\mathrm{rf}}
-& {           \vec p^+_\mathrm{board}} \ar      [d]^{            T_\mathrm{r^+f^+}} \\
-  {\color{red} \vec p _\mathrm{ref}}   \ar      [d]^{            T_\mathrm{cr}}
-  \ar@[red][r]^{\color{red} T_\mathrm{r^+r}}
-& {\color{red} \vec p^+_\mathrm{ref}}  \ar@[red][d]^{\color{red} T_\mathrm{c^+r^+}} \\
-  {            \vec p  _\mathrm{cam}}  \ar      [d]^{            \vec b_\mathrm{intrinsics} }
-& {\color{red} \vec p^+_\mathrm{cam}}  \ar@[red][d]^{\color{red} \vec b^+_\mathrm{intrinsics} } \\
-  {            \vec q}
-& {\color{red} \vec q^+}
+  {\vec q}                                                                                                &
+  {\vec p  _\mathrm{cam}}  \ar[l]^{\vec b_\mathrm{intrinsics} }                                           &
+  {\color{red} \vec p _\mathrm{ref}}   \ar[l]^{T_\mathrm{cr}}  \ar@[red][d]^{\color{red} T_\mathrm{r^+r}} &
+  {\color{red}\vec p  _\mathrm{board}} \ar@[red][l]^{\color{red} T_\mathrm{rf}}                           \\
+  {\color{red} \vec q^+}                                                                                  &
+  {\color{red} \vec p^+_\mathrm{cam}}  \ar@[red][l]^{\color{red} \vec b^+_\mathrm{intrinsics} }           &
+  {\color{red} \vec p^+_\mathrm{ref}}  \ar@[red][l]^{\color{red} T_\mathrm{c^+r^+}}                       &
+  {\vec p^+_\mathrm{board}} \ar[l]^{T_\mathrm{r^+f^+}}
 }
 \]
 
@@ -376,13 +380,14 @@ compute projections, rather than looking at a linearized space defined by $J$. I
 traverse the data flow diagram in a different direction to compute $\vec q^+$:
 
 \[
+\xymatrixcolsep{5em}
 \xymatrix{
-  {\vec p  _\mathrm{ref}} \ar[r]^{T_\mathrm{r^+r}}
-& {\vec p^+_\mathrm{ref}}    \ar[d]^{T_\mathrm{c^+r^+}} \\
-  {\vec p  _\mathrm{cam}} \ar[u]_{T_\mathrm{rc}}
-& {\vec p^+_\mathrm{cam}}    \ar[d]^{\vec b^+_\mathrm{intrinsics} } \\
-  {\vec q} \ar[u]_{\vec b_\mathrm{intrinsics} }
-& {\vec q^+}
+  {\vec q} \ar[r]_{\vec b_\mathrm{intrinsics} }   &
+  {\vec p  _\mathrm{cam}} \ar[r]_{T_\mathrm{rc}}  &
+  {\vec p  _\mathrm{ref}} \ar[d]^{T_\mathrm{r^+r}} \\
+  {\vec q^+}                                      &
+  {\vec p^+_\mathrm{cam}}    \ar[l]^{\vec b^+_\mathrm{intrinsics} } &
+  {\vec p^+_\mathrm{ref}}    \ar[l]^{T_\mathrm{c^+r^+}}
 }
 \]
 
