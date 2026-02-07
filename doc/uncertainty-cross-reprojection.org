@@ -34,8 +34,7 @@ elements (horizontal, vertical error) of the measurements vector:
 The data flow is:
 
 \[
-\xymatrixcolsep{5em}
-\xymatrix{
+\xymatrix @C=5em {
 \vec q &
 \vec p_\mathrm{cam}     \ar[l]^{\vec b_\mathrm{intrinsics} } &
 \vec p_\mathrm{ref}     \ar[l]^{T_\mathrm{cr}} &
@@ -49,8 +48,7 @@ $T_\mathrm{rf}$ and $\vec b_\mathrm{intrinsics}$. When optimizing discrete
 points the flow is slightly different:
 
 \[
-\xymatrixcolsep{5em}
-\xymatrix{
+\xymatrix @C=5em {
 \vec q &
 \vec p_\mathrm{cam}     \ar[l]^{\vec b_\mathrm{intrinsics} } &
 \vec p_\mathrm{point}   \ar[l]^{T_\mathrm{cr}}
@@ -67,8 +65,7 @@ q_\mathrm{ref} + \Delta \vec q_\mathrm{ref}$ and reoptimize, then we get
 different quantities in this same data flow:
 
 \[
-\xymatrixcolsep{5em}
-\xymatrix{
+\xymatrix @C=5em {
 \vec q^+ &
 \vec p^+_\mathrm{cam}    \ar[l]^{\vec b^+_\mathrm{intrinsics} } &
 \vec p^+_\mathrm{ref}    \ar[l]^{T_\mathrm{c^+r^+}} &
@@ -89,8 +86,7 @@ and perturbed optimizations. The data flow in this cross-reprojection
 optimization appears in red:
 
 \[
-\xymatrixcolsep{5em}
-\xymatrix{
+\xymatrix @C=5em {
   {\color{red} \vec q}                                                                          &
   {\color{red} \vec p  _\mathrm{cam}}    \ar@[red][l]^{\color{red} \vec b_\mathrm{intrinsics} } &
   {\color{red} \vec p  _\mathrm{ref}}    \ar@[red][l]^{\color{red} T_\mathrm{cr}}               &
@@ -185,8 +181,7 @@ the optimal measurements $\vec x^*$ and their gradient $J$:
 Once again, we have this data flow:
 
 \[
-\xymatrixcolsep{5em}
-\xymatrix{
+\xymatrix @C=5em {
   {\color{red} \vec q}                                                                          &
   {\color{red} \vec p  _\mathrm{cam}}    \ar@[red][l]^{\color{red} \vec b_\mathrm{intrinsics} } &
   {\color{red} \vec p  _\mathrm{ref}}    \ar@[red][l]^{\color{red} T_\mathrm{cr}}               &
@@ -297,8 +292,7 @@ I can also go the other way: traversing the data flow diagram above from the
 top-right to bottom-left:
 
 \[
-\xymatrixcolsep{5em}
-\xymatrix{
+\xymatrix @C=5em {
   {\vec q}                                                                                                &
   {\vec p  _\mathrm{cam}}  \ar[l]^{\vec b_\mathrm{intrinsics} }                                           &
   {\color{red} \vec p _\mathrm{ref}}   \ar[l]^{T_\mathrm{cr}}  \ar@[red][d]^{\color{red} T_\mathrm{r^+r}} &
@@ -380,8 +374,7 @@ compute projections, rather than looking at a linearized space defined by $J$. I
 traverse the data flow diagram in a different direction to compute $\vec q^+$:
 
 \[
-\xymatrixcolsep{5em}
-\xymatrix{
+\xymatrix @C=5em {
   {\vec q} \ar[r]_{\vec b_\mathrm{intrinsics} }   &
   {\vec p  _\mathrm{cam}} \ar[r]_{T_\mathrm{rc}}  &
   {\vec p  _\mathrm{ref}} \ar[d]^{T_\mathrm{r^+r}} \\
