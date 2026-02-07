@@ -1,6 +1,9 @@
 #+TITLE: Optimization problem formulation
 #+OPTIONS: toc:t
 
+#+LATEX_HEADER: \usepackage[all,cmtip,color,matrix,arrow]{xy}
+#+LATEX_HEADER: \usepackage{color}
+
 * Overview
 mrcal contains a solver used to compute the [[file:lensmodels.org][lens models]] and/or geometry. This is
 accessible via either
@@ -57,10 +60,15 @@ There are 3 different coordinate systems in the optimization:
 So the data flow to project a particular chessboard corner which sits at $\vec
 p_\mathrm{frame}$ in the local chessboard coordinate system is:
 
-\[ \vec q                     \xleftarrow{\mathrm{intrinsics}}
-   \vec p_\mathrm{camera}     \xleftarrow{T_\mathrm{cr}}
-   \vec p_\mathrm{reference}  \xleftarrow{T_\mathrm{rf}}
-   \vec p_\mathrm{frame}
+The data flow is:
+
+\[
+\xymatrix @C=5em {
+\vec q &
+\vec p_\mathrm{camera}   \ar[l]^{\vec b_\mathrm{intrinsics} } &
+\vec p_\mathrm{reference}\ar[l]^{T_\mathrm{cr}} &
+\vec p_\mathrm{frame}    \ar[l]^{T_\mathrm{rf}}
+}
 \]
 
 where the intrinsics and the transformations $T_\mathrm{cr}$ and $T_\mathrm{rf}$
