@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Creator: fig2dev Version 3.2.9a -->
+<!-- CreationDate: 2026-02-08 15:04:41 -->
+<!-- Magnification: 1.05 -->
+<svg	xmlns="http://www.w3.org/2000/svg"
+	xmlns:xlink="http://www.w3.org/1999/xlink"
+	width="426pt" height="116pt"
+	viewBox="2013 1185 6747 1840">
+<g fill="none">
+<!-- Line -->
+<polygon points=" 2205,1779 2520,1621 2520,2250 2205,2092"
+	stroke="#000000" stroke-width="8px"/>
+<!-- Line -->
+<polygon points=" 2205,1621 2205,2250 2025,2250 2025,1621"
+	stroke="#000000" stroke-width="8px"/>
+<!-- Line -->
+<polygon points=" 4035,2999 3965,2740 3913,2754 3983,3013" fill="#000000"
+	stroke="#000000" stroke-width="8px"/>
+<!-- Line -->
+<polygon points=" 3965,2740 3896,2483 3845,2495 3913,2754" fill="#a0a0a0"
+	stroke="#a0a0a0" stroke-width="8px"/>
+<!-- Line -->
+<polygon points=" 3896,2483 3826,2221 3776,2237 3845,2495" fill="#000000"
+	stroke="#000000" stroke-width="8px"/>
+<!-- Line -->
+<polygon points=" 3826,2221 3758,1965 3707,1978 3776,2237" fill="#a0a0a0"
+	stroke="#a0a0a0" stroke-width="8px"/>
+<!-- Line -->
+<polygon points=" 3758,1965 3688,1706 3637,1720 3707,1978" fill="#000000"
+	stroke="#000000" stroke-width="8px"/>
+<!-- Line -->
+<polygon points=" 3123,2906 3193,2647 3141,2633 3071,2892" fill="#000000"
+	stroke="#000000" stroke-width="8px"/>
+<!-- Line -->
+<polygon points=" 3193,2647 3261,2388 3210,2374 3141,2633" fill="#a0a0a0"
+	stroke="#a0a0a0" stroke-width="8px"/>
+<!-- Line -->
+<polygon points=" 3261,2388 3331,2130 3280,2116 3210,2374" fill="#000000"
+	stroke="#000000" stroke-width="8px"/>
+<!-- Line -->
+<polygon points=" 3331,2130 3400,1872 3347,1859 3280,2116" fill="#a0a0a0"
+	stroke="#a0a0a0" stroke-width="8px"/>
+<!-- Line -->
+<polygon points=" 3400,1872 3470,1613 3418,1599 3347,1859" fill="#000000"
+	stroke="#000000" stroke-width="8px"/>
+<!-- Line -->
+<polygon points=" 7273,2969 7385,2726 7337,2704 7223,2946" fill="#000000"
+	stroke="#000000" stroke-width="8px"/>
+<!-- Line -->
+<polygon points=" 7385,2726 7498,2487 7450,2464 7337,2704" fill="#a0a0a0"
+	stroke="#a0a0a0" stroke-width="8px"/>
+<!-- Line -->
+<polygon points=" 7498,2487 7612,2241 7562,2219 7450,2464" fill="#000000"
+	stroke="#000000" stroke-width="8px"/>
+<!-- Line -->
+<polygon points=" 7612,2241 7723,2002 7675,1977 7562,2219" fill="#a0a0a0"
+	stroke="#a0a0a0" stroke-width="8px"/>
+<!-- Line -->
+<polygon points=" 7723,2002 7837,1757 7788,1736 7675,1977" fill="#000000"
+	stroke="#000000" stroke-width="8px"/>
+<!-- Line -->
+<polygon points=" 7926,2933 7948,2666 7894,2661 7872,2928" fill="#000000"
+	stroke="#000000" stroke-width="8px"/>
+<!-- Line -->
+<polygon points=" 7948,2666 7971,2401 7919,2394 7894,2661" fill="#a0a0a0"
+	stroke="#a0a0a0" stroke-width="8px"/>
+<!-- Line -->
+<polygon points=" 7971,2401 7995,2131 7943,2129 7919,2394" fill="#000000"
+	stroke="#000000" stroke-width="8px"/>
+<!-- Line -->
+<polygon points=" 7995,2131 8019,1867 7966,1862 7943,2129" fill="#a0a0a0"
+	stroke="#a0a0a0" stroke-width="8px"/>
+<!-- Line -->
+<polygon points=" 8019,1867 8042,1600 7989,1595 7966,1862" fill="#000000"
+	stroke="#000000" stroke-width="8px"/>
+<!-- Text -->
+<text xml:space="preserve" x="7830" y="1440" fill="#ff0000" font-family="Helvetica" font-style="normal" font-weight="normal" font-size="233" text-anchor="middle">Pose less certain</text>
+<!-- Text -->
+<text xml:space="preserve" x="3555" y="1440" fill="#008f00" font-family="Helvetica" font-style="normal" font-weight="normal" font-size="233" text-anchor="middle">Pose more certain</text>
+</g>
+</svg>
