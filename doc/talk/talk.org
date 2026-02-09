@@ -1,4 +1,4 @@
-#+TITLE: Making and using camera models with mrcal: the practical details
+#+TITLE: Towards mrcal 3.0
 #+AUTHOR: Dima Kogan
 
 #+OPTIONS: toc:nil H:2
@@ -11,7 +11,9 @@
 # below makes it pick the nice fonts
 #+LaTeX_HEADER: \usepackage{lmodern}
 
-#+LaTeX_HEADER: \setbeamertemplate{navigation symbols}{}
+# I don't want navigation buttons in the document. AND I do this only if using
+# beamer; otherwise the latex fragments aren't generated right
+#+LaTeX_HEADER: \IfClassLoadedTF{beamer}{ \setbeamertemplate{navigation symbols}{} }{}
 
 # I want clickable links to be blue and underlined, as is custom
 #+LaTeX_HEADER: \usepackage{letltxmacro}
@@ -22,22 +24,24 @@
 # I want a visible gap between paragraphs
 #+LaTeX_HEADER: \setlength{\parskip}{\bigskipamount}
 
-* Overview
-** What is mrcal for?
-mrcal is a generic toolkit, applicable to anything that makes or uses camera
-models.
+#+LATEX_HEADER: \usepackage[all,cmtip,color,matrix,arrow]{xy}
+#+LATEX_HEADER: \usepackage{color}
 
-Common applications:
+* Overview
+** What is mrcal?
+mrcal is a toolkit for geometric vision. Applicable to anything that makes or
+uses camera models. For instance:
 
 - Calibration
 - Triangulation
 - Photogrammetry
-- SFM
+- Stucture from motion
+- Perception system core
+- Design and analysis of any system that uses cameras for perception
 
 ** Why does mrcal exist?
 
-I couldn't find a set of tools precise-enough to make my visual ranging work
-possible, so I wrote my own
+Tooling that was precise-enough for my visual ranging work did not exist.
 
 By necessity, mrcal is a complete re-design and re-implementation of camera
 modeling tooling from the ground-up:
@@ -45,20 +49,27 @@ modeling tooling from the ground-up:
 - Richer camera model available to precisely model lens behavior
 - Uncertainty propagation and cross-validation techniques available to
   validate a calibration
-- No implicit pinhole assumption anywhere (no homogeneous coordinates,
-  essential, fundamental matrices, etc)
+- No implicit pinhole assumption anywhere: *no homogeneous coordinates*
 - Fisheye-friendly stereo rectification
 
-** Computing details
+Also, /nice/ C and Python library, with lots of commandline tools, good
+documentation, sane build and distribution, etc.
+
+** Computing details                                               :noexport:
 
 - mrcal is a library (C and Python)
+- Lots of routines. Easy and common to use mix some library usage with other
+  tools, for instance using a separate optimization routine for aligning
+  non-camera sensors
 - Many commandline tools available, so no coding required for common tasks
 - /Thoroughly/ documented
-- Open-source, available in stock Debian
+- Open-source, available in stock Debian /today/
+- Builds on a wide variety of architectures and platforms. If you need something
+  not supported today, talk to me.
 
 Contributions welcome!
 
-** Where is it?
+** Where is it?                                                    :noexport:
 
 Detailed documentation is available at https://mrcal.secretsauce.net/
 
@@ -66,6 +77,78 @@ Detailed documentation is available at https://mrcal.secretsauce.net/
 
 - See the docs for more detail, and for links to all the data and commands that
   produced the presented results
+
+** Where are we now: calibration
+[[https://mrcal.secretsauce.net/news-2.5.html][mrcal 2.5]] was just released. These tools are no longer experimental. They have
+been used with great success in /lots/ of contexts. Some highlights when used
+for /calibration/:
+
+- mrcal was used to calibrate extremely wide lenses
+- ... and extremely narrow lenses
+- ... and joint systems with both at the same time
+- ... with /many/ cameras; 10 cameras is the record thus far
+- both visible and thermal cameras
+- and [[https://github.com/dkogan/camera-lidar-calibration/][joint camera-LIDAR systems]]
+- and [[https://www.github.com/dkogan/mrcal/blob/master/analyses/calibrate-camera-imu.py][joint camera-IMU systems]]
+- mrcal is part of [[https://photonvision.org/][PhotonVision]], the toolkit used by teams in the [[https://www.firstinspires.org/robotics/frc][FIRST Robotics
+  Competition]]
+
+** Where are we now: pipelines
+In many deployments the C API was a core part of the perception pipeline:
+
+- Used in a traditional dense stereo workflow, with smarter rectification
+- The new mrcal triangulated features were used for SFM to compute the world
+  geometry on-line
+- Stereo from moving cameras results in weird geometries: for instance moving
+  along the optical axis. It all works just fine.
+
+** Where are we now: analyses
+- mrcal has been used with weird experimental setups employing custom
+  calibration objects and single-view solves
+- Used in countless ways for perception system design, analysis of correctness,
+  stability, drift, and so on
+
+** Where I want to go
+
+*I want to be able to get /reliable/ and /precise/ calibrations /without/ a
+chessboard.*
+
+The obvious method: structure-from-motion
+
+- moving camera observes a stationary scene
+- no knowledge of observed world
+- feature correspondences only; no ranges
+
+Plenty of existing methods, but all lack the uncertainty reporting and precision
+you get from mrcal and chessboards.
+
+** Why a chessboard-less calibration is hard
+Because chessboard-less observations of matching features are information-poor.
+
+Let's compare
+
+- 2 cameras observing a 10x10 chessboard
+- 2 cameras observing a set of 100 fixed points in space
+
+In both cases we have 400 observations (100 points in space, 2 cameras, xy
+measurements for each point)
+
+- With a chessboard we have 6 extra degrees of freedom (the pose of the board)
+- Without a chessboard we have 300 extra degrees-of-freedom (xyz coordinates of
+  each point)
+
+** Why a chessboard-less calibration is hard
+This is still overdetermined (400 > 300), but much worse.
+
+We thus need a /lot/ of data to achieve results of similar quality. How many
+points is unknown: hundreds? thousands? millions? The mrcal uncertainty
+reporting is /essential/ to give us this feedback.
+
+** chessboard-less calibration high-level plan
+- Implement uncertainty reporting
+- Run simulations to see how many points in which geometry are needed for a
+  confident calibration
+- Validate in the real world
 
 * Tour of mrcal
 ** Demo calibration
@@ -81,7 +164,7 @@ captured using
 - Just one camera (in this demo; mrcal supports multiple cameras)
 - Outdoor images captured in downtown Los Angeles
 
-** Sample image of the scene
+** Sample image of the scene                                       :noexport:
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/stereo/0.downsampled.jpg]]
 
@@ -94,8 +177,10 @@ arbitrary image:
 
 * Tour of mrcal: =LENSMODEL_OPENCV8=
 ** Let's run a calibration!
-This is a wide lens, so we need a lens model that can handle it. Let's use the
-8-parameter OpenCV model: =LENSMODEL_OPENCV8=
+We find a set of geometry and lens parameters to most closely match the
+observations.
+
+We start with the 8-parameter OpenCV model: =LENSMODEL_OPENCV8=
 
 #+begin_example
 $ mrcal-calibrate-cameras --lensmodel LENSMODEL_OPENCV8 ...
@@ -107,7 +192,7 @@ Noutliers: 564 out of 16464 total points: 3.4% of the data
 calobject_warp = [-0.00012726 -0.00014325]
 #+end_example
 
-** Why is the reprojection error > 0?
+** Why is the reprojection error > 0?                              :noexport:
 We have two sources of error:
 
 - *Sampling error*: chessboard observations are noisy. We can study this, but we
@@ -128,7 +213,7 @@ _Patterns_ in the residuals indicate the presence of model errors
 
 Yes. That's how I danced.
 
-** =LENSMODEL_OPENCV8= residuals histogram
+** =LENSMODEL_OPENCV8= residuals histogram                         :noexport:
 What does the error distribution look like?
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
@@ -148,7 +233,7 @@ The worst-fitting observations are a great way to see common issues such as:
 We look for _patterns_ in the residuals: patterns indicate the presence of model
 errors
 
-** =LENSMODEL_OPENCV8=: the worst image
+** =LENSMODEL_OPENCV8=: the worst image                            :noexport:
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/worst-opencv8.png]]
 
@@ -156,11 +241,11 @@ errors
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/worst-incorner-opencv8.png]]
 
-** =LENSMODEL_OPENCV8=: residual directions
+** =LENSMODEL_OPENCV8=: residual directions                        :noexport:
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/directions-opencv8-crop.pdf]]
 
-** =LENSMODEL_OPENCV8=: conclusions
+** =LENSMODEL_OPENCV8=: conclusions                                :noexport:
 We see clear patterns in the residuals, so
 
 - =LENSMODEL_OPENCV8= does not fit our data
@@ -198,7 +283,7 @@ We can then define the rest of the projection function:
  f_y \left( u_y + \Delta u_y \right) + c_y
 \end{aligned} \right] \]
 
-** Doing it again with =LENSMODEL_SPLINED_STEREOGRAPHIC=
+** Doing it again with =LENSMODEL_SPLINED_STEREOGRAPHIC=           :noexport:
 Let's re-process the same calibration data using the splined model. We run the
 same command as before, but using the =LENSMODEL_SPLINED_STEREOGRAPHIC_= ...
 =order=3_Nx=30_Ny=18_fov_x_deg=150= model. This is one long string.
@@ -216,12 +301,12 @@ Noutliers: 28 out of 16464 total points: 0.2% of the data
 calobject_warp = [-1.26851438e-04 -8.03269701e-05]
 #+end_example
 
-** =LENSMODEL_OPENCV8= residuals histogram
+** =LENSMODEL_OPENCV8= residuals histogram                         :noexport:
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/residuals-histogram-opencv8-crop.pdf]]
 
-** =LENSMODEL_SPLINED_...= residuals histogram
+** =LENSMODEL_SPLINED_...= residuals histogram                     :noexport:
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/residuals-histogram-splined-crop.pdf]]
@@ -263,7 +348,7 @@ errors
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/directions-splined-crop.pdf]]
 
-** Conclusion
+** Conclusion                                                      :noexport:
 We have good evidence that =LENSMODEL_SPLINED_STEREOGRAPHIC= fits this lens much
 better than =LENSMODEL_OPENCV8=
 
@@ -272,8 +357,8 @@ better than =LENSMODEL_OPENCV8=
 We computed the calibration two different ways. How different are the two
 models?
 
-** Differencing                                                    :noexport:
-Let's compute the difference using an obvious algorithm:
+** Differencing
+Let's compute the intrinsics difference using an obvious algorithm:
 
 Given a pixel $\vec q_0$,
 
@@ -284,16 +369,16 @@ Given a pixel $\vec q_0$,
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/figures/diff-notransform.pdf]]
 
-** Differencing                                                    :noexport:
+** Differencing
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/diff/diff-radius0-heatmap-splined-opencv8-crop.pdf]]
 
-** Differencing                                                    :noexport:
+** Differencing
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/diff/diff-radius0-vectorfield-splined-opencv8-crop.pdf]]
 
-** Differencing                                                    :noexport:
-So with a motion of the camera, we can make the errors disappear.
+** Differencing
+We can compensate for the errors by rotating the camera.
 
 The issue is that each calibration produces noisy estimates of all the
 intrinsics and all the coordinate transformations:
@@ -302,8 +387,8 @@ intrinsics and all the coordinate transformations:
 
 And the point $\vec p$ we were projecting wasn't truly fixed.
 
-** Differencing                                                    :noexport:
-We want to add a step:
+** Differencing
+We need to add a step:
 
 - Unproject $\vec q_0$ to a fixed point $\vec p_0$ using lens 0
 - *Transform $\vec p_0$ from the coordinate system of one camera to the coordinate
@@ -317,7 +402,7 @@ We want to add a step:
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/diff/diff-splined-opencv8-crop.pdf]]
 
-** Differencing                                                    :noexport:
+** Differencing
 /Much/ better. As expected, the two models agree relatively well in the center,
 and the error grows as we move towards the edges.
 
@@ -328,8 +413,106 @@ This differencing method has numerous applications:
 - testing different solution methods
 - underlying a cross-validation scheme
 
+* Cross-validation
+** Cross-validation
+We can use this method to quantify the quality of a calibration:
+
+- gather two (or more) independent data sets
+- diff the results
+
+** Cross-validation
+Each calibration result is a sample of the camera parameters random variables
+
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/cross-validation/perfect-data-splined-diff-samples.pdf]]
+
+** Cross-validation
+The samples give us a sense of the distribution of these random variables. A
+tight distribution, observed as /small/ cross-validation diffs, indicates a
+confident calibration.
+
+** Cross-validation
+In practice we often see /high/ cross-validation diffs, and we need to
+investigate.
+
+The sources of error:
+
+- *Sampling error*: chessboard observations are noisy. We can study this, but we
+  cannot reduce it
+
+- *Model error*: our model of the lens behavior, chessboard shape and everything
+  else isn't perfect. We can and must suppress this as much as possible
+
+We want the model error to be negligible: the cross-validation and other mrcal
+tools aid with this
+
+The sampling error can be quantified and studied with a single solve, by
+directly propagating the input noise
+
+* Solve formulation
+
+
+INTRODUCE THIS. OR MOVE IT
+
+
+
+
+
+** Solve formulation
+To talk about how this is done, an overview of the main optimization
+
+mrcal uses traditional non-linear least squares
+
+A hypothetical calibration is fully described by a /state/ vector $\vec b$, which
+contains
+
+- the poses of /all/ the cameras
+- the poses of /all/ the chessboards
+- the intrinsic parameters of /all/ the lenses
+- the parameters describing the chessboard shape
+
+Given $\vec b$, the solver can predict the observed pixel coordinates $\vec q$, and compare
+with the observations $\vec q_{\mathrm{ref}}$. The solver then finds the $\vec
+b$ to minimize the discrepancy, by minimizing some function $E \equiv \left
+\Vert \vec x \left(\vec b\right)\right \Vert ^2$
+
+** Solve formulation
+We have 3 coordinate systems:
+
+- The _frame_ or _board_ system: local to the chessboard
+- The _camera_ coordinate system: local to a camera
+- The _reference_ coordinate system: some fixed coordinate system that all frame
+  and camera poses are linked to
+
+** Solve formulation
+With a "normal" chessboard-based calibration we have this data flow:
+
+\[
+\xymatrix @C=5em {
+\vec q &
+\vec p_\mathrm{cam}     \ar[l]^{\vec b_\mathrm{intrinsics} } &
+\vec p_\mathrm{ref}     \ar[l]^{T_\mathrm{cr}} &
+\vec p_\mathrm{board}   \ar[l]^{T_\mathrm{rf}}
+}
+\]
+
+If we're solving with discrete points instead, the point coordinates $\vec
+p_\mathrm{point}$ are defined in the reference coordinate system, and the flow
+is slightly different:
+
+\[
+\xymatrix @C=5em {
+\vec q &
+\vec p_\mathrm{cam}     \ar[l]^{\vec b_\mathrm{intrinsics} } &
+\vec p_\mathrm{point}   \ar[l]^{T_\mathrm{cr}}
+}
+\]
+
+The transforms $T$ and intrinsics are tweaked by the optimizer as it tries to
+match $\vec q$ to the observations $\vec q_{\mathrm{ref}}$.
+
 * Uncertainty
-** Uncertainty
+** Uncertainty                                                     :noexport:
 - All calibrations are based on observations of the calibration object
   (chessboard corners)
 - These observations /always/ contain some noise (sampling error)
@@ -337,9 +520,85 @@ This differencing method has numerous applications:
 
 We quantify this sensitivity by computing a _projection uncertainty_
 
+** Uncertainty
+We can propagate the calibration input noise analytically to characterize the
+calibration distribution /without sampling/.
+
+SAY THIS IS CRITICALLY IMPORTANT FOR SPLINED MODEL VALIDATION
+
+
+
+
+From the solver we can directly compute a matrix $M$ such that $\Delta \vec b =
+M \Delta \vec q_\mathrm{ref}$. Together with the observation pixel noise $\sigma$:
+gives us
+
+\[\mathrm{Var}\left(\vec b\right) = \sigma^2 M M^T\]
+
+A covariance of the joint intrinsics+extrinsics+everything-else vector isn't
+useful. We propagate this to something useful: an uncertainty of projection at
+any pixel in the imager of the camera.
+
+** Uncertainty
+As with the differencing, we must consider extrinsics shifts /and/ intrinsics,
+even though the intrinsics is what we care about here.
+
+$\mathrm{Var}\left(\vec b\right)$ describes how $\vec b$ is likely to move. We derive $\vec q^+\left(\vec
+b\right)$ to see how these shifts affect projection, and then
+
+\[ \mathrm{Var}\left( \vec q \right) = \frac{\partial \vec q^+}{\partial \vec b} \mathrm{Var}\left( \vec b \right) \frac{\partial \vec q^+}{\partial \vec b}^T \]
+
+** mean-pcam uncertainty
+The chessboard data flow is:
+
+\[
+\xymatrix @C=5em {
+\vec q &
+\vec p_\mathrm{cam}     \ar[l]^{\vec b_\mathrm{intrinsics} } &
+\vec p_\mathrm{ref}     \ar[l]^{T_\mathrm{cr}} &
+\vec p_\mathrm{board}   \ar[l]^{T_\mathrm{rf}}
+}
+\]
+
+We perturb $\vec q^+_\mathrm{ref} = \vec
+q_\mathrm{ref} + \Delta \vec q_\mathrm{ref}$ and reoptimize:
+
+\[
+\xymatrix @C=5em {
+\vec q^+ &
+\vec p^+_\mathrm{cam}    \ar[l]^{\vec b^+_\mathrm{intrinsics} } &
+\vec p^+_\mathrm{ref}    \ar[l]^{T_\mathrm{c^+r^+}} &
+\vec p^+_\mathrm{board}  \ar[l]^{T_\mathrm{r^+f^+}}
+}
+\]
+
+All perturbed quantities are marked with a $+$ superscript.
+
+
+** mean-pcam uncertainty
+We need to connect the baseline and perturbed solves: I fix the point in board
+coordinates: $\vec p^+_\mathrm{board}=\vec p_\mathrm{board}$. We then get this
+flow:
+
+\[
+{\tiny
+\xymatrix @=1.5em {
+         & &                                                                  & \vec p^+_{\mathrm{camera}_0} \ar[dl]_{\mathrm{mean}} & \vec p^+_{\mathrm{reference}_0} \ar[l]_-{T^+_{\mathrm{c_0 r}}} & \vec p_{\mathrm{frame}_0} \ar[l]_-{T^+_{\mathrm{rf_0}}} & \vec p_{\mathrm{reference}_0} \ar[l]_-{T_\mathrm{f_0 r}} \\
+\vec q^+ & & \vec p^+_\mathrm{camera} \ar[ll]_-{\vec b_\mathrm{intrinsics}^+} & \vec p^+_{\mathrm{camera}_1} \ar[l] _{\mathrm{mean}} & \vec p^+_{\mathrm{reference}_1} \ar[l]_-{T^+_{\mathrm{c_1 r}}} & \vec p_{\mathrm{frame}_1} \ar[l]_-{T^+_{\mathrm{rf_1}}} & \vec p_{\mathrm{reference}_1} \ar[l]_-{T_\mathrm{f_1 r}} & \vec p_\mathrm{camera} \ar[l]_-{T_\mathrm{r_1 c}} \ar[lu]_-{T_\mathrm{r_0 c}} \ar[ld]^-{T_\mathrm{r_2 c}} & & \vec q \ar[ll]_-{\vec b_\mathrm{intrinsics}} \\
+         & &                                                                  & \vec p^+_{\mathrm{camera}_2} \ar[ul]^{\mathrm{mean}} & \vec p^+_{\mathrm{reference}_2} \ar[l]_-{T^+_{\mathrm{c_2 r}}} & \vec p_{\mathrm{frame}_2} \ar[l]_-{T^+_{\mathrm{rf_2}}} & \vec p_{\mathrm{reference}_2} \ar[l]_-{T_\mathrm{f_2 r}} 
+}
+}
+\]
+
+This gives us $\vec q^+\left(\vec b\right)$, and we can thus compute
+
+\[ \mathrm{Var}\left( \vec q \right) = \frac{\partial \vec q^+}{\partial \vec b} \mathrm{Var}\left( \vec b \right) \frac{\partial \vec q^+}{\partial \vec b}^T \]
+
+This is the _mean-pcam_ uncertainty method, originally implemented in mrcal
+
 ** Uncertainty                                                     :noexport:
 When we project a point $\vec p$ to a pixel $\vec q$, it would be /really/ nice
-to get an uncertainty estimate $\mathrm{Var} \left(\vec q\right)$. The we could
+to get an uncertainty estimate $\mathrm{Var} \left(\vec q\right)$. Then we could
 
 - Propagate this uncertainty downstream to whatever uses the projection
   operation, for example to get the uncertainty of ranges from a triangulation
@@ -378,7 +637,7 @@ The mrcal test suite contains a simulation to validate the approach.
 - =LENSMODEL_OPENCV4= lens model
 - looking at 50 chessboard poses, with randomized pose
 
-** Uncertainty simulation                                          :noexport:
+** Uncertainty simulation
 The geometry looks like this:
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
@@ -427,13 +686,13 @@ uncertainty:
 
 So /only/ the first camera actually had usable projections.
 
-** Uncertainty simulation                                          :noexport:
+** Uncertainty simulation
 Let's overlay the observations:
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/uncertainty/simulated-uncertainty-splined--uncertainty-wholeimage-observations-crop.pdf]]
 
-** Uncertainty from the DTLA data
+** Uncertainty from the DTLA data                                  :noexport:
 Computing the uncertainty map from the earlier =LENSMODEL_OPENCV8= calibration:
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
@@ -455,7 +714,7 @@ Conclusions:
 So splined models have a clear benefit even for long lenses, where the lean
 models are expected to fit
 
-* Ranging note
+* Ranging note                                                     :noexport:
 ** Ranging note
 Let's revisit an important detail I glossed-over when talking about differencing
 and uncertainties. Both computations begin with $\vec p =
@@ -477,7 +736,7 @@ function of range:
 [[file:../out/external/figures/uncertainty/uncertainty-vs-distance-at-center-crop.pdf]]
 
 * Let's apply these techniques
-** Let's apply these techniques
+** Let's apply these techniques                                    :noexport:
 We described several analysis techniques:
 
 - Visualizing the solve residuals
@@ -515,7 +774,7 @@ For many of the following analyses we study the effects of sampling error. We
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/dance-study/dance-study-scan-Nframes-crop.pdf]]
 
-** What kind of calibration object do we want? Guidelines
+** What kind of calibration object do we want? Guidelines          :noexport:
 - More data is good
   - More chessboard corners
   - More chessboard observations
@@ -531,7 +790,7 @@ Questions:
 - Should we place the chessboard immediately in front of the lens? Should we use
   a /giant/ chessboard?
 
-** Chessboards? Circles? AprilTags? Charuco?
+** Chessboards? Circles? AprilTags? Charuco?                       :noexport:
 mrcal doesn't care!
 
 - Grids of circles (and possibly AprilTags) don't directly observe the point, so
@@ -543,7 +802,7 @@ mrcal doesn't care!
 
 I use chessboards with the mrgingham detector
 
-** The downsides of extreme closeups
+** The downsides of extreme closeups                               :noexport:
 *** Corners out of focus
 - If the blur is unbiased and gaussian: this will increase the noise, but we can
   compensate by gathering more data
@@ -556,14 +815,14 @@ Core assumption of almost all camera modeling and processing:
 
 *This is not a valid assumption near the lens*
 
-** Noncentrality
+** Noncentrality                                                   :noexport:
 The size of the glass in the lens becomes non-negligible as we observe nearby
 objects
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/figures/noncentral.pdf]]
 
-** Noncentrality
+** Noncentrality                                                   :noexport:
 - Most triangulation and stereo routines assume a central projection. This is
   true for non-closeups
 
@@ -587,7 +846,7 @@ around code like this to centralize CAHVORE unprojections:
 
 Don't do it: just set $\vec E = 0$
 
-** The downsides of huge chessboards
+** The downsides of huge chessboards                               :noexport:
 - Difficult to manufacture
 - Expensive
 - Unstable
@@ -595,7 +854,7 @@ Don't do it: just set $\vec E = 0$
 mrcal has a simple /static/ deformation model: a parabolic deformation in x and
 in y. *Usually this isn't enough to accurately represent foam boards*
 
-** The downsides of huge chessboards
+** The downsides of huge chessboards                               :noexport:
 Because *intrinsics are sensitive to chessboard shape errors*. Simulated
 intrinsics calibration error due to a board shape error of 1mm in the center in
 one direction, and 0.5mm in the center in the other direction. No other noise
@@ -604,11 +863,11 @@ present.
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/residuals/unstable-chessboard-shape-diff-crop.pdf]]
 
-** The downsides of huge chessboards
+** The downsides of huge chessboards                               :noexport:
 I usually use an Aluminum-honeycomb-backed 1m x 1m square board. This works
 well.
 
-** What kind of calibration object do we want? Conclusions
+** What kind of calibration object do we want? Conclusions         :noexport:
 - Chessboard as large as possible
 - Placed as close to the camera as possible
 - With as dense a chessboard grid as possible
@@ -629,7 +888,7 @@ Using the mrcal tools to verify that we didn't go too far
 mrcal will clearly identify these issues, if they're present in the data
 
 * How should we dance?
-** How much should we tilt the chessboards?                        :noexport:
+** How much should we tilt the chessboards?
 We already saw that we want
 
 - Closeups
@@ -647,17 +906,21 @@ Should we tilt the chessboards?
 
 Use mrcal tools to validate
 
-* Which model should we use for the lenses?
+* Which model should we use for the lenses?                        :noexport:
 ** Which model should we use for the lenses?
 Today mrcal supports
 
-- OpenCV models with 4,5,8,12 parameters
+- OpenCV models with 4,5,8,12 "distortion" parameters
 - CAHVOR, CAHVORE
 - =LENSMODEL_SPLINED_STEREOGRAPHIC=: the rich, splined model
 
 Unless you really need compatibility with a legacy system or you have low
 accuracy requirements, *=LENSMODEL_SPLINED_STEREOGRAPHIC= is strongly
-recommended*.
+recommended* for all applications
+
+No plans to support any other legacy models (Kannala-Brandt, FOV, etc), since
+they're all strictly worse than what is here already. If you /really/ need
+something and are willing to contribute it, talk to me.
 
 * Calibrating                                                      :noexport:
 ** Computing the calibration
@@ -670,7 +933,7 @@ We are ready to compute the calibration!
   with =LENSMODEL_SPLINED_STEREOGRAPHIC=. Use that to see how much error you get
   from your model choice
 
-* Results interpretation
+* Results interpretation                                           :noexport:
 ** Interpreting the calibration results
 
 Once we have a calibration, we should see how well we did:
@@ -681,7 +944,7 @@ Once we have a calibration, we should see how well we did:
 - If these diffs are too high, we examine the residuals to find the cause of our
   model errors
 
-* Uncertainty
+* Uncertainty                                                      :noexport:
 ** Projection uncertainty
 - Projection uncertainty gauges the effect of sampling error
 - This is directly affected by the quality of the data we gathered. Problems
@@ -704,7 +967,7 @@ If the uncertainty is unacceptable, stop there, and fix that first.
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/uncertainty/uncertainty-splined-crop.pdf]]
 
-* Cross-validation
+* Cross-validation                                                 :noexport:
 ** Cross-validation diffs
 Now we look for model errors
 
@@ -751,7 +1014,7 @@ produces:
 
 - Finding the cause of the problem requires some intuition and experimentation
 
-* Residuals
+* Residuals                                                        :noexport:
 ** Residuals
 - One technique is available to help diagnose problems: examining the solve
   residuals
@@ -859,7 +1122,7 @@ center in the other direction does this:
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/residuals/unstable-chessboard-shape-diff-crop.pdf]]
 
-* Recipes
+* Recipes                                                          :noexport:
 ** Camera stability
 Let's switch gears, and look at some applications
 
@@ -922,7 +1185,7 @@ don't want to rearchitect our code? With a bit of extra computation we can.
   use this tuple everywhere, and it /also/ faithfully describes the world
 - Pixel noise variances will need to be adjusted
 
-* Model evaluation
+* Model evaluation                                                 :noexport:
 ** Estimating ranging errors caused by calibration errors
 - Projection errors aren't what we ultimately care about
 
@@ -973,7 +1236,7 @@ So we assume a disparity error of 1.0 + 0.3 = 1.3 pixels
 These errors are correlated and will /not/ average out. They should be
 minimized.
 
-* Conclusion
+* Conclusion                                                       :noexport:
 ** Conclusion
 - mrcal solves many pervasive issues in traditional camera-modeling toolkits
 - Allows many practical questions to be addressed directly
@@ -1058,3 +1321,136 @@ Disparity from OpenCV
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 file:../out/external/figures/stereo/disparity-narrow.downsampled.png
 
+* Cross-reprojection
+** mean-pcam uncertainty shortcomings
+
+This "mean-pcam" uncertainty method is not perfect, and is unsuitable for a
+chessboard-less calibration.
+
+- Chessboards are a hard requirement: the "chessboard" coordinate system is used
+  explicitly in the method
+- $T_{\mathrm{r}^+\mathrm{r}} = \mathrm{mean}_i \left( T_{\mathrm{r}^+\mathrm{f}_i} T_{\mathrm{f}_i\mathrm{r}} \right)$ is aphysical
+- Pessimistic response to disparate observed chessboard ranges
+
+** mean-pcam uncertainty shortcomings
+The far-away boards have a less well-defined pose
+
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/figures/disparate-ranges.pdf]]
+
+** mean-pcam uncertainty shortcomings
+And since we use a mean of $\vec p_\mathrm{cam}$ to combine all the points, the far-away boards
+make the uncertainty appear artificially poor
+
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/dance-study/dance-study-scan-num-far-constant-num-near--mean-pcam.pdf]]
+
+** Cross-reprojection uncertainty
+Let's fix it. We use a different flow to connect the baseline and perturbed
+solves:
+
+\[
+\xymatrix @C=5em {
+  {\color{red} \vec q}                                                                          &
+  {\color{red} \vec p  _\mathrm{cam}}    \ar@[red][l]^{\color{red} \vec b_\mathrm{intrinsics} } &
+  {\color{red} \vec p  _\mathrm{ref}}    \ar@[red][l]^{\color{red} T_\mathrm{cr}}               &
+  \vec p  _\mathrm{board}  \ar[l]^{T_\mathrm{rf}}                                               \\
+  \vec q^+                                                                                                      &
+  \vec p^+_\mathrm{cam}    \ar[l]^{\vec b^+_\mathrm{intrinsics} }                                               &
+  {\color{red} \vec p^+_\mathrm{ref}}    \ar[l]^{T_\mathrm{c^+r^+}}  \ar@[red][u]^{\color{red} T_\mathrm{rr^+}} &
+  {\color{red} \vec p^+_\mathrm{board}}  \ar@[red][l]^{\color{red} T_\mathrm{r^+f^+}}
+}
+\]
+
+\[
+\xymatrix @C=5em {
+  {\color{red} \vec q}                                                                          &
+  {\color{red} \vec p  _\mathrm{cam}}    \ar@[red][l]^{\color{red} \vec b_\mathrm{intrinsics} } &
+  {\color{red} \vec p  _\mathrm{point}}    \ar@[red][l]^{\color{red} T_\mathrm{cr}}             \\
+  \vec q^+                                                                                                      &
+  \vec p^+_\mathrm{cam}    \ar[l]^{\vec b^+_\mathrm{intrinsics} }                                               &
+  {\color{red} \vec p^+_\mathrm{point}}    \ar[l]^{T_\mathrm{c^+r^+}}  \ar@[red][u]^{\color{red} T_\mathrm{rr^+}}
+}
+\]
+
+For any perturbation we explicitly solve for $T_\mathrm{rr^+}$ by optimizing the
+cross path in red.
+
+** Cross-reprojection uncertainty
+We propagate the input noise $\vec q_\mathrm{ref}$ to get $\mathrm{Var}\left( T_\mathrm{rr^+}
+\right)$. We propagate /that/ through this new flow:
+
+\[
+\xymatrix @C=5em {
+  {\vec q} \ar[r]_{\vec b_\mathrm{intrinsics} }   &
+  {\vec p  _\mathrm{cam}} \ar[r]_{T_\mathrm{rc}}  &
+  {\vec p  _\mathrm{ref}} \ar[d]^{T_\mathrm{r^+r}} \\
+  {\vec q^+}                                      &
+  {\vec p^+_\mathrm{cam}}    \ar[l]^{\vec b^+_\mathrm{intrinsics} } &
+  {\vec p^+_\mathrm{ref}}    \ar[l]^{T_\mathrm{c^+r^+}}
+}
+\]
+
+and we get $\mathrm{Var}\left( \vec q^+ \right)$
+
+** Cross-reprojection uncertainty
+This has a /lot/ of complexity, but it is already implemented and well-tested in
+many situations.
+
+** Cross-reprojection uncertainty: response to far-away chessboards
+With the mean-pcam uncertainty method:
+
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/dance-study/dance-study-scan-num-far-constant-num-near--mean-pcam.pdf]]
+
+** Cross-reprojection uncertainty: response to far-away chessboards
+With the new cross-reprojection uncertainty method:
+
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/dance-study/dance-study-scan-num-far-constant-num-near--cross-reprojection-rrp-Jfp.pdf]]
+
+** Cross-reprojection uncertainty: next steps
+Are we done? We are not done!
+
+There are a lot of thorny issues that I have mostly figured out. One problem is
+still open:
+
+How to merge the uncertainty from different camera poses
+
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/moving-camera.pdf]]
+
+This has the same issues as the mean-pcam uncertainty with far-off boards
+
+Using the most-certain camera pose works, but it is slow
+
+* Other ways of looking at this
+We have been looking at diffs and uncertainty of /intrinsics, compensating for
+extrinsics shifts/
+
+There are other approaches, I've barely explored:
+
+- With a /pair/ of cameras, we can do pairwise uncertainty and diffing.
+  Maybe that's good-enough. This is joint intrinsics+extrinsics diff. Is that
+  good-enough?
+
+Uncertainty in point solves is already available in some conditions, for
+instance if the points are fixed. New [[https://mrcal.secretsauce.net/mrcal-show-stereo-pair-diff.html][=mrcal-show-stereo-pair-diff= tool]] reports
+an extrinsics+intrinsics diff between two calibrations of a stereo pair
+
+experimental [[https://www.github.com/dkogan/mrcal/blob/master/analyses/extrinsics-stability.py][=analyses/extrinsics-stability.py=]] tool reports an extrinsics-only
+diff.
+
+validate-uncertainty does sampling. Is that right?
+
+* might need a LOT of points
+- dense-products libdogleg makes things fast
+- also partially implemented: used for muse and era
+
+Implicit point solves, using the triangulation routines in the optimization
+cost function. Should produce much more efficient structure-from-motion
+solves. This is all the "triangulated-features" stuff. The cost function is
+primarily built around =_mrcal_triangulated_error()=. This is demoed in
+=test/test-sfm-triangulated-points.py=]]. And I've been using
+=_mrcal_triangulated_error()= in structure-from-motion implementations within
+other optimization routines.
