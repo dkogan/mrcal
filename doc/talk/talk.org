@@ -1381,13 +1381,19 @@ We propagate the input noise $\vec q_\mathrm{ref}$ to get $\mathrm{Var}\left( T_
 \right)$. We propagate /that/ through this new flow:
 
 \[
+{\small
 \xymatrix @C=5em {
   {\vec q} \ar[r]_{\vec b_\mathrm{intrinsics} }   &
-  {\vec p  _\mathrm{cam}} \ar[r]_{T_\mathrm{rc}}  &
-  {\vec p  _\mathrm{ref}} \ar[d]^{T_\mathrm{r^+r}} \\
+  {\vec p  _\mathrm{cam}} \ar[r]_{T_\mathrm{rc_0}}  \ar@/^1.5em/[rr]|{T_\mathrm{rc_1}}  \ar@/^3em/[rrr]|{T_\mathrm{rc_2}}  &
+  {\vec p  _{\mathrm{ref}_0}} \ar@/^/[d]|{T_\mathrm{r^+r}} &
+  {\vec p  _{\mathrm{ref}_1}} \ar@/^/[d]|{T_\mathrm{r^+r}} &
+  {\vec p  _{\mathrm{ref}_2}} \ar@/^/[d]|{T_\mathrm{r^+r}} \\
   {\vec q^+}                                      &
-  {\vec p^+_\mathrm{cam}}    \ar[l]^{\vec b^+_\mathrm{intrinsics} } &
-  {\vec p^+_\mathrm{ref}}    \ar[l]^{T_\mathrm{c^+r^+}}
+  {\vec p^+_\mathrm{cam}}      \ar[l]^{\vec b^+_\mathrm{intrinsics} } &
+  {\vec p^+_{\mathrm{ref}_0}}  \ar[l]|{T_\mathrm{c^+_0r^+}} &
+  {\vec p^+_{\mathrm{ref}_1}}  \ar@/^1.5em/[ll]|{T_\mathrm{c^+_1r^+}} &
+  {\vec p^+_{\mathrm{ref}_2}}  \ar@/^3em/[lll]|{T_\mathrm{c^+_2r^+}}
+}
 }
 \]
 
