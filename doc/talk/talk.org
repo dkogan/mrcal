@@ -1526,21 +1526,34 @@ mrcal-show-stereo-pair-diff \
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures//stereo-pair-diff/stereo-pair-diff-manually-moved.pdf]]
 
-
-
 * Implicit point optimization
-Another potential issue: millions of points could make the optimization very
-slow
+** Implicit point optimization
+Confident calibration from SFM might require a gajillion points. Direct
+optimization would produce a /huge/ optimization problem:
 
+\[N_\mathrm{state} = 3 N_\mathrm{points} + ...\]
 
+We can do this without explicitly including the point coordinates in the state
+vector.
 
-- dense-products libdogleg makes things fast
-- also partially implemented: used for muse and era
+** Implicit point optimization
+Each measurement using a point $\vec p_\mathrm{ref}$ is of the form
 
-Implicit point solves, using the triangulation routines in the optimization
-cost function. Should produce much more efficient structure-from-motion
-solves. This is all the "triangulated-features" stuff. The cost function is
-primarily built around =_mrcal_triangulated_error()=. This is demoed in
-=test/test-sfm-triangulated-points.py=]]. And I've been using
-=_mrcal_triangulated_error()= in structure-from-motion implementations within
-other optimization routines.
+\[x_i = \mathrm{project}\left( T_\mathrm{c_j r} \vec p_\mathrm{ref} \right) - \vec q_\mathrm{ref} \]
+
+For any two observations of the same point, we can use the mrcal triangulation
+routines to compute the 3D point coordinate:
+
+\[
+\vec p^\mathrm{implicit}_\mathrm{cam} = \mathrm{triangulate}\left(
+  \mathrm{unproject}\left( \vec q_\mathrm{ref_0},  T_\mathrm{c_0 r} \right),
+  \mathrm{unproject}\left( \vec q_\mathrm{ref_1},  T_\mathrm{c_1 r} \right)
+\right)
+\]
+
+** Implicit point optimization
+We can use then use this implicit point in the optimization /without/ storing
+the point coordinates in the optimization state.
+
+Already implemented and used in several projects. Has lots of unresolved details
+that will be addressed
