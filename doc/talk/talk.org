@@ -1416,40 +1416,124 @@ With the new cross-reprojection uncertainty method:
 [[file:../out/external/figures/dance-study/dance-study-scan-num-far-constant-num-near--cross-reprojection-rrp-Jfp.pdf]]
 
 ** Cross-reprojection uncertainty: next steps
-Are we done? We are not done!
-
 There are a lot of thorny issues that I have mostly figured out. One problem is
 still open:
 
 How to merge the uncertainty from different camera poses
 
-#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
-[[file:../out/external/figures/moving-camera.pdf]]
+#+ATTR_LATEX: :width 0.6\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/figures/moving-camera.pdf]]
 
-This has the same issues as the mean-pcam uncertainty with far-off boards
+This has the same issues as the mean-pcam uncertainty producing biased results
+from mixed-range observations.
 
-Using the most-certain camera pose works, but it is slow
+Using the /most-certain/ camera pose works, but it is slow
 
 * Other ways of looking at this
-We have been looking at diffs and uncertainty of /intrinsics, compensating for
+** Overview
+I've been looking at diffs and uncertainty of /intrinsics, compensating for
 extrinsics shifts/
 
-There are other approaches, I've barely explored:
+There are other approaches, I've barely explored. With a /pair/ of cameras, we can:
 
-- With a /pair/ of cameras, we can do pairwise uncertainty and diffing.
-  Maybe that's good-enough. This is joint intrinsics+extrinsics diff. Is that
-  good-enough?
+- compute an /extrinsics diff/, compensating for intrinsics shifts
 
-Uncertainty in point solves is already available in some conditions, for
-instance if the points are fixed. New [[https://mrcal.secretsauce.net/mrcal-show-stereo-pair-diff.html][=mrcal-show-stereo-pair-diff= tool]] reports
-an extrinsics+intrinsics diff between two calibrations of a stereo pair
+- compute an intrinsics+extrinsics diff
 
-experimental [[https://www.github.com/dkogan/mrcal/blob/master/analyses/extrinsics-stability.py][=analyses/extrinsics-stability.py=]] tool reports an extrinsics-only
-diff.
+** Overview
+In both cases, we align the left camera of the two stereo pairs, and compare the
+right pair
 
-validate-uncertainty does sampling. Is that right?
+#+ATTR_LATEX: :width 0.6\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/figures/stereo-pair-shifted.pdf]]
 
-* might need a LOT of points
+
+** Extrinsics-only diff
+The naive expression for the 0right-1right transform:
+
+\[
+T_{0\mathrm{right},0\mathrm{left}}
+T_{1\mathrm{left},1\mathrm{right}}
+\]
+
+This doesn't work because of the required implied transform, as described in the
+intrinsics differencing section. The full expression:
+
+\[
+T^\mathrm{implied}_{1\mathrm{right},0\mathrm{right}}
+T_{0\mathrm{right},0\mathrm{left}}
+T^\mathrm{implied}_{0\mathrm{left},1\mathrm{left}}
+T_{1\mathrm{left},1\mathrm{right}}
+\]
+
+** Extrinsics-only diff
+This is implemented in the experimental [[https://www.github.com/dkogan/mrcal/blob/master/analyses/extrinsics-stability.py][=analyses/extrinsics-stability.py=]] tool.
+
+Example: I calibrated, moved one of the cameras, and calibrated again:
+
+#+begin_example
+$ analyses/extrinsics-stability.py \
+  set1/camera-[01].cameramodel     \
+  set2/camera-[01].cameramodel
+
+translation: 151.45mm in the direction [0.78 0.06 0.63]
+rotation:    16.626deg around the axis [-0.04 -0.99  0.16]
+#+end_example
+
+** Intrinsics+extrinsics diff
+With a stereo /pair/, we can look at the shift in the left-right pixel
+transform. This obviates the need for an implied transform.
+
+This is implemented in the [[https://mrcal.secretsauce.net/mrcal-show-stereo-pair-diff.html][=mrcal-show-stereo-pair-diff= tool]]. From the same
+sample data:
+
+#+begin_src sh
+mrcal-show-stereo-pair-diff                \
+  --vectorfield                            \
+  --vectorscale 0.1                        \
+  --gridn 20 15                            \
+  --cbmax 500                              \
+  set1/camera-[01].cameramodel             \
+  set2/camera-[01].cameramodel
+#+end_src
+#+begin_src sh :exports none :eval no-export
+mkdir -p ~/projects/mrcal-doc-external/figures/stereo-pair-diff
+D0=(~/data/2026-02-09*)
+mrcal-show-stereo-pair-diff \
+  --vectorfield --vectorscale 0.1 \
+  --gridn 20 15 \
+  --cbmax 500 \
+  --title "" \
+  --unset key                                                         \
+  --hardcopy ~/projects/mrcal-doc-external/figures/stereo-pair-diff/stereo-pair-diff-manually-moved.svg \
+  --terminal 'svg size 800,450 noenhanced solid dynamic font ",14"' \
+  $D0/set1/results/camera-[01].cameramodel \
+  $D0/set2/results/camera-[01].cameramodel
+mrcal-show-stereo-pair-diff \
+  --vectorfield --vectorscale 0.1 \
+  --gridn 20 15 \
+  --cbmax 500 \
+  --title "" \
+  --unset key                                                         \
+  --hardcopy ~/projects/mrcal-doc-external/figures/stereo-pair-diff/stereo-pair-diff-manually-moved.pdf \
+  --terminal 'pdf size 8in,6in       noenhanced solid color   font ",16"' \
+  $D0/set1/results/camera-[01].cameramodel \
+  $D0/set2/results/camera-[01].cameramodel
+#+end_src
+
+** Intrinsics+extrinsics diff
+
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures//stereo-pair-diff/stereo-pair-diff-manually-moved.pdf]]
+
+
+
+* Implicit point optimization
+Another potential issue: millions of points could make the optimization very
+slow
+
+
+
 - dense-products libdogleg makes things fast
 - also partially implemented: used for muse and era
 
