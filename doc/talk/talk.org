@@ -357,8 +357,15 @@ better than =LENSMODEL_OPENCV8=
 We computed the calibration two different ways. How different are the two
 models?
 
+A differencing method could be used for
+
+- evaluating the manufacturing variation of different lenses
+- quantifying intrinsics drift due to mechanical or thermal stresses
+- testing different solution methods
+- underlying a cross-validation scheme
+
 ** Differencing
-Let's compute the intrinsics difference using an obvious algorithm:
+The obvious algorithm:
 
 Given a pixel $\vec q_0$,
 
@@ -378,8 +385,6 @@ Given a pixel $\vec q_0$,
 [[file:../out/external/figures/diff/diff-radius0-vectorfield-splined-opencv8-crop.pdf]]
 
 ** Differencing
-We can compensate for the errors by rotating the camera.
-
 The issue is that each calibration produces noisy estimates of all the
 intrinsics and all the coordinate transformations:
 
@@ -402,7 +407,7 @@ We need to add a step:
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/diff/diff-splined-opencv8-crop.pdf]]
 
-** Differencing
+** Differencing                                                    :noexport:
 /Much/ better. As expected, the two models agree relatively well in the center,
 and the error grows as we move towards the edges.
 
@@ -450,14 +455,6 @@ The sampling error can be quantified and studied with a single solve, by
 directly propagating the input noise
 
 * Solve formulation
-
-
-INTRODUCE THIS. OR MOVE IT
-
-
-
-
-
 ** Solve formulation
 To talk about how this is done, an overview of the main optimization
 
@@ -524,11 +521,6 @@ We quantify this sensitivity by computing a _projection uncertainty_
 We can propagate the calibration input noise analytically to characterize the
 calibration distribution /without sampling/.
 
-SAY THIS IS CRITICALLY IMPORTANT FOR SPLINED MODEL VALIDATION
-
-
-
-
 From the solver we can directly compute a matrix $M$ such that $\Delta \vec b =
 M \Delta \vec q_\mathrm{ref}$. Together with the observation pixel noise $\sigma$:
 gives us
@@ -544,7 +536,8 @@ As with the differencing, we must consider extrinsics shifts /and/ intrinsics,
 even though the intrinsics is what we care about here.
 
 $\mathrm{Var}\left(\vec b\right)$ describes how $\vec b$ is likely to move. We derive $\vec q^+\left(\vec
-b\right)$ to see how these shifts affect projection, and then
+b\right)$ to see how these shifts affect projection of a /fixed/ point in space.
+Then
 
 \[ \mathrm{Var}\left( \vec q \right) = \frac{\partial \vec q^+}{\partial \vec b} \mathrm{Var}\left( \vec b \right) \frac{\partial \vec q^+}{\partial \vec b}^T \]
 
@@ -629,6 +622,12 @@ A grand summary of how we do this:
 \frac{\partial \vec q}{\partial \vec b}^T
 \]
 
+** Uncertainty from the DTLA data
+And from the =LENSMODEL_SPLINED_STEREOGRAPHIC_...= calibration:
+
+#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
+[[file:../out/external/figures/uncertainty/uncertainty-splined-crop.pdf]]
+
 ** Uncertainty simulation                                          :noexport:
 The mrcal test suite contains a simulation to validate the approach.
 
@@ -637,7 +636,7 @@ The mrcal test suite contains a simulation to validate the approach.
 - =LENSMODEL_OPENCV4= lens model
 - looking at 50 chessboard poses, with randomized pose
 
-** Uncertainty simulation
+** Uncertainty simulation                                          :noexport:
 The geometry looks like this:
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
@@ -697,12 +696,6 @@ Computing the uncertainty map from the earlier =LENSMODEL_OPENCV8= calibration:
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/uncertainty/uncertainty-opencv8-crop.pdf]]
-** Uncertainty from the DTLA data
-And from the =LENSMODEL_SPLINED_STEREOGRAPHIC_...= calibration:
-
-#+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
-[[file:../out/external/figures/uncertainty/uncertainty-splined-crop.pdf]]
-
 ** Uncertainty conclusion                                          :noexport:
 The splined model promises double the uncertainty that =LENSMODEL_OPENCV8= does.
 
@@ -754,15 +747,15 @@ For many of the following analyses we study the effects of sampling error. We
 - Look at the uncertainty-vs-range plots as a function of that parameter
 
 * What kind of calibration object do we want?
-** How dense should our chessboard be?
+** How dense should our chessboard be?                             :noexport:
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/dance-study/dance-study-scan-object_width_n-crop.pdf]]
 
-** What should the chessboard corner spacing be?
+** What should the chessboard corner spacing be?                   :noexport:
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/dance-study/dance-study-scan-object_spacing-crop.pdf]]
 
-** Do we want tiny boards nearby or giant boards faraway?
+** Do we want tiny boards nearby or giant boards faraway?          :noexport:
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/dance-study/dance-study-scan-object_spacing-compensated-range-crop.pdf]]
 
@@ -888,7 +881,7 @@ Using the mrcal tools to verify that we didn't go too far
 mrcal will clearly identify these issues, if they're present in the data
 
 * How should we dance?
-** How much should we tilt the chessboards?
+** How much should we tilt the chessboards?                        :noexport:
 We already saw that we want
 
 - Closeups
@@ -1346,10 +1339,14 @@ make the uncertainty appear artificially poor
 [[file:../out/external/figures/dance-study/dance-study-scan-num-far-constant-num-near--mean-pcam.pdf]]
 
 ** Cross-reprojection uncertainty
-Let's fix it. We use a different flow to connect the baseline and perturbed
-solves:
+For any perturbed solve we explicitly solve for $T_\mathrm{rr^+}$ by optimizing
+the cross path in red. We solve /only/ for $T_\mathrm{rr^+}$. Everything else is
+fixed.
 
+
+- Chessboards
 \[
+\small
 \xymatrix @C=5em {
   {\color{red} \vec q}                                                                          &
   {\color{red} \vec p  _\mathrm{cam}}    \ar@[red][l]^{\color{red} \vec b_\mathrm{intrinsics} } &
@@ -1362,7 +1359,9 @@ solves:
 }
 \]
 
+- Points
 \[
+\small
 \xymatrix @C=5em {
   {\color{red} \vec q}                                                                          &
   {\color{red} \vec p  _\mathrm{cam}}    \ar@[red][l]^{\color{red} \vec b_\mathrm{intrinsics} } &
@@ -1372,9 +1371,6 @@ solves:
   {\color{red} \vec p^+_\mathrm{point}}    \ar[l]^{T_\mathrm{c^+r^+}}  \ar@[red][u]^{\color{red} T_\mathrm{rr^+}}
 }
 \]
-
-For any perturbation we explicitly solve for $T_\mathrm{rr^+}$ by optimizing the
-cross path in red.
 
 ** Cross-reprojection uncertainty
 We propagate the input noise $\vec q_\mathrm{ref}$ to get $\mathrm{Var}\left( T_\mathrm{rr^+}
@@ -1430,7 +1426,7 @@ from mixed-range observations.
 Using the /most-certain/ camera pose works, but it is slow
 
 * Other ways of looking at this
-** Overview
+** Other ways of looking at this
 I've been looking at diffs and uncertainty of /intrinsics, compensating for
 extrinsics shifts/
 
@@ -1440,45 +1436,13 @@ There are other approaches, I've barely explored. With a /pair/ of cameras, we c
 
 - compute an intrinsics+extrinsics diff
 
-** Overview
+** Other ways of looking at this
 In both cases, we align the left camera of the two stereo pairs, and compare the
 right pair
 
 #+ATTR_LATEX: :width 0.6\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/figures/stereo-pair-shifted.pdf]]
 
-
-** Extrinsics-only diff
-The naive expression for the 0right-1right transform:
-
-\[
-T_{0\mathrm{right},0\mathrm{left}}
-T_{1\mathrm{left},1\mathrm{right}}
-\]
-
-This doesn't work because of the required implied transform, as described in the
-intrinsics differencing section. The full expression:
-
-\[
-T^\mathrm{implied}_{1\mathrm{right},0\mathrm{right}}
-T_{0\mathrm{right},0\mathrm{left}}
-T^\mathrm{implied}_{0\mathrm{left},1\mathrm{left}}
-T_{1\mathrm{left},1\mathrm{right}}
-\]
-
-** Extrinsics-only diff
-This is implemented in the experimental [[https://www.github.com/dkogan/mrcal/blob/master/analyses/extrinsics-stability.py][=analyses/extrinsics-stability.py=]] tool.
-
-Example: I calibrated, moved one of the cameras, and calibrated again:
-
-#+begin_example
-$ analyses/extrinsics-stability.py \
-  set1/camera-[01].cameramodel     \
-  set2/camera-[01].cameramodel
-
-translation: 151.45mm in the direction [0.78 0.06 0.63]
-rotation:    16.626deg around the axis [-0.04 -0.99  0.16]
-#+end_example
 
 ** Intrinsics+extrinsics diff
 With a stereo /pair/, we can look at the shift in the left-right pixel
@@ -1526,6 +1490,38 @@ mrcal-show-stereo-pair-diff \
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures//stereo-pair-diff/stereo-pair-diff-manually-moved.pdf]]
 
+** Extrinsics-only diff
+The naive expression for the 0right-1right transform:
+
+\[
+T_{0\mathrm{right},0\mathrm{left}}
+T_{1\mathrm{left},1\mathrm{right}}
+\]
+
+This doesn't work because of the required implied transform, as described in the
+intrinsics differencing section. The full expression:
+
+\[
+T^\mathrm{implied}_{1\mathrm{right},0\mathrm{right}}
+T_{0\mathrm{right},0\mathrm{left}}
+T^\mathrm{implied}_{0\mathrm{left},1\mathrm{left}}
+T_{1\mathrm{left},1\mathrm{right}}
+\]
+
+** Extrinsics-only diff
+This is implemented in the experimental [[https://www.github.com/dkogan/mrcal/blob/master/analyses/extrinsics-stability.py][=analyses/extrinsics-stability.py=]] tool.
+
+Example: I calibrated, moved one of the cameras, and calibrated again:
+
+#+begin_example
+$ analyses/extrinsics-stability.py \
+  set1/camera-[01].cameramodel     \
+  set2/camera-[01].cameramodel
+
+translation: 151.45mm in the direction [0.78 0.06 0.63]
+rotation:    16.626deg around the axis [-0.04 -0.99  0.16]
+#+end_example
+
 * Implicit point optimization
 ** Implicit point optimization
 Confident calibration from SFM might require a gajillion points. Direct
@@ -1537,9 +1533,9 @@ We can do this without explicitly including the point coordinates in the state
 vector.
 
 ** Implicit point optimization
-Each measurement using a point $\vec p_\mathrm{ref}$ is of the form
+Each measurement using a point $\vec p_\mathrm{ref_k}$ is of the form
 
-\[x_i = \mathrm{project}\left( T_\mathrm{c_j r} \vec p_\mathrm{ref} \right) - \vec q_\mathrm{ref} \]
+\[x_i = \mathrm{project}\left( T_\mathrm{c_j r} \vec p_\mathrm{ref_k} \right) - \vec q_\mathrm{ref} \]
 
 For any two observations of the same point, we can use the mrcal triangulation
 routines to compute the 3D point coordinate:
