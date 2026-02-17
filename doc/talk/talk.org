@@ -425,16 +425,15 @@ We can use this method to quantify the quality of a calibration:
 - gather two (or more) independent data sets
 - diff the results
 
+The samples give us a sense of the distribution of these random variables. A
+tight distribution, observed as /small/ cross-validation diffs, indicates a
+confident calibration.
+
 ** Cross-validation
 Each calibration result is a sample of the camera parameters random variables
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/cross-validation/perfect-data-splined-diff-samples.pdf]]
-
-** Cross-validation
-The samples give us a sense of the distribution of these random variables. A
-tight distribution, observed as /small/ cross-validation diffs, indicates a
-confident calibration.
 
 ** Cross-validation
 In practice we often see /high/ cross-validation diffs, and we need to
@@ -1325,7 +1324,7 @@ chessboard-less calibration.
 - $T_{\mathrm{r}^+\mathrm{r}} = \mathrm{mean}_i \left( T_{\mathrm{r}^+\mathrm{f}_i} T_{\mathrm{f}_i\mathrm{r}} \right)$ is aphysical
 - Pessimistic response to disparate observed chessboard ranges
 
-** mean-pcam uncertainty shortcomings
+** mean-pcam uncertainty shortcomings                   :noexport:
 The far-away boards have a less well-defined pose
 
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
@@ -1343,8 +1342,6 @@ For any perturbed solve we explicitly solve for $T_\mathrm{rr^+}$ by optimizing
 the cross path in red. We solve /only/ for $T_\mathrm{rr^+}$. Everything else is
 fixed.
 
-
-- Chessboards
 \[
 \small
 \xymatrix @C=5em {
@@ -1359,7 +1356,7 @@ fixed.
 }
 \]
 
-- Points
+** Cross-reprojection uncertainty             :noexport:
 \[
 \small
 \xymatrix @C=5em {
