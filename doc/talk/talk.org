@@ -119,6 +119,8 @@ The obvious method: structure-from-motion
 - no knowledge of observed world
 - feature correspondences only; no ranges
 
+This is photogrammetry
+
 Plenty of existing methods, but all lack the uncertainty reporting and precision
 you get from mrcal and chessboards.
 
@@ -520,15 +522,10 @@ We quantify this sensitivity by computing a _projection uncertainty_
 We can propagate the calibration input noise analytically to characterize the
 calibration distribution /without sampling/.
 
-From the solver we can directly compute a matrix $M$ such that $\Delta \vec b =
-M \Delta \vec q_\mathrm{ref}$. Together with the observation pixel noise $\sigma$:
-gives us
+With some reasonable assumptions we can compute the covariance of the
+optimization state $\mathrm{Var}\left(\vec b\right)$
 
-\[\mathrm{Var}\left(\vec b\right) = \sigma^2 M M^T\]
-
-A covariance of the joint intrinsics+extrinsics+everything-else vector isn't
-useful. We propagate this to something useful: an uncertainty of projection at
-any pixel in the imager of the camera.
+This isn't useful in itself
 
 ** Uncertainty
 As with the differencing, we must consider extrinsics shifts /and/ intrinsics,
@@ -538,7 +535,7 @@ $\mathrm{Var}\left(\vec b\right)$ describes how $\vec b$ is likely to move. We d
 b\right)$ to see how these shifts affect projection of a /fixed/ point in space.
 Then
 
-\[ \mathrm{Var}\left( \vec q \right) = \frac{\partial \vec q^+}{\partial \vec b} \mathrm{Var}\left( \vec b \right) \frac{\partial \vec q^+}{\partial \vec b}^T \]
+\[ \mathrm{Var}\left( \vec q^+ \right) = \frac{\partial \vec q^+}{\partial \vec b} \mathrm{Var}\left( \vec b \right) \frac{\partial \vec q^+}{\partial \vec b}^T \]
 
 ** mean-pcam uncertainty
 The chessboard data flow is:
@@ -566,6 +563,7 @@ q_\mathrm{ref} + \Delta \vec q_\mathrm{ref}$ and reoptimize:
 
 All perturbed quantities are marked with a $+$ superscript.
 
+We need to connect these two data flows.
 
 ** mean-pcam uncertainty
 We need to connect the baseline and perturbed solves: I fix the point in board
@@ -575,16 +573,16 @@ flow:
 \[
 {\tiny
 \xymatrix @=1.5em {
-         & &                                                                  & \vec p^+_{\mathrm{camera}_0} \ar[dl]_{\mathrm{mean}} & \vec p^+_{\mathrm{reference}_0} \ar[l]_-{T^+_{\mathrm{c_0 r}}} & \vec p_{\mathrm{frame}_0} \ar[l]_-{T^+_{\mathrm{rf_0}}} & \vec p_{\mathrm{reference}_0} \ar[l]_-{T_\mathrm{f_0 r}} \\
-\vec q^+ & & \vec p^+_\mathrm{camera} \ar[ll]_-{\vec b_\mathrm{intrinsics}^+} & \vec p^+_{\mathrm{camera}_1} \ar[l] _{\mathrm{mean}} & \vec p^+_{\mathrm{reference}_1} \ar[l]_-{T^+_{\mathrm{c_1 r}}} & \vec p_{\mathrm{frame}_1} \ar[l]_-{T^+_{\mathrm{rf_1}}} & \vec p_{\mathrm{reference}_1} \ar[l]_-{T_\mathrm{f_1 r}} & \vec p_\mathrm{camera} \ar[l]_-{T_\mathrm{r_1 c}} \ar[lu]_-{T_\mathrm{r_0 c}} \ar[ld]^-{T_\mathrm{r_2 c}} & & \vec q \ar[ll]_-{\vec b_\mathrm{intrinsics}} \\
-         & &                                                                  & \vec p^+_{\mathrm{camera}_2} \ar[ul]^{\mathrm{mean}} & \vec p^+_{\mathrm{reference}_2} \ar[l]_-{T^+_{\mathrm{c_2 r}}} & \vec p_{\mathrm{frame}_2} \ar[l]_-{T^+_{\mathrm{rf_2}}} & \vec p_{\mathrm{reference}_2} \ar[l]_-{T_\mathrm{f_2 r}} 
+         & &                                                                  & \vec p^+_{\mathrm{camera}_0} \ar[dl]_{\mathrm{mean}} & \vec p^+_{\mathrm{reference}_0} \ar[l]_-{T^+_{\mathrm{c_0 r}}} & \vec p_{\mathrm{board}_0} \ar[l]_-{T^+_{\mathrm{rf_0}}} & \vec p_{\mathrm{reference}_0} \ar[l]_-{T_\mathrm{f_0 r}} \\
+\vec q^+ & & \vec p^+_\mathrm{camera} \ar[ll]_-{\vec b_\mathrm{intrinsics}^+} & \vec p^+_{\mathrm{camera}_1} \ar[l] _{\mathrm{mean}} & \vec p^+_{\mathrm{reference}_1} \ar[l]_-{T^+_{\mathrm{c_1 r}}} & \vec p_{\mathrm{board}_1} \ar[l]_-{T^+_{\mathrm{rf_1}}} & \vec p_{\mathrm{reference}_1} \ar[l]_-{T_\mathrm{f_1 r}} & \vec p_\mathrm{camera} \ar[l]_-{T_\mathrm{r_1 c}} \ar[lu]_-{T_\mathrm{r_0 c}} \ar[ld]^-{T_\mathrm{r_2 c}} & & \vec q \ar[ll]_-{\vec b_\mathrm{intrinsics}} \\
+         & &                                                                  & \vec p^+_{\mathrm{camera}_2} \ar[ul]^{\mathrm{mean}} & \vec p^+_{\mathrm{reference}_2} \ar[l]_-{T^+_{\mathrm{c_2 r}}} & \vec p_{\mathrm{board}_2} \ar[l]_-{T^+_{\mathrm{rf_2}}} & \vec p_{\mathrm{reference}_2} \ar[l]_-{T_\mathrm{f_2 r}} 
 }
 }
 \]
 
 This gives us $\vec q^+\left(\vec b\right)$, and we can thus compute
 
-\[ \mathrm{Var}\left( \vec q \right) = \frac{\partial \vec q^+}{\partial \vec b} \mathrm{Var}\left( \vec b \right) \frac{\partial \vec q^+}{\partial \vec b}^T \]
+\[ \mathrm{Var}\left( \vec q^+ \right) = \frac{\partial \vec q^+}{\partial \vec b} \mathrm{Var}\left( \vec b \right) \frac{\partial \vec q^+}{\partial \vec b}^T \]
 
 This is the _mean-pcam_ uncertainty method, originally implemented in mrcal
 
@@ -1480,7 +1478,7 @@ mrcal-show-stereo-pair-diff \
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures//stereo-pair-diff/stereo-pair-diff-manually-moved.pdf]]
 
-** Extrinsics-only diff
+** Extrinsics-only diff                                            :noexport:
 The naive expression for the 0right-1right transform:
 
 \[
