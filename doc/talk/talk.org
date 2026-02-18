@@ -343,10 +343,10 @@ errors
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/worst-incorner-splined.png]]
 
-** =LENSMODEL_OPENCV8=: residual directions
+** =LENSMODEL_OPENCV8=: residual directions                        :noexport:
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/directions-opencv8-crop.pdf]]
-** =LENSMODEL_SPLINED_...=: residual directions
+** =LENSMODEL_SPLINED_...=: residual directions                    :noexport:
 #+ATTR_LATEX: :width 0.9\textwidth :height 0.7\textheight :options keepaspectratio
 [[file:../out/external/figures/calibration/directions-splined-crop.pdf]]
 
