@@ -1541,3 +1541,9 @@ the point coordinates in the optimization state.
 
 Already implemented and used in several projects. Has lots of unresolved details
 that will be addressed
+
+* The end
+** Thanks!
+These new techniques are cool.
+
+Let's finish them!
