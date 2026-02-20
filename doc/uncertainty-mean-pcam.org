@@ -28,12 +28,12 @@ camera moves around inside this housing:
 [[file:figures/uncertainty.svg]]
 
 How do we operate on points in a fixed coordinate system when all the coordinate
-systems we have are floating random variables? We use the most fixed thing we
-have: the chessboards.
-
-To begin, let's focus on just /one/ chessboard observation: frame 0. We want to
-know the uncertainty at a pixel coordinate $\vec q$, so let's unproject and
-transform $\vec q$ out to frame 0:
+systems we have are floating random variables? We use the objects we're
+observing: the chessboards. Thus we fix the point, as represented in board
+coordinates: $\vec p^+_\mathrm{board}=\vec p_\mathrm{board}$. To begin, let's
+focus on just /one/ chessboard observation: frame 0. We want to know the
+uncertainty at a pixel coordinate $\vec q$, so let's unproject and transform
+$\vec q$ out to frame 0:
 
 \[ \vec p_{\mathrm{frame}_0} = T_{\mathrm{f}_0\mathrm{r}} T_\mathrm{rc} \mathrm{unproject}\left( \vec q \right) \]
 

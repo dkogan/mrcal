@@ -367,20 +367,18 @@ q_\mathrm{ref}$ for some $K$ that depends on the various $J$ matrices that are
 constant for each solve.
 
 ** Putting it all together
-Now that I have $\vec{\mathrm{rt}_\mathrm{rr^+}}$ or
-$\vec{\mathrm{rt}_\mathrm{r^+r}}$, I can use it to compute $\vec q^+$. This can
-accept arbitrary $\vec q$, not just those in the solve, so I actually need to
-compute projections, rather than looking at a linearized space defined by $J$. I
-traverse the data flow diagram in a different direction to compute $\vec q^+$:
+Now that I have $\vec{\mathrm{rt}_\mathrm{rr^+}}$ or $\vec{\mathrm{rt}_\mathrm{r^+r}}$, I can use it to
+compute $\vec q^+$. This can accept arbitrary $\vec q$, not just those in the
+solve, so I actually need to compute projections, rather than looking at a
+linearized space defined by $J$. I traverse the data flow diagram in a similar
+way to how I did it with [[file:uncertainty-mean-pcam.org][mean-pcam uncertainty]], but using $T_\mathrm{r^+r}$ to
+align the two solves:
 
 \[
-\xymatrix @C=5em {
-  {\vec q} \ar[r]_{\vec b_\mathrm{intrinsics} }   &
-  {\vec p  _\mathrm{cam}} \ar[r]_{T_\mathrm{rc}}  &
-  {\vec p  _\mathrm{ref}} \ar[d]^{T_\mathrm{r^+r}} \\
-  {\vec q^+}                                      &
-  {\vec p^+_\mathrm{cam}}    \ar[l]^{\vec b^+_\mathrm{intrinsics} } &
-  {\vec p^+_\mathrm{ref}}    \ar[l]^{T_\mathrm{c^+r^+}}
+\xymatrix {
+         & &                                                               & \vec p^+_{\mathrm{cam}_0} \ar[dl] & \vec p^+_{\mathrm{ref}_0} \ar[l]_-{T^+_{\mathrm{c_0 r}}} & \vec p_{\mathrm{ref}_0} \ar[l]_-{T_\mathrm{r^+r}} \\
+\vec q^+ & & \vec p^+_\mathrm{cam} \ar[ll]_-{\vec b_\mathrm{intrinsics}^+} & \vec p^+_{\mathrm{cam}_1} \ar[l]  & \vec p^+_{\mathrm{ref}_1} \ar[l]_-{T^+_{\mathrm{c_1 r}}} & \vec p_{\mathrm{ref}_1} \ar[l]_-{T_\mathrm{r^+r}} & \vec p_\mathrm{cam} \ar[l]_-{T_\mathrm{r_1 c}} \ar[lu]_-{T_\mathrm{r_0 c}} \ar[ld]^-{T_\mathrm{r_2 c}} & & \vec q \ar[ll]_-{\vec b_\mathrm{intrinsics}} \\
+         & &                                                               & \vec p^+_{\mathrm{cam}_2} \ar[ul] & \vec p^+_{\mathrm{ref}_2} \ar[l]_-{T^+_{\mathrm{c_2 r}}} & \vec p_{\mathrm{ref}_2} \ar[l]_-{T_\mathrm{r^+r}} 
 }
 \]
 
