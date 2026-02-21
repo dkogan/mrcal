@@ -1159,8 +1159,7 @@ The logic here is described thoroughly in
             weight[what] = baseline_observations[what][...,2]
 
             # set outliers to 0
-            if what == 'point': Nmeas_per_point = 2 # includes range normalization penalty
-            else:               Nmeas_per_point = 2
+            Nmeas_per_point = 2
             x_baseline[imeas0_observations[what] : \
                        imeas0_observations[what]+Nmeas_observations[what]]. \
                 reshape(Nmeas_observations[what]//Nmeas_per_point,Nmeas_per_point)[(weight[what].ravel())<=0,:] = 0
@@ -1204,8 +1203,7 @@ The logic here is described thoroughly in
     for what in have_state.keys():
         if have_state[what]:
 
-            if what == 'point': Nmeas_per_point = 2 # includes range normalization penalty
-            else:               Nmeas_per_point = 2
+            Nmeas_per_point = 2
 
             # shape (Nsamples,Nmeas_observations_what/2, 2)
             W_delta_qref_xy_what = \

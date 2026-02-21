@@ -1480,10 +1480,6 @@ def solve(indices_point_camintrinsics_camextrinsics,
               indices_point_camintrinsics_camextrinsics = indices_point_camintrinsics_camextrinsics_fixed,
               observations_point                        = observations_fixed,
               Npoints_fixed                             = Npoints_fixed,
-              point_min_range                           = 1.,
-              point_max_range                           = 20000.,
-
-
 
               lensmodel                           = model.intrinsics()[0],
               imagersizes                         = nps.atleast_dims(model.imagersize(), -2),

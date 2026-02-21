@@ -87,8 +87,6 @@ optimization_inputs = \
 
           lensmodel                           = lensmodel,
           imagersizes                         = nps.atleast_dims(imagersize, -2),
-          point_min_range                     = 0.1,
-          point_max_range                     = 1000.0,
           do_optimize_intrinsics_core         = False,
           do_optimize_intrinsics_distortions  = False,
           do_optimize_extrinsics              = True,

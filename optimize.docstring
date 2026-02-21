@@ -13,8 +13,6 @@ SYNOPSIS
                             do_optimize_intrinsics_core       = True,
                             do_optimize_intrinsics_distortions= True,
                             calibration_object_spacing        = object_spacing,
-                            point_min_range                   = 0.1,
-                            point_max_range                   = 100.0,
                             do_apply_outlier_rejection        = True,
                             do_apply_regularization           = True,
                             verbose                           = False)
@@ -224,11 +222,6 @@ OPTIONAL ARGUMENTS
 
 - do_apply_regularization: if False, don't include regularization terms in the
   solver. Defaults to True
-
-- point_min_range, point_max_range: Required ONLY if point observations are
-  given. These are lower, upper bounds for the distance of a point observation
-  to its observing camera. Each observation outside of this range is penalized.
-  This helps the solver by guiding it away from unreasonable solutions.
 
 - imagepaths: list of paths to images in this solve. This is used by the Python
   diagnostic code, and is untouched by mrcal.optimize() and

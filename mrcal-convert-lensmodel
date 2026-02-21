@@ -757,12 +757,6 @@ else:
 
                  imagersizes                               = nps.atleast_dims(dims, -2),
 
-                 # I'm not optimizing the point positions (frames), so these
-                 # need to be set to be inactive, and to include the ranges I do
-                 # have
-                 point_min_range                           = np.min(d) * 0.9,
-                 point_max_range                           = np.max(d) * 1.1,
-
                  # I optimize the lens parameters. That's the whole point
                  do_optimize_intrinsics_core               = True,
                  do_optimize_intrinsics_distortions        = True,

@@ -462,9 +462,7 @@ int main(int argc, char* argv[] )
            Nmeasurements_regularization, imeasurement);
     imeasurement += Nmeasurements_regularization;
 
-    mrcal_problem_constants_t problem_constants =
-        { .point_min_range =  30.0,
-          .point_max_range = 180.0};
+    mrcal_problem_constants_t problem_constants = {};
 
     mrcal_stats_t stats =
         mrcal_optimize( NULL,0, NULL,0,

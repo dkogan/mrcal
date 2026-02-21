@@ -311,19 +311,11 @@ typedef struct
 
 // Constants used in a mrcal optimization. This is similar to
 // mrcal_problem_selections_t, but contains numerical values rather than just
-// bits
+// bits.
+// TODAY this has nothing in it anymore, but we keep the structure so that we
+// can add things later
 typedef struct
 {
-    // The minimum distance of an observed discrete point from its observing
-    // camera. Any observation of a point below this range will be penalized to
-    // encourage the optimizer to move the point further away from the camera
-    double  point_min_range;
-
-
-    // The maximum distance of an observed discrete point from its observing
-    // camera. Any observation of a point abive this range will be penalized to
-    // encourage the optimizer to move the point closer to the camera
-    double  point_max_range;
 } mrcal_problem_constants_t;
 
 

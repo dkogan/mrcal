@@ -379,24 +379,6 @@ typedef struct
 Note that the details of the handling of discrete points may change in the
 future.
 
-We have =mrcal_problem_constants_t= to define some details of the optimization
-problem. These are similar to =mrcal_problem_selections_t=, but consist of
-numerical values, rather than just bits. Currently this structure contains valid
-ranges for interpretation of discrete points. These may change in the future.
-
-#+begin_src c
-// Constants used in a mrcal optimization. This is similar to
-// mrcal_problem_selections_t, but contains numerical values rather than just
-// bits
-typedef struct
-{
-    // The min,max distance of an observed discrete point from its observing
-    // camera. Any observation of a point outside this range will be penalized to
-    // encourage the optimizer to move the point into the acceptable range from the camera
-    double  point_min_range, point_max_range;
-} mrcal_problem_constants_t;
-#+end_src
-
 The optimization function returns most of its output in the same memory as its
 input variables. A few metrics that don't belong there are returned in a
 separate =mrcal_stats_t= structure:

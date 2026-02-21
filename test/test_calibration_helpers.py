@@ -652,9 +652,6 @@ def calibration_boards_to_points(optimization_inputs):
     optimization_inputs['rt_ref_frame']                              = None
     optimization_inputs['observations_board']                        = None
 
-    optimization_inputs['point_min_range'] = 1e-3
-    optimization_inputs['point_max_range'] = 1e12
-
     # point-only solves are unique up-to-scale only, and need the extra regularization
     Ncameras_extrinsics = optimization_inputs['rt_cam_ref'].shape[0]
     if Ncameras_extrinsics <= 1:

@@ -917,8 +917,6 @@ int PyArray_Converter_checkrenamed_leaveNone(PyObject* obj, PyObject** address)
     _(do_optimize_frames,                 int,           -1,       "p",  ,                                  NULL,           -1,         {})  \
     _(do_optimize_calobject_warp,         int,           -1,       "p",  ,                                  NULL,           -1,         {})  \
     _(calibration_object_spacing,         double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
-    _(point_min_range,                    double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
-    _(point_max_range,                    double,         -1.0,    "d",  ,                                  NULL,           -1,         {})  \
     _(verbose,                            int,            0,       "p",  ,                                  NULL,           -1,         {})  \
     _(do_apply_regularization,            int,            1,       "p",  ,                                  NULL,           -1,         {})  \
     /* The default for this MUST be 0. See mrcal.cameramodel._serialize_optimization_inputs()*/ \
@@ -1133,13 +1131,6 @@ static bool optimize_validate_args( // out
         {
             BARF("I have Npoints=len(points)=%d, but Npoints_fixed=%d. Npoints_fixed > Npoints makes no sense",
                  Npoints, Npoints_fixed);
-            return false;
-        }
-        if(point_min_range <= 0.0 ||
-           point_max_range <= 0.0 ||
-           point_min_range >= point_max_range)
-        {
-            BARF("Point observations were given, so point_min_range and point_max_range MUST have been given usable values > 0 and max>min");
             return false;
         }
     }
@@ -1737,10 +1728,7 @@ PyObject* _optimize(optimizemode_t optimizemode,
         mrcal_problem_selections_t problem_selections = CONSTRUCT_PROBLEM_SELECTIONS();
 
 
-        mrcal_problem_constants_t problem_constants =
-            {.point_min_range = point_min_range,
-             .point_max_range = point_max_range};
-
+        mrcal_problem_constants_t problem_constants = {};
         int Nmeasurements = mrcal_num_measurements(Nobservations_board,
                                                    Nobservations_point,
                                                    c_observations_point_triangulated,
