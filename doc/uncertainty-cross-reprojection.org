@@ -206,7 +206,7 @@ implying this cost vector:
   - \vec q_\mathrm{refboard} \right) + \\
 & W_\mathrm{point} \left( \mathrm{project}\left(
                   \vec b_\mathrm{intrinsics},
-                  T_\mathrm{cr} T_\mathrm{rr^+} \vec p^+_\mathrm{point})
+                  T_\mathrm{cr} T_\mathrm{rr^+} \vec p^+_\mathrm{point}\right)
   -  \vec q_\mathrm{refpoint} \right)
 \end{aligned}
 
