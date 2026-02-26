@@ -673,12 +673,14 @@ So instead of $\vec x_\mathrm{cross_0}$ we can use
 \Delta \vec x_\mathrm{cross_0} = J_\mathrm{extrinsics,frames,points,calobjectwarp} \Delta \vec b_\mathrm{extrinsics,frames,points,calobjectwarp}
 \]
 
-So we have $\vec{\mathrm{rt}_\mathrm{cc^+}} = K \Delta \vec b$ for some $K$ that
+So we have $\vec{\mathrm{rt}_\mathrm{cc^+}} = K \Delta \vec b$ for some $K$ of shape $\left(6, N_\mathrm{state}\right)$ that
 depends on the various $J$ matrices that are constant for each solve:
 
 \[
 K = -\left(J_\mathrm{cross}^T J_\mathrm{cross}\right)^{-1} J_\mathrm{cross}^T J_\mathrm{extrinsics,frames,points,calobjectwarp}
 \]
+
+Since $K$ is constant, we can propagate $\mathrm{Var}\left(\vec q_\mathrm{ref}\right)$ to $\mathrm{Var}\left(\vec b\right)$ to $\mathrm{Var}\left( \vec{\mathrm{rt}_\mathrm{cc^+}} \right)$ and beyond.
 
 ** Cross-reprojection uncertainty via $T_\mathrm{c^+c}$
 :PROPERTIES:
@@ -753,6 +755,16 @@ two different methods, depending on whether $T_\mathrm{cr}$ exists or not:
   J_{\mathrm{cross}_\mathrm{f}} & = J_\mathrm{frame} \frac{\partial \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{c^+c}},\vec {\mathrm{rt}_\mathrm{rf}}\right)}{\vec{\mathrm{rt}_\mathrm{c^+c}}} \\
   J_{\mathrm{cross}_\mathrm{p}} & = J_\mathrm{points} \frac{T_\mathrm{c^+c} \vec p}{\partial \vec{\mathrm{rt}_\mathrm{c^+c}}}
   \end{aligned}
+
+As noted on the [[file:uncertainty.org::#propagating-to-state-vector][uncertainty page]], we have some constant $M$ such that $\Delta
+\vec b = M \Delta \vec q_\mathrm{ref}$. So we have some constant matrix $K$ such
+that $\vec{\mathrm{rt}_\mathrm{c^+c}} = K \Delta \vec q_\mathrm{ref}$. Because
+of the $W \Delta \vec q_\mathrm{ref}$ term in $\Delta \vec x_\mathrm{cross_0}$,
+this is slightly more complex that in the [[#cross-reprojection-rt-ccp][other case]], but a constant $K$ can
+still be computed. Since this $K$ is constant, we can propagate
+$\mathrm{Var}\left(\vec q_\mathrm{ref}\right)$ to $\mathrm{Var}\left( \vec{\mathrm{rt}_\mathrm{c^+c}} \right)$ and
+beyond.
+
 
 ** Putting it all together
 Now that I have $\vec{\mathrm{rt}_\mathrm{cc^+}}$ or $\vec{\mathrm{rt}_\mathrm{c^+c}}$, I can use it to
