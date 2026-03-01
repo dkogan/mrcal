@@ -4,29 +4,133 @@ r'''Uncertainty-quantification test
 
 I run a number of synthetic-data camera calibrations, applying some noise to the
 observed inputs each time. I then look at the distribution of projected world
-points, and compare that distribution with theoretical predictions.
+points, and compare that distribution with theoretical uncertainty predictions.
 
-This test checks two different types of calibrations:
+There are many different scenarios that are possible to specify. mrcal supports
+a subset of these, and the uncertainty-quantification supports a subset of
+those. We select these with a combination of
 
---fixed cam0: we place camera0 at the reference coordinate system. So camera0
-  may not move, and has no associated extrinsics vector. The other cameras and
-  the frames move. When evaluating at projection uncertainty I pick a point
-  referenced off the frames. As the frames move around, so does the point I'm
-  projecting. But together, the motion of the frames and the extrinsics and the
-  intrinsics should map it to the same pixel in the end.
+* --moving camera|board. A stationary camera can be observing a moving
+  chessboard or the other way around. It's possible to have both things moving,
+  but this tool does not support that today
 
---fixed frames: the reference coordinate system is attached to the frames,
-  which may not move. All cameras may move around and all cameras have an
-  associated extrinsics vector. When evaluating at projection uncertainty I also
-  pick a point referenced off the frames, but here any point in the reference
-  coord system will do. As the cameras move around, so does the point I'm
-  projecting. But together, the motion of the extrinsics and the intrinsics
-  should map it to the same pixel in the end.
+* --ref cam0|frame0. The reference coordinate system ties together all the
+  moving objects in the solve: all transforms are specified in reference to this
+  reference system. Customarily either the first camera or the first frame are
+  defined to sit at the reference. Special case: if --ref cam0
+  --no-optimize-frames, we set the reference at the SEED cam0 coordinate system
+  (assumed identity), but let the optimizer move cam0 in respect to this seed;
+  this is the old "fixedframes" mode
 
-Exactly one of these two arguments is required.
+* --points. By default we evaluate chessboard-based calibrations. With --points
+  we convert these to discrete point observations. The same scenario is used: we
+  generate the chessboard-based scene, and then detach all the points from the
+  chessboard
 
-The lens model we're using must appear: either "--model opencv4" or "--model
-opencv8" or "--model splined"
+* --no-optimize-frames. By default we optimize everything. With
+  --no-optimize-frames we lock down the geometry of the chessboards and points.
+  Special case: if --ref cam0 no-optimize-frames, we set the reference at the
+  SEED cam0 coordinate system (assumed identity), but let the optimizer move
+  --cam0 in respect to this seed; this is the old "fixedframes" mode
+
+Let's go over all the combinations
+
+* --moving board --ref cam0
+
+  This is the nominal case. --points is allowed, but not useful: we'll have few
+  observations of many different points, while we want to observe the same small
+  set of points many times. --no-optimize-frames NOT allowed (extra not useful
+  here)
+
+  For a single camera:
+
+  0    state variables for extrinsics
+  6*Nf state variables for frames (or 3*Np*Nf points)
+
+  indices_frame_camintrinsics_camextrinsics =
+  [ 0 0 -1
+    1 0 -1
+    2 0 -1
+    ...   ]
+
+* --moving board --ref cam0 --no-optimize-frames
+
+* --moving camera --ref frame0
+
+  --Ncameras >1 not allowed, --no-optimize-frames required (see below for both).
+
+  For a single camera:
+
+  6*Nf state variables for extrinsics
+  0    state variables for frames
+   indices_frame_camintrinsics_camextrinsics =
+  [ 0 0 0
+    0 0 1
+    0 0 2
+    ... ]
+
+  I want to have indices_frame = -1 here, but mrcal does not currently support
+  this. Instead we set indices_frame = 0, actually store something into the
+  rt_ref_frame array, and set do_optimize_frames = False. Naturally this can
+  only work with only a single chessboard pose (do_optimize_frames applies to
+  ALL the chessboards). This tool always does that with --moving camera
+  --Ncameras 1, but mrcal does support the more general case. Thus --Ncameras >1
+  is not supported here
+
+* --moving camera --ref cam0
+
+  "--moving camera", so we have many camera poses and one frame pose. The first
+  camera pose is fixed; the other camera poses and the frame pose are optimized.
+  Today this scenario cannot work with Ncameras>1: this would require a rigid
+  "rig" or cameras moving in unison, which isn't supported today.
+
+  For a single camera:
+
+  6*(Nf-1) state variables for extrinsics
+  6        state variables for frames
+  indices_frame_camintrinsics_camextrinsics =
+  [ 0 0 -1
+    0 0  0
+    0 0  1
+    0 0  2
+    ...   ]
+
+  This is the nominal case for --points:
+
+  6*(Nf-1)                 state variables for extrinsics
+  3*Npoints_in_chessboard  state variables for points
+  indices_point_camintrinsics_camextrinsics =
+  [ 0 0 -1
+    1 0 -1
+    2 0 -1
+    ...
+    0 0  0
+    1 0  0
+    2 0  0
+    ...
+    0 0  1
+    1 0  1
+    2 0  1
+    ... ]
+
+* --moving board --ref frame0
+
+  For a single camera:
+
+  6        state variables for extrinsics
+  6*(Nf-1) state variables for frames
+
+  indices_frame_camintrinsics_camextrinsics =
+  [ -1 0 0
+     0 0 0
+     1 0 0
+    ...   ]
+
+  Today mrcal cannot represent this at all. Today mrcal can represent NULL
+  camera transforms (index_camextrinsics < 0), but not NULL frame transforms.
+  Above I could fake a NULL frame transform by setting do_optimize_frames =
+  False, but that only works if I want to lock down ALL the frame transforms,
+  not just a single one, like I need to do here
 
 '''
 
@@ -41,12 +145,29 @@ def parse_args():
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    parser.add_argument('--fixed',
+    parser.add_argument('--moving',
                         type=str,
-                        choices=('cam0','frames'),
+                        choices=('camera','board'),
                         required=True,
-                        help='''Are we putting the origin at camera0, or are all the frames at a fixed (and
-                        non-optimizeable) pose? One or the other is required.''')
+                        help='''What is moving?''')
+    parser.add_argument('--ref',
+                        type=str,
+                        choices=('cam0','frame0'),
+                        required=True,
+                        help='''Where the reference coordinate system is''')
+    parser.add_argument('--points',
+                        action='store_true',
+                        help='''By default we do everything with chessboard
+                        observations. If --points, we simulate the same
+                        chessboard observations, but we calibrate with discrete
+                        observations of points in the chessboard. --points
+                        enables the unity_cam01 regularization to make the solve
+                        non-singular''')
+    parser.add_argument('--no-optimize-frames',
+                        action='store_true',
+                        help='''If given, the frame poses and point locations
+                        are fixed and NOT optimized''')
+
     parser.add_argument('--model',
                         type=str,
                         choices=('opencv4','opencv8','splined'),
@@ -87,19 +208,6 @@ def parse_args():
                         default=1.5,
                         help='''The level of the input pixel noise to simulate.
                         Defaults to 1 stdev = 1.5 pixels''')
-    parser.add_argument('--moving-camera',
-                        action='store_true',
-                        help='''If given, run tests with the non-vanilla
-                        scenarios (moving camera, different reference frames).
-                        Only implemented with --Ncameras 1 --fixed cam0''')
-    parser.add_argument('--points',
-                        action='store_true',
-                        help='''By default we do everything with chessboard
-                        observations. If --points, we simulate the same
-                        chessboard observations, but we calibrate with discrete
-                        observations of points in the chessboard. --points
-                        enables the unity_cam01 regularization to make the solve
-                        non-singular''')
     parser.add_argument('--do-sample',
                         action='store_true',
                         help='''By default we don't run the time-intensive
@@ -164,16 +272,11 @@ def parse_args():
 
     args = parser.parse_args()
 
-    if args.moving_camera:
-        if not (args.fixed == 'cam0' and args.Ncameras == 1):
-            print("--moving-camera works ONLY with --fixed cam0 --Ncameras 1",
-                  file=sys.stderr)
-            sys.exit(1)
 
-        if args.do_sample:
-            print("--moving-camera incompatible with --do-sample. Instead I make sure that it produces the same results as the stationary-camera solves, and I --do-sample THOSE solves",
-                  file=sys.stderr)
-            sys.exit(1)
+    if args.moving == 'board' and args.ref == 'frame0':
+        print("--moving board --ref frame0 is not supported today",
+              file=sys.stderr)
+        sys.exit(1)
 
 
     args.distances = args.distances.split(',')
@@ -192,9 +295,6 @@ def parse_args():
 
 
 args = parse_args()
-
-fixedframes = (args.fixed == 'frames')
-
 
 if args.Ncameras <= 0 or args.Ncameras > 4:
     print(f"Ncameras must be in [0,4], but got {args.Ncameras}. Giving up", file=sys.stderr)
@@ -329,40 +429,14 @@ frames_points_true =          \
                          object_spacing,
                          rt_cam_ref_true,
                          calobject_warp_true,
-                         fixedframes,
                          testdir,
-                         range_to_boards = args.range_to_boards,
-                         report_points   = False,
-                         optimize        = False,
+                         range_to_boards    = args.range_to_boards,
+                         optimize           = False,
+                         points             = args.points,
+                         moving_cameras     = args.moving == 'camera',
+                         ref_frame0         = args.ref    == 'frame0',
+                         do_optimize_frames = not args.no_optimize_frames,
                          **calibration_baseline_kwargs)
-
-if args.moving_camera:
-    # Compute the different scenarios of what is moving and what is the
-    # reference frame. I will use those later. THOSE ARE NOT YET OPTIMIZED; I
-    # will do that later
-    optimization_inputs_baseline_moving_cameras_refcam0 = \
-        copy.deepcopy(optimization_inputs_baseline)
-    calibration_make_non_vanilla(optimization_inputs_baseline_moving_cameras_refcam0,
-                                 moving_cameras = True,
-                                 ref_frame0     = False)
-    if args.points: calibration_boards_to_points(optimization_inputs_baseline_moving_cameras_refcam0)
-
-    optimization_inputs_baseline_moving_cameras_refframe0 = \
-        copy.deepcopy(optimization_inputs_baseline)
-    calibration_make_non_vanilla(optimization_inputs_baseline_moving_cameras_refframe0,
-                                 moving_cameras = True,
-                                 ref_frame0     = True)
-    if args.points: calibration_boards_to_points(optimization_inputs_baseline_moving_cameras_refframe0)
-
-elif args.points and fixedframes:
-    calibration_make_non_vanilla(optimization_inputs_baseline,
-                                 moving_cameras = True,
-                                 ref_frame0     = True)
-    calibration_boards_to_points(optimization_inputs_baseline)
-
-
-if args.points and not fixedframes:
-    calibration_boards_to_points(optimization_inputs_baseline)
 
 x_baseline_unoptimized = \
     mrcal.optimizer_callback(**optimization_inputs_baseline,
@@ -390,10 +464,9 @@ models_baseline = \
 
 # I evaluate the projection uncertainty of this vector. In each camera. I'd like
 # it to be center-ish, but not AT the center. So I look at 1/3 (w,h). I want
-# this to represent a point in a globally-consistent coordinate system. Here I
-# have fixed frames, so using the reference coordinate system gives me that
-# consistency. Note that I look at q0 for each camera separately, so I'm going
-# to evaluate a different world point for each camera
+# this to represent a point in a globally-consistent coordinate system. Note
+# that I look at q0 for each camera separately, so I'm going to evaluate a
+# different world point for each camera
 q0_baseline = imagersizes[0]/3.
 
 
@@ -410,7 +483,7 @@ index bbd0d750..a7debe20 100755
 @@ -1094,6 +1094,6 @@
                                  worstcase = True,
                                  msg = f"Regularization bias small-enough for camera {icam} at distance={'infinity' if distance is None else distance}")
- 
+
 -for icam in (0,3):
 +for icam in range(args.Ncameras):
      # I move the extrinsics of a model, write it to disk, and make sure the same
@@ -418,7 +491,7 @@ index bbd0d750..a7debe20 100755
 @@ -1160,6 +1160,10 @@
                              relative  = True,
                              msg = f"var(dq) (infinity) is invariant to point scale for camera {icam}")
- 
+
 +    print(f"{Var_dq_ref=}")
 +    print(f"{Var_dq_inf_ref=}")
 +sys.exit()
@@ -431,11 +504,13 @@ index bbd0d750..a7debe20 100755
 # different scenarios
 r'''
 test/test-projection-uncertainty.py \
-  --fixed cam0                      \
+  --moving board                    \
+  --ref cam0                        \
   --model opencv4                   \
   --Ncameras 1
 test/test-projection-uncertainty.py \
-  --fixed cam0                      \
+  --moving board                    \
+  --ref cam0                        \
   --model opencv4                   \
   --Ncameras 4
 '''
@@ -451,7 +526,8 @@ if args.compare_baseline_against_mrcal_2_4:
        args.range_to_boards            == 4.0         and \
        args.reproject_perturbed        == 'mean-pcam' and \
        args.observed_pixel_uncertainty == 1.5         and \
-       not fixedframes                                and \
+       args.moving                     == 'board'     and \
+       args.ref                        == 'cam0'      and \
        not args.points:
         # assuming these are at the correct, nominal values:
         # rt_cam_ref_true
@@ -1058,8 +1134,6 @@ The logic here is described thoroughly in
   https://mrcal.secretsauce.net/uncertainty-cross-reprojection.html
     '''
 
-    if fixedframes:
-        raise Exception("reproject_perturbed__cross_reprojection(fixedframes = True) is not yet implemented. I would at least need to handle J_frames not existing when computing J_cross")
 
     if not baseline_optimization_inputs['do_optimize_frames']:
         raise Exception("reproject_perturbed__cross_reprojection implementation expects the frames to be optimized")
@@ -2411,8 +2485,7 @@ for icam in (0,3):
         icam_intrinsics_read = model_read.icam_intrinsics()
         icam_extrinsics_read = mrcal.corresponding_icam_extrinsics(icam_intrinsics_read,
                                                                    **model_read.optimization_inputs())
-
-        testutils.confirm_equal(icam if fixedframes else icam-1,
+        testutils.confirm_equal(icam if not (args.ref=='cam0' and not args.no_optimize_frames) else icam-1,
                                 icam_extrinsics_read,
                                 msg = f"corresponding icam_extrinsics reported correctly for camera {icam}")
 
@@ -2466,8 +2539,8 @@ for icam in (0,3):
     # more than one camera. If I have a moving multi-camera rig then I want to
     # be able to represent the pose each camera separately, but lock the
     # transform between the cameras. So for now I test this with a single camera
-    # (checked above to make sure that --moving-camera goes with --Ncameras 1)
-    if args.moving_camera:
+    # (checked above to make sure that --moving camera goes with --Ncameras 1)
+    if args.moving == 'camera':
 
         for (what,optimization_inputs_here) in \
                 (('moving-camera-ref-at-frame0', optimization_inputs_baseline_moving_cameras_refframe0),
@@ -2543,8 +2616,7 @@ if not args.do_sample:
   optimization_inputs_sampled) = \
       calibration_sample( args.Nsamples,
                           optimization_inputs_baseline,
-                          args.observed_pixel_uncertainty,
-                          fixedframes)
+                          args.observed_pixel_uncertainty)
 
 if args.write_models:
     for i in range(args.Ncameras):

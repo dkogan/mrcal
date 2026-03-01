@@ -130,7 +130,6 @@ def calibration_baseline(model, Ncameras, Nframes, extra_observation_at,
                          # checked
                          extrinsics_rt_fromcam0_true,
                          calobject_warp_true,
-                         fixedframes,
                          testdir,
                          *,
                          cull_left_of_center = False,
@@ -139,11 +138,12 @@ def calibration_baseline(model, Ncameras, Nframes, extra_observation_at,
                          x_noiseradius = 2.5,
                          y_noiseradius = 2.5,
                          x_mirror      = False, # half with +x_offset, half with -x_offset
-                         report_points = False,
+                         points        = False,
 
-                         optimize       = True,
-                         moving_cameras = False,
-                         ref_frame0     = False,
+                         optimize           = True,
+                         moving_cameras     = False,
+                         ref_frame0         = False,
+                         do_optimize_frames = True,
 
                          # The logic to avoid oblique views was added in
                          #   https://github.com/dkogan/mrcal/commit/b54df5d3
@@ -162,13 +162,10 @@ exactly at the ground-truth.
 If x_mirror then half of Nframes are shifted in the x direction by x_offset and
 the other half by -x_offset
 
-I always compute chessboard views. But if report_points: I store each corner
-observation as a separate point. if report_points: I ALSO enable the unity_cam01
+I always compute chessboard views. But if points: I store each corner
+observation as a separate point. if points: I ALSO enable the unity_cam01
 regularization to make the solve non-singular
 
-fixedframes may be true in the simple, vanilla case: not moving_cameras and not
-ref_frame0. if fixedframes: we lock down the frame poses, and allow ALL the
-cameras to move
 
 The moving_cameras and ref_frame0 arguments control what is moving/stationary
 and where the reference coordinate system is. Since in the end we look at
@@ -176,7 +173,9 @@ relative camera-frame transforms, their absolute poses don't matter, and either
 the cameras or frames can be stationary. And the reference coord system can be
 defined at either one of the cameras or one of the frames. Some of these
 combinations aren't supported at all, and some are supported only if we have a
-single camera. An exception will be raised for an un-supported case
+single camera. An exception will be raised for an un-supported case. See the
+docstring for test/test-projection-uncertainty.py for notes about the cases and
+what is supported
 
 ARGUMENTS
 
@@ -186,11 +185,13 @@ ARGUMENTS
 
     '''
 
+
     if nps.norm2(extrinsics_rt_fromcam0_true[0]) > 0:
         raise Exception("A non-identity cam0 transform was given. This is not supported")
 
-    if fixedframes and \
-       (moving_cameras or ref_frame0):
+    fixedframes = not ref_frame0 and not do_optimize_frames
+
+    if fixedframes and moving_cameras:
         raise Exception("fixedframes only supported in the simple, vanilla case: not moving_cameras and not ref_frame0")
 
     if re.match('opencv',model):
@@ -367,14 +368,14 @@ ARGUMENTS
               imagersizes                               = imagersizes,
               calibration_object_spacing                = object_spacing,
               verbose                                   = False,
-              do_optimize_frames                        = not fixedframes,
+              do_optimize_frames                        = do_optimize_frames,
               do_optimize_intrinsics_core               = False if model =='splined' else True,
               do_optimize_intrinsics_distortions        = True,
               do_optimize_extrinsics                    = True,
               do_optimize_calobject_warp                = True,
               do_apply_regularization                   = True,
               do_apply_outlier_rejection                = False,
-              do_apply_regularization_unity_cam01       = report_points)
+              do_apply_regularization_unity_cam01       = points)
 
     ###########################################################################
     # p = mrcal.show_geometry(models_true_refcam0,
@@ -388,21 +389,20 @@ ARGUMENTS
     calibration_make_non_vanilla(optimization_inputs_baseline,
                                  moving_cameras = moving_cameras,
                                  ref_frame0     = ref_frame0)
-
-    if report_points:
+    if points:
         calibration_boards_to_points(optimization_inputs_baseline)
+        points_true = copy.deepcopy(optimization_inputs_baseline['points'])
 
     if optimize:
         mrcal.optimize(**optimization_inputs_baseline)
 
-    if not report_points:
+    if not points:
         return                                        \
             optimization_inputs_baseline,             \
             models_true_refcam0,                      \
             rt_cam0_board_true
 
     else:
-
         return                                        \
             optimization_inputs_baseline,             \
             models_true_refcam0,                      \
@@ -413,22 +413,11 @@ def calibration_make_non_vanilla(optimization_inputs,
                                  *,
                                  moving_cameras,
                                  ref_frame0):
+    r'''See the docstring for test-projection-uncertainty.py for a description
+    of all the cases'''
 
     if not moving_cameras and \
        not ref_frame0:
-
-        # stationary camera, moving frame, reference at cam0
-        #
-        #   For a single camera:
-        #
-        #   0    state variables for extrinsics
-        #   6*Nf state variables for frames (or 3*Np*Nf points)
-        #
-        #   indices_frame_camintrinsics_camextrinsics =
-        #   [ 0 0 -1
-        #     1 0 -1
-        #     2 0 -1
-        #     ...   ]
 
         # This is the baseline case. The data is already set up like this.
         return
@@ -440,44 +429,12 @@ def calibration_make_non_vanilla(optimization_inputs,
 
     if moving_cameras and \
        ref_frame0:
-        # moving camera, stationary frame, reference at the one stationary
-        # chessboard
-        #
-        #   For a single camera:
-        #
-        #   6*Nf state variables for extrinsics
-        #   0    state variables for frames
 
-        #   indices_frame_camintrinsics_camextrinsics =
-        #   [ 0 0 0
-        #     0 0 1
-        #     0 0 2
-        #     ... ]
-        #
-        #   I want to have indices_frame = -1 here, but mrcal does not currently
-        #   support this. Instead we set indices_frame = 0, actually store
-        #   something into the rt_ref_frame array, and set do_optimize_frames
-        #   = False
-        #
-        #   Today this scenario cannot work with multiple cameras: this would
-        #   require a rigid "rig" or cameras moving in unison, which isn't
-        #   supported today.
-        if Ncameras > 1:
-            raise Exception("Scenario (moving-camera, stationary-frame, ref-at-frame) cannot work with multiple cameras: camera-rig implementation is required")
 
         optimization_inputs['indices_frame_camintrinsics_camextrinsics'] = \
             np.ascontiguousarray(nps.transpose( nps.cat( idxce+1,
                                                          idxci,
                                                          idxf ) ))
-
-        # This is to support "test-projection-uncertainty.py --fixed frames".
-        # That tool and this function needs a rework, to take separate arguments
-        # to control
-        #
-        # - what is moving
-        # - where the reference is
-        # - what is fixed
-        # - points/boards
         if np.all(idxce == 0) and \
            np.all(idxf == np.arange(len(idxf))) and \
            optimization_inputs['do_optimize_extrinsics'] and \
@@ -494,44 +451,6 @@ def calibration_make_non_vanilla(optimization_inputs,
     if moving_cameras and \
        not ref_frame0:
 
-        # moving camera, stationary frame, reference at cam0
-        #   6*(Nf-1) state variables for extrinsics
-        #   6        state variables for frames
-
-        #   indices_frame_camintrinsics_camextrinsics =
-        #   [ 0 0 -1
-        #     0 0  0
-        #     0 0  1
-        #     0 0  2
-        #     ...   ]
-        #
-        #   Or if looking_at_points:
-
-        #     if I assume I'm looking at a chessboard, I set the points to the known
-        #     geometry, fix that, and I'm done. But what if the point geometry is fixed
-        #     between frames, but unknown? I fix cam0 and have a single set of points that
-        #     I optimize:
-
-        #     6*(Nf-1) extrinsics
-        #     3*Np points
-
-        #     indices_point_camintrinsics_camextrinsics =
-        #     [ 0 0 -1
-        #       1 0 -1
-        #       2 0 -1
-        #       ...
-        #       0 0  0
-        #       1 0  0
-        #       2 0  0
-        #       ...
-        #       0 0  1
-        #       1 0  1
-        #       2 0  1
-        #       ... ]
-        #
-        #   Today this scenario cannot work with multiple cameras: this would
-        #   require a rigid "rig" or cameras moving in unison, which isn't
-        #   supported today.
         if Ncameras > 1:
             raise Exception("Scenario (moving-camera, stationary-frame, ref-at-cam0) cannot work with multiple cameras: camera-rig implementation is required")
 
@@ -553,23 +472,6 @@ def calibration_make_non_vanilla(optimization_inputs,
 
     if not moving_cameras and \
        ref_frame0:
-
-        # stationary camera, moving frame, reference at frame0
-        #   6        state variables for extrinsics
-        #   6*(Nf-1) state variables for frames
-
-        #   indices_frame_camintrinsics_camextrinsics =
-        #   [ -1 0 0
-        #      0 0 0
-        #      1 0 0
-        #     ...   ]
-        #
-        # mrcal cannot represent this today, so I don't check it. Today mrcal
-        # can represent NULL camera transforms (index_camextrinsics < 0), but
-        # not NULL frame transforms. Above I could fake a NULL frame transform
-        # by setting do_optimize_frames = False, but that only works if I want
-        # to lock down ALL the frame transforms, not just a single one, like I
-        # need to do here
         raise Exception("Case not supported: not moving_cameras and ref_frame0")
 
     raise Exception("Unhandled case. Getting here is a bug")
@@ -668,7 +570,6 @@ def calibration_boards_to_points(optimization_inputs):
 def calibration_sample(Nsamples,
                        optimization_inputs_baseline,
                        pixel_uncertainty_stdev,
-                       fixedframes,
                        function_optimize = None):
 
     r'''Sample calibrations subject to random noise on the input observations
@@ -709,10 +610,14 @@ perfect observations
 
     optimization_inputs_sampled = [None] * Nsamples
 
-
+    have_fixed_cameras = \
+        ( have('indices_frame_camintrinsics_camextrinsics') and \
+          np.any(optimization_inputs_baseline['indices_frame_camintrinsics_camextrinsics'][:,2] < 0)) or \
+        ( have('indices_point_camintrinsics_camextrinsics') and \
+          np.any(optimization_inputs_baseline['indices_point_camintrinsics_camextrinsics'][:,2] < 0))
 
     Ncameras_extrinsics = optimization_inputs_baseline['rt_cam_ref'].shape[0]
-    if not fixedframes:
+    if have_fixed_cameras:
         # the first row is fixed at 0
         Ncameras_extrinsics += 1
     extrinsics_sampled_mounted = np.zeros((Nsamples,Ncameras_extrinsics,6), dtype=float)
@@ -744,7 +649,7 @@ perfect observations
             function_optimize(optimization_inputs)
 
         intrinsics_sampled    [isample,...] = optimization_inputs['intrinsics']
-        if fixedframes:
+        if not have_fixed_cameras:
             extrinsics_sampled_mounted[isample,   ...] = optimization_inputs['rt_cam_ref']
         else:
             # the remaining row is already 0

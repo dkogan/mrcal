@@ -665,8 +665,7 @@ if not did_sample:
       optimization_inputs_sampled ) = \
           calibration_sample( args.Nsamples,
                               optimization_inputs_baseline,
-                              args.q_calibration_stdev,
-                              fixedframes)
+                              args.q_calibration_stdev)
 
     if args.cache is not None and args.cache == 'write':
         with open(cache_file,"wb") as f:

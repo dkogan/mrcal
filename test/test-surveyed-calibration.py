@@ -669,7 +669,6 @@ if not args.do_sample:
 calibration_sample(args.Nsamples,
                    optimization_inputs_baseline,
                    pixel_uncertainty_stdev,
-                   fixedframes       = True,
                    function_optimize = optimize)
 
 
