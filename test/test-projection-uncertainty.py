@@ -317,7 +317,7 @@ import copy
 import numpy as np
 import numpysane as nps
 
-from test_calibration_helpers import calibration_baseline,calibration_make_non_vanilla,calibration_boards_to_points,calibration_sample
+from test_calibration_helpers import calibration_baseline,calibration_sample
 
 
 

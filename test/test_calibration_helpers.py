@@ -386,11 +386,11 @@ ARGUMENTS
     # sys.exit()
 
 
-    calibration_make_non_vanilla(optimization_inputs_baseline,
-                                 moving_cameras = moving_cameras,
-                                 ref_frame0     = ref_frame0)
+    _calibration_make_non_vanilla(optimization_inputs_baseline,
+                                  moving_cameras = moving_cameras,
+                                  ref_frame0     = ref_frame0)
     if points:
-        calibration_boards_to_points(optimization_inputs_baseline)
+        _calibration_boards_to_points(optimization_inputs_baseline)
         points_true = copy.deepcopy(optimization_inputs_baseline['points'])
 
     if optimize:
@@ -408,11 +408,10 @@ ARGUMENTS
             models_true_refcam0,                      \
             points_true
 
-
-def calibration_make_non_vanilla(optimization_inputs,
-                                 *,
-                                 moving_cameras,
-                                 ref_frame0):
+def _calibration_make_non_vanilla(optimization_inputs,
+                                  *,
+                                  moving_cameras,
+                                  ref_frame0):
     r'''See the docstring for test-projection-uncertainty.py for a description
     of all the cases'''
 
@@ -477,7 +476,7 @@ def calibration_make_non_vanilla(optimization_inputs,
     raise Exception("Unhandled case. Getting here is a bug")
 
 
-def calibration_boards_to_points(optimization_inputs):
+def _calibration_boards_to_points(optimization_inputs):
 
     # I break up the chessboard observations into discrete points
 
