@@ -636,10 +636,9 @@ void accumulate_point(// output
 // LAPACK prototypes for a packed cholesky factorization and a linear solve
 // using that factorization, respectively
 int dpptrf_(char* uplo, int* n, double* ap,
-            int* info, int uplo_len);
+            int* info);
 int dpptrs_(char* uplo, int* n, int* nrhs,
-            double* ap, double* b, int* ldb, int* info,
-            int uplo_len);
+            double* ap, double* b, int* ldb, int* info);
 
 bool _mrcal_drt_ref_refperturbed__dbpacked(// output
                                           // Shape (6,Nstate_frames)
@@ -1063,78 +1062,37 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
     //
     // in-place: input and output both use the Kpacked array
 
-
-#if 0
-    // testing code
-    FILE* fp;
-
-    fp = fopen("/tmp/Jcross_t__Jcross", "w");
-    fwrite(Jcross_t__Jcross, 8, (6+1)*6/2, fp);
-    fclose(fp);
-
-    fp = fopen("/tmp/Kpackedp_noinv", "w");
-    for(int i=0; i<6; i++)
-        fwrite(&Kpackedp[i*Kpackedp_stride0_elems],
-               8, Nstate_points, fp);
-    fclose(fp);
-#endif
-
-
-
-    /*
-      The implementation of cofactors_sym6() is crazy: 6x6 is too big to use
-      Cramer's method; 5x5 might already be too big. I do what dogleg.c does
-      here to use LAPACK directly
-     */
-
-#warning "do not user cramer's rule here"
-#define SOLVE_SYM66_WITH_CRAMERS_RULE 1
-
-#if defined SOLVE_SYM66_WITH_CRAMERS_RULE && SOLVE_SYM66_WITH_CRAMERS_RULE
-    double inv_JcrosstJcross_det[(6+1)*6/2];
-    const double det =
-        cofactors_sym6(Jcross_t__Jcross,
-                       inv_JcrosstJcross_det);
-
-    // Overwrite Kpacked in place
-#define FINALIZE(Kpacked, N)                                            \
-    if(Kpacked)                                                         \
-        mul_genN6_sym66_scaled_strided(N,                               \
-                                       Kpacked, 1, Kpacked ## _stride0_elems, \
-                                       inv_JcrosstJcross_det,           \
-                                       -1. / det)
-
-    FINALIZE(Kpackedf,  Nstate_frames);
-    FINALIZE(Kpackedp,  Nstate_points);
-    FINALIZE(Kpackedcw, Nstate_calobject_warp);
-#undef FINALIZE
-
-#else
-#error not yet done
-    // I do what dogleg.c does here to use LAPACK directly
-
     int info;
     dpptrf_(&(char){'L'}, &(int){6}, Jcross_t__Jcross,
-            &info, 1);
+            &info);
     if(info != 0)
     {
-        BARF("Singular Jcross_t Jcross!");
+        MSG("Singular Jcross_t Jcross!");
         return false;
     }
 
-#error "do I need to *-1 the results of dpptrs_() ?"
 #define FINALIZE(Kpacked, N)                                    \
-    if(Kpacked)                                                 \
-    {                                                           \
-        dpptrs_(&(char){'L'}, &(int){6}, &(int){N},             \
-                Jcross_t__Jcross,                               \
-                Kpacked, &(int){6}, &info, 1);                  \
-                                                                \
-        if(info != 0)                                           \
-        {                                                       \
-            BARF("dpptrs() failed. This shouldn't happen");     \
-            return false;                                       \
-        }                                                       \
+    if(Kpacked)                                                         \
+    {                                                                   \
+        /* lapack cannot handle non-contiguous rhs vectors, so I make a copy first */ \
+        double x[6];                                                    \
+        for(int j=0; j<N; j++)                                          \
+        {                                                               \
+            for(int i=0; i<6; i++)                                      \
+                x[i] = Kpacked[Kpacked ## _stride0_elems*i + j];        \
+                                                                        \
+            dpptrs_(&(char){'L'}, &(int){6}, &(int){1},                 \
+                    Jcross_t__Jcross,                                   \
+                    x, &(int){6}, &info);                               \
+            if(info != 0)                                               \
+            {                                                           \
+                MSG("dpptrs() failed. This shouldn't happen");          \
+                return false;                                           \
+            }                                                           \
+                                                                        \
+            for(int i=0; i<6; i++)                                      \
+                Kpacked[Kpacked ## _stride0_elems*i + j] = -x[i];       \
+        }                                                               \
     }
 
     FINALIZE(Kpackedf,  Nstate_frames);
@@ -1142,7 +1100,6 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
     FINALIZE(Kpackedcw, Nstate_calobject_warp);
 #undef FINALIZE
 
-#endif
 
     return true;
 }
