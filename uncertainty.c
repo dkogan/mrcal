@@ -836,18 +836,18 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
     for(int imeas=0; imeas<Nmeas_obs; imeas++)
     {
         int32_t ival = Jrowptr[imeas];
-        int32_t icol;
+        int32_t state_index;
 
         #warning linear search
         // I look through the jacobian until I find either a frame or a point
         // gradient. This is an inefficient linear search.
         while(ival < Jrowptr[imeas+1])
         {
-            icol = Jcolidx[ival];
+            state_index = Jcolidx[ival];
 
-            if( state_index_frame0 >= 0 && state_index_frame0 <= icol)
+            if( state_index_frame0 >= 0 && state_index_frame0 <= state_index)
                 break;
-            if( state_index_point0 >= 0 && state_index_point0 <= icol)
+            if( state_index_point0 >= 0 && state_index_point0 <= state_index)
                 break;
 
             ival++;
@@ -858,8 +858,8 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
 
         // if(frame gradient). If these don't exist in this problem,
         // Nstate_frames==0, and this will always be false
-        if( state_index_frame0 <= icol &&
-            icol < state_index_frame0 + Nstate_frames )
+        if( state_index_frame0 <= state_index &&
+            state_index < state_index_frame0 + Nstate_frames )
         {
             // This observation is of chessboards
 
@@ -870,13 +870,13 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
             // Consecutive chunks of Nw*Nh*2 measurements will represent the
             // same board pose, and the same rt_ref_frame
 
-            if(icol < state_index_frame_current)
+            if(state_index < state_index_frame_current)
             {
                 MSG("Unexpected jacobian structure. I'm assuming non-decreasing frame references. The Jcross_t__Jcross computation uses chunks of Kpackedf; it assumes that once the chunk is computed, it is DONE, and never revisited. Non-monotonic frame indices break that");
                 return false;
             }
             if(state_index_frame_current >= 0 &&
-               icol != state_index_frame_current)
+               state_index != state_index_frame_current)
             {
                 // Looking at a new frame. Finish the previous frame
                 accumulate_frame( // output
@@ -893,7 +893,7 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
                 memset(sum_outer_jpackedf_jpackedf,  0, (6+1)*6/2*sizeof(double));
                 memset(sum_outer_jpackedf_jpackedcw, 0, 6*2      *sizeof(double));
             }
-            state_index_frame_current = icol;
+            state_index_frame_current = state_index;
 
             // I have dx/drt_ref_frame for this frame. This is 6 numbers
             const double* dx_drt_ref_frame_packed = &Jval[ival];
@@ -929,9 +929,9 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
                 continue; // next measurement
             }
 
-            icol = Jcolidx[ival];
-            if(!(icol >= state_index_calobject_warp0 &&
-                 icol < state_index_calobject_warp0 + Nstate_calobject_warp) )
+            state_index = Jcolidx[ival];
+            if(!(state_index >= state_index_calobject_warp0 &&
+                 state_index < state_index_calobject_warp0 + Nstate_calobject_warp) )
             {
                 MSG("Unexpected jacobian structure. I'm assuming frame jacobians to be followed immediately by calobject_warp jacobians");
                 return false;
@@ -969,20 +969,20 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
 
         // if(point gradient). If these don't exist in this problem,
         // Nstate_points==0, and this will always be false
-        if( state_index_point0 <= icol &&
-            icol < state_index_point0 + Nstate_points )
+        if( state_index_point0 <= state_index &&
+            state_index < state_index_point0 + Nstate_points )
         {
             // This observation is of a point
 
             // We're looking at SOME point gradient: 3 values
 
-            if(icol < state_index_point_current)
+            if(state_index < state_index_point_current)
             {
                 MSG("Unexpected jacobian structure. I'm assuming non-decreasing point references. The Jcross_t__Jcross computation uses chunks of Kpackedp; it assumes that once the chunk is computed, it is DONE, and never revisited. Non-monotonic point indices break that");
                 return false;
             }
             if(state_index_point_current >= 0 &&
-               icol != state_index_point_current)
+               state_index != state_index_point_current)
             {
                 // Looking at a new point. Finish the previous point
                 accumulate_point( // output
@@ -995,7 +995,7 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
                                   &b_packed[state_index_point_current]);
                 memset(sum_outer_jpackedp_jpackedp,  0, (3+1)*3/2*sizeof(double));
             }
-            state_index_point_current = icol;
+            state_index_point_current = state_index;
 
             // I have dx/dpoint for this point. This is 3 numbers
             const double* dx_dpoint_packed = &Jval[ival];
