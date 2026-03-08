@@ -632,6 +632,33 @@ void accumulate_point(// output
     }
 }
 
+static int get_Nstate_intrinsics_in_jacobian_row(const int* Jrowptr,
+                                                 const int* Jcolidx,
+                                                 const int state_index_intrinsics0,
+                                                 const int Nstate_intrinsics)
+{
+    // I linearly search through the first row of the jacobian to count the
+    // number of active variables in the jacobian. I'm assuming that every
+    // jacobian row has exactly the same number of intrinsics variables that
+    // affect it
+    const int imeas = 0;
+    int ival = Jrowptr[imeas];
+
+    while(true)
+    {
+        const int state_index = Jcolidx[ival];
+
+        if( ival < Jrowptr[imeas+1] &&
+            state_index_intrinsics0 <= state_index &&
+            state_index < state_index_intrinsics0 + Nstate_intrinsics )
+        {
+            ival++;
+            continue;
+        }
+        return ival;
+    }
+}
+
 // LAPACK prototypes for a packed cholesky factorization and a linear solve
 // using that factorization, respectively
 int dpptrf_(char* uplo, int* n, double* ap,
@@ -682,6 +709,11 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
                                           int calibration_object_width_n,
                                           int calibration_object_height_n)
 {
+
+    const int*    Jrowptr = (int*)   Jt->p;
+    const int*    Jcolidx = (int*)   Jt->i;
+    const double* Jval    = (double*)Jt->x;
+
     const int Nmeas_boards =
         mrcal_num_measurements_boards(Nobservations_board,
                                       calibration_object_width_n,
@@ -691,6 +723,20 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
 
     const int Nmeas_obs = Nmeas_boards + Nmeas_points;
 
+    const int state_index_intrinsics0 =
+        mrcal_state_index_intrinsics(0,
+                                     Ncameras_intrinsics, Ncameras_extrinsics,
+                                     Nframes,
+                                     Npoints, Npoints_fixed, Nobservations_board,
+                                     problem_selections,
+                                     lensmodel);
+    const int state_index_extrinsics0 =
+        mrcal_state_index_extrinsics(0,
+                                     Ncameras_intrinsics, Ncameras_extrinsics,
+                                     Nframes,
+                                     Npoints, Npoints_fixed, Nobservations_board,
+                                     problem_selections,
+                                     lensmodel);
     const int state_index_frame0 =
         mrcal_state_index_frames(0,
                                  Ncameras_intrinsics, Ncameras_extrinsics,
@@ -722,6 +768,11 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
         mrcal_num_states_intrinsics(Ncameras_intrinsics,
                                     problem_selections,
                                     lensmodel);
+    const int Nstate_intrinsics_in_jacobian_row =
+        get_Nstate_intrinsics_in_jacobian_row(Jrowptr,
+                                              Jcolidx,
+                                              state_index_intrinsics0,
+                                              Nstate_intrinsics);
     const int Nstate_extrinsics =
         mrcal_num_states_extrinsics(Ncameras_extrinsics,
                                     problem_selections);
@@ -830,31 +881,43 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
     int state_index_frame_current = -1;
     int state_index_point_current = -1;
 
-    const int*    Jrowptr = (int*)   Jt->p;
-    const int*    Jcolidx = (int*)   Jt->i;
-    const double* Jval    = (double*)Jt->x;
     for(int imeas=0; imeas<Nmeas_obs; imeas++)
     {
-        int32_t ival = Jrowptr[imeas];
-        int32_t state_index;
+        int ival = Jrowptr[imeas];
 
-        #warning linear search
+        // For each measurement, we will have gradients for some set of
+        // - intrinsics
+        // - extrinsics
+        // - frames
+        // - points
+        // - calobject_warp
+
+
         // I look through the jacobian until I find either a frame or a point
-        // gradient. This is an inefficient linear search.
-        while(ival < Jrowptr[imeas+1])
+        // gradient
+        int state_index;
+
+        state_index = Jcolidx[ival];
+        if( state_index_intrinsics0 <= state_index &&
+            state_index < state_index_intrinsics0 + Nstate_intrinsics )
         {
+            // We're looking at a block of intrinsics; move past them
+            ival += Nstate_intrinsics_in_jacobian_row;
+            if(!(ival < Jrowptr[imeas+1]))
+                continue;
             state_index = Jcolidx[ival];
-
-            if( state_index_frame0 >= 0 && state_index_frame0 <= state_index)
-                break;
-            if( state_index_point0 >= 0 && state_index_point0 <= state_index)
-                break;
-
-            ival++;
         }
-        if(!(ival < Jrowptr[imeas+1]))
-            continue;
+        if( state_index_extrinsics0 <= state_index &&
+            state_index < state_index_extrinsics0 + Nstate_extrinsics )
+        {
+            // We're looking at a block of extrinsics; move past them
+            ival += 6;
+            if(!(ival < Jrowptr[imeas+1]))
+                continue;
+            state_index = Jcolidx[ival];
+        }
 
+        // We're now looking at frames or points or beyond
 
         // if(frame gradient). If these don't exist in this problem,
         // Nstate_frames==0, and this will always be false
