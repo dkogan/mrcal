@@ -737,14 +737,14 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
                                      Npoints, Npoints_fixed, Nobservations_board,
                                      problem_selections,
                                      lensmodel);
-    const int state_index_frame0 =
+    const int state_index_frames0 =
         mrcal_state_index_frames(0,
                                  Ncameras_intrinsics, Ncameras_extrinsics,
                                  Nframes,
                                  Npoints, Npoints_fixed, Nobservations_board,
                                  problem_selections,
                                  lensmodel);
-    const int state_index_point0 =
+    const int state_index_points0 =
         mrcal_state_index_points(0,
                                  Ncameras_intrinsics, Ncameras_extrinsics,
                                  Nframes,
@@ -789,9 +789,9 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
 #warning check all Nstate_ and state_index_ references; some of those could be invalid (if some variables are locked for instance). Figure out what makes sense and what we should BARF() against
 
 #warning Do I need this? Where do I assume it?
-    if(state_index_frame0 >= 0 &&
+    if(state_index_frames0 >= 0 &&
        state_index_calobject_warp0 >= 0 &&
-       !(state_index_calobject_warp0 == state_index_frame0 + Nstate_frames))
+       !(state_index_calobject_warp0 == state_index_frames0 + Nstate_frames))
     {
         MSG("I assume that the calobject_warp state variables follow the frame state variables immediately");
         return false;
@@ -819,8 +819,8 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
         return false;
     }
 
-    if(state_index_frame0 < 0 &&
-       state_index_point0 < 0)
+    if(state_index_frames0 < 0 &&
+       state_index_points0 < 0)
     {
         MSG("Neither board poses nor points are being optimized. Cannot compute uncertainty if we're not optimizing any observations");
         return false;
@@ -862,19 +862,47 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
     INIT_ARRAY(Kpackedcw, Nstate_calobject_warp);
 
 
-    // sum(outer(dx/drt_ref_frame,dx/drt_ref_frame)) for this frame. I sum over
-    // all the observations. Uses PACKED gradients. Only the upper triangle is
-    // stored, in the usual row-major order
+    // sum(outer(dx[i]/drt_cam_ref,dx[i]/drt_cam_ref)) for this observed object.
+    // I sum over all the observations. Uses PACKED gradients. Only the upper
+    // triangle is stored, in the usual row-major order
+    double sum_outer_jpackede_jpackede[(6+1)*6/2] = {};
+
+    // sum(outer(dx[i]/drt_cam_ref, dx[i]/drt_ref_frame)) for this observed
+    // object. Uses PACKED gradients. Stored densely, since it isn't symmetric.
+    // Shape (6,6)
+    double sum_outer_jpackede_jpackedf[6*6] = {};
+
+    // sum(outer(dx[i]/drt_cam_ref, dp[i)) for this observed object. Uses PACKED
+    // gradients. Stored densely, since it isn't symmetric. Shape (6,3)
+    double sum_outer_jpackede_jpackedp[6*3] = {};
+
+    // sum(outer(dx[i]/drt_cam_ref, dx[i]/dcalobject_warp)) for this observed
+    // object. Uses PACKED gradients. Stored densely, since it isn't symmetric.
+    // Shape (6,2)
+    double sum_outer_jpackede_jpackedcw[6*2] = {};
+
+    // sum(outer(dx[i]/drt_ref_frame,dx[i]/drt_ref_frame)) for this frame. I sum
+    // over all the observations. Uses PACKED gradients. Only the upper triangle
+    // is stored, in the usual row-major order
     double sum_outer_jpackedf_jpackedf[(6+1)*6/2] = {};
 
-    // sum(outer(dx/dpoint,dx/dpoint)) for this point. I sum over all the
+    // sum(outer(dx[i]/dpoint,dx[i]/dpoint)) for this point. I sum over all the
     // observations. Uses PACKED gradients. Only the upper triangle is stored,
     // in the usual row-major order
     double sum_outer_jpackedp_jpackedp[(3+1)*3/2] = {};
 
-    // sum(outer(j_frame_measi*, j_calobject_warp_measi*)) for this frame. Uses
+    // sum(outer(dx[i]/rt_ref_frame, /dcalobject_warp)) for this frame. Uses
     // PACKED gradients. Stored densely, since it isn't symmetric. Shape (6,2)
     double sum_outer_jpackedf_jpackedcw[6*2] = {};
+
+    // There's no sum_outer_jpackedf_jpackede. if(cross_reprojection_ccp), we
+    // would use the Jcrossf path ONLY if no extrinsics were available: Je does
+    // not exist in that case, and I do NOT need to compute
+    // sum_outer_jpackedf_jpackede. if(!cross_reprojection_ccp), then I don't
+    // NEED sum_outer_jpackedf_jpackede at all
+
+
+
 
     double Jcross_t__Jcross[(6+1)*6/2] = {};
 
@@ -883,49 +911,115 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
 
     for(int imeas=0; imeas<Nmeas_obs; imeas++)
     {
-        int ival = Jrowptr[imeas];
+        // For each measurement, we will have gradients for some set of variables:
+        int ival_intrinsics     = -1;
+        int ival_extrinsics     = -1;
+        int ival_frames         = -1;
+        int ival_points         = -1;
+        int ival_calobject_warp = -1;
 
-        // For each measurement, we will have gradients for some set of
-        // - intrinsics
-        // - extrinsics
-        // - frames
-        // - points
-        // - calobject_warp
-
-
-        // I look through the jacobian until I find either a frame or a point
-        // gradient
-        int state_index;
-
-        state_index = Jcolidx[ival];
-        if( state_index_intrinsics0 <= state_index &&
-            state_index < state_index_intrinsics0 + Nstate_intrinsics )
+        // I map out this row
         {
-            // We're looking at a block of intrinsics; move past them
-            ival += Nstate_intrinsics_in_jacobian_row;
-            if(!(ival < Jrowptr[imeas+1]))
-                continue;
-            state_index = Jcolidx[ival];
+            int ival;
+            do
+            {
+                ival = Jrowptr[imeas];
+
+                int state_index = Jcolidx[ival];
+
+                if( state_index_intrinsics0 <= state_index &&
+                    state_index < state_index_intrinsics0 + Nstate_intrinsics )
+                {
+                    ival_intrinsics = ival;
+                    ival += Nstate_intrinsics_in_jacobian_row;
+                    if(!(ival < Jrowptr[imeas+1]))
+                        break;
+                    state_index = Jcolidx[ival];
+                }
+
+                if( state_index_extrinsics0 <= state_index &&
+                    state_index < state_index_extrinsics0 + Nstate_extrinsics )
+                {
+                    ival_extrinsics = ival;
+                    ival += 6;
+                    if(!(ival < Jrowptr[imeas+1]))
+                        break;
+                    state_index = Jcolidx[ival];
+                }
+
+                if( state_index_frames0 <= state_index &&
+                    state_index < state_index_frames0 + Nstate_frames )
+                {
+                    ival_frames = ival;
+                    ival += 6;
+                    if(!(ival < Jrowptr[imeas+1]))
+                        break;
+                    state_index = Jcolidx[ival];
+                }
+
+                if( state_index_points0 <= state_index &&
+                    state_index < state_index_points0 + Nstate_points )
+                {
+                    ival_points = ival;
+                    ival += 3;
+                    if(!(ival < Jrowptr[imeas+1]))
+                        break;
+                    state_index = Jcolidx[ival];
+                }
+
+                if( state_index_calobject_warp0 <= state_index &&
+                    state_index < state_index_calobject_warp0 + Nstate_calobject_warp )
+                {
+                    ival_calobject_warp = ival;
+                    ival += Nstate_calobject_warp;
+                    if(!(ival < Jrowptr[imeas+1]))
+                        break;
+                    state_index = Jcolidx[ival];
+                }
+            } while(false);
+
+            if(ival != Jrowptr[imeas+1])
+            {
+                MSG("ERROR: unexpected jacobian structure");
+                return false;
+            }
+
+            if(ival_frames >= 0 && ival_points >= 0)
+            {
+                MSG("ERROR: both points and frames exist in this measuremnet. This is not supported");
+                return false;
+            }
+            if(ival_frames < 0 && ival_calobject_warp >= 0)
+            {
+                MSG("ERROR: this measurement has no frames but DOES use a calobject_warp. That makes no sense");
+                return false;
+            }
+            if(ival_frames<0 && ival_points<0)
+            {
+                MSG("ERROR: neither frames nor points are used in this measurement; do I support that?");
+                return false;
+            }
         }
-        if( state_index_extrinsics0 <= state_index &&
-            state_index < state_index_extrinsics0 + Nstate_extrinsics )
+
+        if(ival_calobject_warp < 0 &&
+           Kpackedcw != NULL)
         {
-            // We're looking at a block of extrinsics; move past them
-            ival += 6;
-            if(!(ival < Jrowptr[imeas+1]))
-                continue;
-            state_index = Jcolidx[ival];
+            MSG("Unexpected jacobian structure. There's no calobject_warp gradient in measurement %d, but the user asked for it",
+                imeas);
+            return false;
+        }
+        if(ival_calobject_warp >= 0 &&
+           Kpackedcw == NULL)
+        {
+            MSG("Unexpected jacobian structure. There's a calobject_warp gradient in measurement %d, but the user didn't ask for it",
+                imeas);
+            return false;
         }
 
-        // We're now looking at frames or points or beyond
 
-        // if(frame gradient). If these don't exist in this problem,
-        // Nstate_frames==0, and this will always be false
-        if( state_index_frame0 <= state_index &&
-            state_index < state_index_frame0 + Nstate_frames )
+
+        if(ival_frames >= 0)
         {
-            // This observation is of chessboards
-
             // We're looking at SOME rt_ref_frame gradient. I expect 6 values
             // for the rt_ref_frame gradient followed by 2 values for the
             // calobject_warp gradient
@@ -933,6 +1027,7 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
             // Consecutive chunks of Nw*Nh*2 measurements will represent the
             // same board pose, and the same rt_ref_frame
 
+            int state_index = Jcolidx[ival_frames];
             if(state_index < state_index_frame_current)
             {
                 MSG("Unexpected jacobian structure. I'm assuming non-decreasing frame references. The Jcross_t__Jcross computation uses chunks of Kpackedf; it assumes that once the chunk is computed, it is DONE, and never revisited. Non-monotonic frame indices break that");
@@ -943,7 +1038,7 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
             {
                 // Looking at a new frame. Finish the previous frame
                 accumulate_frame( // output
-                                  &Kpackedf[state_index_frame_current-state_index_frame0],
+                                  &Kpackedf[state_index_frame_current-state_index_frames0],
                                   Kpackedf_stride0_elems,
                                   Kpackedcw,
                                   Kpackedcw_stride0_elems,
@@ -959,7 +1054,7 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
             state_index_frame_current = state_index;
 
             // I have dx/drt_ref_frame for this frame. This is 6 numbers
-            const double* dx_drt_ref_frame_packed = &Jval[ival];
+            const double* dx_drt_ref_frame_packed = &Jval[ival_frames];
 
             // sum(outer(dx/drt_ref_frame,dx/drt_ref_frame)) into sum_outer_jpackedf_jpackedf
 
@@ -973,43 +1068,10 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
                     sum_outer_jpackedf_jpackedf[ivalue] +=
                         dx_drt_ref_frame_packed[i]*dx_drt_ref_frame_packed[j];
 
-            // I just looked at all the frame gradients. Fast-forward past
-            // them all
-            ival += 6;
 
-
-            if(!(ival < Jrowptr[imeas+1]))
-            {
-                // No more gradients for this measurement. There is no
-                // calobject_warp
-                if(Kpackedcw != NULL)
-                {
-                    MSG("Unexpected jacobian structure. There's no calobject_warp gradient in measurement %d, but the user asked for it",
-                        imeas);
-                    return false;
-                }
-
+            if(!(ival_calobject_warp >= 0))
                 continue; // next measurement
-            }
-
-            state_index = Jcolidx[ival];
-            if(!(state_index >= state_index_calobject_warp0 &&
-                 state_index < state_index_calobject_warp0 + Nstate_calobject_warp) )
-            {
-                MSG("Unexpected jacobian structure. I'm assuming frame jacobians to be followed immediately by calobject_warp jacobians");
-                return false;
-            }
-
-            // calobject_warp
-            if(Kpackedcw == NULL)
-            {
-                MSG("Unexpected jacobian structure. There's a calobject_warp gradient in measurement %d, but the user didn't ask for it",
-                    imeas);
-                return false;
-            }
-
-            const double* dx_dcalobject_warp_packed = &Jval[ival];
-
+            const double* dx_dcalobject_warp_packed = &Jval[ival_calobject_warp];
             // Similar to the above, but this isn't symmetric, so I store it
             // densely
             int ivalue = 0;
@@ -1018,27 +1080,15 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
                     sum_outer_jpackedf_jpackedcw[ivalue] +=
                         dx_drt_ref_frame_packed[i]*
                         dx_dcalobject_warp_packed[j];
-
-            // I just looked at all the calobject_warp gradients.
-            // Fast-forward past them all
-            ival += Nstate_calobject_warp;
-
-            if(ival < Jrowptr[imeas+1])
-            {
-                MSG("Unexpected jacobian structure. The calobject_warp jacobians should be the last gradient for each measurement");
-                return false;
-            }
         }
 
         // if(point gradient). If these don't exist in this problem,
         // Nstate_points==0, and this will always be false
-        if( state_index_point0 <= state_index &&
-            state_index < state_index_point0 + Nstate_points )
+        if(ival_points >= 0)
         {
-            // This observation is of a point
-
             // We're looking at SOME point gradient: 3 values
 
+            const int state_index = Jcolidx[ival_points];
             if(state_index < state_index_point_current)
             {
                 MSG("Unexpected jacobian structure. I'm assuming non-decreasing point references. The Jcross_t__Jcross computation uses chunks of Kpackedp; it assumes that once the chunk is computed, it is DONE, and never revisited. Non-monotonic point indices break that");
@@ -1049,7 +1099,7 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
             {
                 // Looking at a new point. Finish the previous point
                 accumulate_point( // output
-                                  &Kpackedp[state_index_point_current-state_index_point0],
+                                  &Kpackedp[state_index_point_current-state_index_points0],
                                   Kpackedp_stride0_elems,
                                   Jcross_t__Jcross,
 
@@ -1061,7 +1111,7 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
             state_index_point_current = state_index;
 
             // I have dx/dpoint for this point. This is 3 numbers
-            const double* dx_dpoint_packed = &Jval[ival];
+            const double* dx_dpoint_packed = &Jval[ival_points];
 
             // sum(outer(dx/dpoint,dx/dpoint)) into sum_outer_jpackedp_jpackedp
 
@@ -1074,23 +1124,13 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
                 for(int j=i; j<3; j++, ivalue++)
                     sum_outer_jpackedp_jpackedp[ivalue] +=
                         dx_dpoint_packed[i]*dx_dpoint_packed[j];
-
-            // I just looked at all the point gradients. Fast-forward past
-            // them all
-            ival += 3;
-
-            if(ival < Jrowptr[imeas+1])
-            {
-                MSG("Unexpected jacobian structure. The point jacobians should be the last gradient for each measurement");
-                return false;
-            }
         }
     }
 
     if(state_index_frame_current >= 0)
     {
         accumulate_frame( // output
-                          &Kpackedf[state_index_frame_current-state_index_frame0],
+                          &Kpackedf[state_index_frame_current-state_index_frames0],
                           Kpackedf_stride0_elems,
                           Kpackedcw,
                           Kpackedcw_stride0_elems,
@@ -1104,7 +1144,7 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
     if(state_index_point_current >= 0)
     {
         accumulate_point( // output
-                          &Kpackedp[state_index_point_current-state_index_point0],
+                          &Kpackedp[state_index_point_current-state_index_points0],
                           Kpackedp_stride0_elems,
                           Jcross_t__Jcross,
 
