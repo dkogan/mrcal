@@ -906,8 +906,13 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
 
     double Jcross_t__Jcross[(6+1)*6/2] = {};
 
-    int state_index_frame_current = -1;
-    int state_index_point_current = -1;
+    // The current chunk we're processing. We aggregate the sum_outer_...
+    // variables for each chunk (set of measurements with identical
+    // cam,frame,point). For instance, all 2*N*N measurements for a single
+    // chessboard observation come from the same chunk
+    int state_index_accumulating_frame = -1;
+    int state_index_accumulating_point = -1;
+
 
     for(int imeas=0; imeas<Nmeas_obs; imeas++)
     {
@@ -1017,6 +1022,58 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
         }
 
 
+        // Finish up existing accumulations
+        if(ival_frames >= 0 &&
+           Jcolidx[ival_frames] < state_index_accumulating_frame)
+        {
+            MSG("Unexpected jacobian structure. I'm assuming non-decreasing frame references. accumulate_frame() re-uses chunks of Kpackedf; it assumes that once the chunk is computed, it is DONE, and never revisited. Non-monotonic frame indices break that");
+            return false;
+        }
+        if(state_index_accumulating_frame >= 0 &&
+           ival_frames >= 0 &&
+           state_index_accumulating_frame != Jcolidx[ival_frames])
+        {
+            // New measurement is different. Accumulate.
+            accumulate_frame( // output
+                             &Kpackedf[state_index_accumulating_frame-state_index_frames0],
+                             Kpackedf_stride0_elems,
+                             Kpackedcw,
+                             Kpackedcw_stride0_elems,
+                             Jcross_t__Jcross,
+
+                             // input
+                             sum_outer_jpackedf_jpackedf,
+                             sum_outer_jpackedf_jpackedcw,
+                             &b_packed[state_index_accumulating_frame]);
+            memset(sum_outer_jpackedf_jpackedf,  0, sizeof(sum_outer_jpackedf_jpackedf));
+            memset(sum_outer_jpackedf_jpackedcw, 0, sizeof(sum_outer_jpackedf_jpackedcw));
+        }
+        state_index_accumulating_frame = (ival_frames < 0) ? -1 : Jcolidx[ival_frames];
+
+
+        if(ival_points >= 0 &&
+           Jcolidx[ival_points] < state_index_accumulating_point)
+        {
+            MSG("Unexpected jacobian structure. I'm assuming non-decreasing point references. accumulate_point() re-uses chunks of Kpackedp; it assumes that once the chunk is computed, it is DONE, and never revisited. Non-monotonic point indices break that");
+            return false;
+        }
+        if(state_index_accumulating_point >= 0 &&
+           ival_points >= 0 &&
+           state_index_accumulating_point != Jcolidx[ival_points])
+        {
+            // New measurement is different. Accumulate.
+            accumulate_point( // output
+                             &Kpackedp[state_index_accumulating_point-state_index_points0],
+                             Kpackedp_stride0_elems,
+                             Jcross_t__Jcross,
+
+                             // input
+                             sum_outer_jpackedp_jpackedp,
+                             &b_packed[state_index_accumulating_point]);
+            memset(sum_outer_jpackedp_jpackedp,  0, sizeof(sum_outer_jpackedp_jpackedp));
+        }
+        state_index_accumulating_point = (ival_points < 0) ? -1 : Jcolidx[ival_points];
+
 
         if(ival_frames >= 0)
         {
@@ -1026,32 +1083,6 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
             //
             // Consecutive chunks of Nw*Nh*2 measurements will represent the
             // same board pose, and the same rt_ref_frame
-
-            int state_index = Jcolidx[ival_frames];
-            if(state_index < state_index_frame_current)
-            {
-                MSG("Unexpected jacobian structure. I'm assuming non-decreasing frame references. The Jcross_t__Jcross computation uses chunks of Kpackedf; it assumes that once the chunk is computed, it is DONE, and never revisited. Non-monotonic frame indices break that");
-                return false;
-            }
-            if(state_index_frame_current >= 0 &&
-               state_index != state_index_frame_current)
-            {
-                // Looking at a new frame. Finish the previous frame
-                accumulate_frame( // output
-                                  &Kpackedf[state_index_frame_current-state_index_frames0],
-                                  Kpackedf_stride0_elems,
-                                  Kpackedcw,
-                                  Kpackedcw_stride0_elems,
-                                  Jcross_t__Jcross,
-
-                                  // input
-                                  sum_outer_jpackedf_jpackedf,
-                                  sum_outer_jpackedf_jpackedcw,
-                                  &b_packed[state_index_frame_current]);
-                memset(sum_outer_jpackedf_jpackedf,  0, (6+1)*6/2*sizeof(double));
-                memset(sum_outer_jpackedf_jpackedcw, 0, 6*2      *sizeof(double));
-            }
-            state_index_frame_current = state_index;
 
             // I have dx/drt_ref_frame for this frame. This is 6 numbers
             const double* dx_drt_ref_frame_packed = &Jval[ival_frames];
@@ -1088,28 +1119,6 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
         {
             // We're looking at SOME point gradient: 3 values
 
-            const int state_index = Jcolidx[ival_points];
-            if(state_index < state_index_point_current)
-            {
-                MSG("Unexpected jacobian structure. I'm assuming non-decreasing point references. The Jcross_t__Jcross computation uses chunks of Kpackedp; it assumes that once the chunk is computed, it is DONE, and never revisited. Non-monotonic point indices break that");
-                return false;
-            }
-            if(state_index_point_current >= 0 &&
-               state_index != state_index_point_current)
-            {
-                // Looking at a new point. Finish the previous point
-                accumulate_point( // output
-                                  &Kpackedp[state_index_point_current-state_index_points0],
-                                  Kpackedp_stride0_elems,
-                                  Jcross_t__Jcross,
-
-                                  // input
-                                  sum_outer_jpackedp_jpackedp,
-                                  &b_packed[state_index_point_current]);
-                memset(sum_outer_jpackedp_jpackedp,  0, (3+1)*3/2*sizeof(double));
-            }
-            state_index_point_current = state_index;
-
             // I have dx/dpoint for this point. This is 3 numbers
             const double* dx_dpoint_packed = &Jval[ival_points];
 
@@ -1127,31 +1136,31 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
         }
     }
 
-    if(state_index_frame_current >= 0)
-    {
+    // Finish up existing accumulations
+    if(state_index_accumulating_frame >= 0)
         accumulate_frame( // output
-                          &Kpackedf[state_index_frame_current-state_index_frames0],
-                          Kpackedf_stride0_elems,
-                          Kpackedcw,
-                          Kpackedcw_stride0_elems,
-                          Jcross_t__Jcross,
+                         &Kpackedf[state_index_accumulating_frame-state_index_frames0],
+                         Kpackedf_stride0_elems,
+                         Kpackedcw,
+                         Kpackedcw_stride0_elems,
+                         Jcross_t__Jcross,
 
-                          // input
-                          sum_outer_jpackedf_jpackedf,
-                          sum_outer_jpackedf_jpackedcw,
-                          &b_packed[state_index_frame_current]);
-    }
-    if(state_index_point_current >= 0)
-    {
+                         // input
+                         sum_outer_jpackedf_jpackedf,
+                         sum_outer_jpackedf_jpackedcw,
+                         &b_packed[state_index_accumulating_frame]);
+
+    if(state_index_accumulating_point >= 0)
         accumulate_point( // output
-                          &Kpackedp[state_index_point_current-state_index_points0],
-                          Kpackedp_stride0_elems,
-                          Jcross_t__Jcross,
+                         &Kpackedp[state_index_accumulating_point-state_index_points0],
+                         Kpackedp_stride0_elems,
+                         Jcross_t__Jcross,
 
-                          // input
-                          sum_outer_jpackedp_jpackedp,
-                          &b_packed[state_index_point_current]);
-    }
+                         // input
+                         sum_outer_jpackedp_jpackedp,
+                         &b_packed[state_index_accumulating_point]);
+
+
 
     // I now have filled Jcross_t__Jcross and Kpacked. I can
     // compute
