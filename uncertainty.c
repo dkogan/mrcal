@@ -127,6 +127,10 @@ accumulate_point()
 
 */
 
+// This writes to Jcross_t__Jpackedf and then reuses these values below to
+// compute Jcross_t__Jcross. This works ONLY if Jcross_t__Jpackedf was 0 in the
+// call to this function. The caller confirms that state_index_frame is
+// non-decreasing
 static
 void accumulate_frame(// output
                       // shape (6,6)
@@ -228,7 +232,6 @@ void accumulate_frame(// output
 
     // Jcross_t__Jpackedf output goes into [Af Bf]
     //                                     [Cf Df]
-
     double* Af = &Jcross_t__Jpackedf[Jcross_t__Jpackedf_stride0_elems*0 + 0];
     double* Bf = &Jcross_t__Jpackedf[Jcross_t__Jpackedf_stride0_elems*0 + 3];
     double* Cf = &Jcross_t__Jpackedf[Jcross_t__Jpackedf_stride0_elems*3 + 0];
@@ -302,34 +305,36 @@ void accumulate_frame(// output
                  /*skew[i*3 + 1]*/ + ( t0)*sum_outer_jpackedf_jpackedf[index_sym66(1+3,j)]
                  /*skew[i*3 + 2]   + (  0)*sum_outer_jpackedf_jpackedf[index_sym66(2+3,j)] */
                  ) / SCALE_TRANSLATION_FRAME;
+        }
 
-            // and similar for calobject_warp
-            if(j<2)
-            {
-                i = 0;
-                Acw[i*Jcross_t__Jpackedcw_stride0_elems + j] +=
-                    (
-                     /*skew[i*3 + 0]   + (  0)*sum_outer_jpackedf_jpackedcw[(0+3)*2 + j] */
-                     /*skew[i*3 + 1]*/ + (-t2)*sum_outer_jpackedf_jpackedcw[(1+3)*2 + j]
-                     /*skew[i*3 + 2]*/ + ( t1)*sum_outer_jpackedf_jpackedcw[(2+3)*2 + j]
-                     ) / SCALE_TRANSLATION_FRAME;
+        // and similar for calobject_warp
+        for(int j=0; j<2; j++)
+        {
+            int i;
 
-                i = 1;
-                Acw[i*Jcross_t__Jpackedcw_stride0_elems + j] +=
-                    (
-                     /*skew[i*3 + 0]*/ + ( t2)*sum_outer_jpackedf_jpackedcw[(0+3)*2 + j]
-                     /*skew[i*3 + 1]   + (  0)*sum_outer_jpackedf_jpackedcw[(1+3)*2 + j] */
-                     /*skew[i*3 + 2]*/ + (-t0)*sum_outer_jpackedf_jpackedcw[(2+3)*2 + j]
-                     ) / SCALE_TRANSLATION_FRAME;
+            i = 0;
+            Acw[i*Jcross_t__Jpackedcw_stride0_elems + j] +=
+                (
+                 /*skew[i*3 + 0]   + (  0)*sum_outer_jpackedf_jpackedcw[(0+3)*2 + j] */
+                 /*skew[i*3 + 1]*/ + (-t2)*sum_outer_jpackedf_jpackedcw[(1+3)*2 + j]
+                 /*skew[i*3 + 2]*/ + ( t1)*sum_outer_jpackedf_jpackedcw[(2+3)*2 + j]
+                 ) / SCALE_TRANSLATION_FRAME;
 
-                i = 2;
-                Acw[i*Jcross_t__Jpackedcw_stride0_elems + j] +=
-                    (
-                     /*skew[i*3 + 0]*/ + (-t1)*sum_outer_jpackedf_jpackedcw[(0+3)*2 + j]
-                     /*skew[i*3 + 1]*/ + ( t0)*sum_outer_jpackedf_jpackedcw[(1+3)*2 + j]
-                     /*skew[i*3 + 2]   + (  0)*sum_outer_jpackedf_jpackedcw[(2+3)*2 + j] */
-                     ) / SCALE_TRANSLATION_FRAME;
-            }
+            i = 1;
+            Acw[i*Jcross_t__Jpackedcw_stride0_elems + j] +=
+                (
+                 /*skew[i*3 + 0]*/ + ( t2)*sum_outer_jpackedf_jpackedcw[(0+3)*2 + j]
+                 /*skew[i*3 + 1]   + (  0)*sum_outer_jpackedf_jpackedcw[(1+3)*2 + j] */
+                 /*skew[i*3 + 2]*/ + (-t0)*sum_outer_jpackedf_jpackedcw[(2+3)*2 + j]
+                 ) / SCALE_TRANSLATION_FRAME;
+
+            i = 2;
+            Acw[i*Jcross_t__Jpackedcw_stride0_elems + j] +=
+                (
+                 /*skew[i*3 + 0]*/ + (-t1)*sum_outer_jpackedf_jpackedcw[(0+3)*2 + j]
+                 /*skew[i*3 + 1]*/ + ( t0)*sum_outer_jpackedf_jpackedcw[(1+3)*2 + j]
+                 /*skew[i*3 + 2]   + (  0)*sum_outer_jpackedf_jpackedcw[(2+3)*2 + j] */
+                 ) / SCALE_TRANSLATION_FRAME;
         }
     }
 
@@ -456,6 +461,10 @@ void accumulate_frame(// output
     }
 }
 
+// This writes to Jcross_t__Jpackedp and then reuses these values below to
+// compute Jcross_t__Jcross. This works ONLY if Jcross_t__Jpackedp was 0 in the
+// call to this function. The caller confirms that state_index_points is
+// non-decreasing
 static
 void accumulate_point(// output
                       // shape (6,3)
