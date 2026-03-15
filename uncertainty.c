@@ -794,6 +794,12 @@ int dpptrs_(char* uplo, int* n, int* nrhs,
             double* ap, double* b, int* ldb, int* info);
 
 bool _mrcal_drt_ref_refperturbed__dbpacked(// output
+                                          // used for cross_reprojection_ccp only. May be NULL
+                                          // Shape (6,Nstate_cameras)
+                                          double* Kpackede,
+                                          int Kpackede_stride0, // in bytes. <= 0 means "contiguous"
+                                          int Kpackede_stride1, // in bytes. <= 0 means "contiguous"
+
                                           // Shape (6,Nstate_frames)
                                           double* Kpackedf,
                                           int Kpackedf_stride0, // in bytes. <= 0 means "contiguous"
@@ -810,6 +816,15 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
                                           int Kpackedcw_stride1, // in bytes. <= 0 means "contiguous"
 
                                           // inputs
+
+                                          // which camera we're interested in.
+                                          // If <0, we report K using the
+                                          // cross_reprojection_rrp method.
+                                          // Otherwise, we use
+                                          // cross_reprojection_ccp for THIS
+                                          // camera
+                                          const int icam_intrinsics,
+
                                           // stuff that describes this solve
                                           const double* b_packed,
                                           // used only to confirm that the user passed-in the buffer they
@@ -836,6 +851,12 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
                                           int calibration_object_width_n,
                                           int calibration_object_height_n)
 {
+
+
+    const bool cross_reprojection_ccp = icam_intrinsics >= 0;
+
+
+
 
     const int*    Jrowptr = (int*)   Jt->p;
     const int*    Jcolidx = (int*)   Jt->i;
@@ -984,6 +1005,7 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
         }                                                               \
     }
 
+    INIT_ARRAY(Kpackede,  Nstate_extrinsics);
     INIT_ARRAY(Kpackedf,  Nstate_frames);
     INIT_ARRAY(Kpackedp,  Nstate_points);
     INIT_ARRAY(Kpackedcw, Nstate_calobject_warp);
@@ -1037,18 +1059,37 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
     // variables for each chunk (set of measurements with identical
     // cam,frame,point). For instance, all 2*N*N measurements for a single
     // chessboard observation come from the same chunk
-    int state_index_accumulating_frame = -1;
-    int state_index_accumulating_point = -1;
+    //
+    // "cam" is used for cross_reprojection_ccp only. if(cross_reprojection_rrp), this is always -1
+    int state_index_accumulating_cam   = -1;
+    // if(cross_reprojection_rrp) {these mean the chunk being processed}
+    // if(cross_reprojection_ccp) {
+    //   if(state_index_accumulating_cam < 0) {
+    //     These are the chunk being procesed.
+    //     We're accumulating into sum_outer_jpackedf... or sum_outer_jpackedp
+    //   } else {
+    //     we're processing the cam chunk.
+    //     we're accumulating into sum_outer_jpackede_jpackedf and sum_outer_jpackede_jpackedp.
+    //     The state_index..._for_cam variables denote where in the output Kpackedf,
+    //     Kpackedp matrix the accumulations will end up
+    //   }
+    // }
+    int state_index_accumulating_frame         = -1;
+    int state_index_accumulating_point         = -1;
+    int state_index_accumulating_frame_for_cam = -1;
+    int state_index_accumulating_point_for_cam = -1;
+
 
 
     for(int imeas=0; imeas<Nmeas_obs; imeas++)
     {
         // For each measurement, we will have gradients for some set of variables:
-        int ival_intrinsics     = -1;
-        int ival_extrinsics     = -1;
-        int ival_frames         = -1;
-        int ival_points         = -1;
-        int ival_calobject_warp = -1;
+        int ival_intrinsics      = -1;
+        int ival_extrinsics      = -1;
+        int ival_frames          = -1;
+        int ival_points          = -1;
+        int ival_calobject_warp  = -1;
+        int icam_intrinsics_here = -1;
 
         // I map out this row
         {
@@ -1062,6 +1103,8 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
                 if( state_index_intrinsics0 <= state_index &&
                     state_index < state_index_intrinsics0 + Nstate_intrinsics )
                 {
+                    icam_intrinsics_here = (state_index - state_index_intrinsics0) / Nstate_intrinsics_in_jacobian_row;
+
                     ival_intrinsics = ival;
                     ival += Nstate_intrinsics_in_jacobian_row;
                     if(!(ival < Jrowptr[imeas+1]))
@@ -1148,8 +1191,60 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
             return false;
         }
 
+        if(icam_intrinsics >= 0)
+        {
+            if(icam_intrinsics_here < 0)
+            {
+                MSG("ERROR: I was asked to report the uncertainty for a given icam_intrinsics, but saw a measurement with now known icam_intrinsics");
+                return false;
+            }
+            if(icam_intrinsics != icam_intrinsics_here)
+                // this measurement is for a different camera
+                continue;
+        }
+
+
+        const int state_index_accumulating_cam_here   = (ival_extrinsics < 0) ? -1 : Jcolidx[ival_extrinsics];
+        const int state_index_accumulating_frame_here = (ival_frames     < 0) ? -1 : Jcolidx[ival_frames];
+        const int state_index_accumulating_point_here = (ival_points     < 0) ? -1 : Jcolidx[ival_points];
 
         // Finish up existing accumulations
+
+        // state_index_accumulating_cam >= 0 happens only if cross_reprojection_ccp
+        if(state_index_accumulating_cam >= 0 &&
+           (
+            state_index_accumulating_cam           != state_index_accumulating_cam_here ||
+            state_index_accumulating_frame_for_cam != state_index_accumulating_frame_here ||
+            state_index_accumulating_point_for_cam != state_index_accumulating_point_here
+           )
+          )
+        {
+            accumulate_rt_block( // output
+                                &Kpackede[state_index_accumulating_cam-state_index_extrinsics0],
+                                Kpackede_stride0_elems,
+                                (state_index_accumulating_frame_for_cam>=0) ? &Kpackedf[state_index_accumulating_frame_for_cam-state_index_frames0] : NULL,
+                                Kpackedf_stride0_elems,
+                                (state_index_accumulating_point_for_cam>=0) ? &Kpackedp[state_index_accumulating_point_for_cam-state_index_points0] : NULL,
+                                Kpackedp_stride0_elems,
+                                Kpackedcw,
+                                Kpackedcw_stride0_elems,
+                                Jcross_t__Jcross,
+
+                                // input
+                                sum_outer_jpackede_jpackede,
+                                sum_outer_jpackede_jpackedf,
+                                sum_outer_jpackede_jpackedp,
+                                sum_outer_jpackedf_jpackedcw,
+                                &b_packed[state_index_accumulating_cam],
+                                SCALE_ROTATION_CAMERA,
+                                SCALE_TRANSLATION_CAMERA);
+
+            memset(sum_outer_jpackede_jpackede,  0, sizeof(sum_outer_jpackede_jpackede));
+            memset(sum_outer_jpackede_jpackedf,  0, sizeof(sum_outer_jpackede_jpackedf));
+            memset(sum_outer_jpackede_jpackedp,  0, sizeof(sum_outer_jpackede_jpackedp));
+            memset(sum_outer_jpackede_jpackedcw, 0, sizeof(sum_outer_jpackede_jpackedcw));
+        }
+
         if(state_index_accumulating_frame >= 0 &&
            ival_frames >= 0 &&
            state_index_accumulating_frame != Jcolidx[ival_frames])
@@ -1175,7 +1270,6 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
             memset(sum_outer_jpackedf_jpackedf,  0, sizeof(sum_outer_jpackedf_jpackedf));
             memset(sum_outer_jpackedf_jpackedcw, 0, sizeof(sum_outer_jpackedf_jpackedcw));
         }
-        state_index_accumulating_frame = (ival_frames < 0) ? -1 : Jcolidx[ival_frames];
 
         if(state_index_accumulating_point >= 0 &&
            ival_points >= 0 &&
@@ -1192,10 +1286,97 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
                              &b_packed[state_index_accumulating_point]);
             memset(sum_outer_jpackedp_jpackedp,  0, sizeof(sum_outer_jpackedp_jpackedp));
         }
-        state_index_accumulating_point = (ival_points < 0) ? -1 : Jcolidx[ival_points];
 
 
-        if(ival_frames >= 0)
+        if(cross_reprojection_ccp)
+        {
+            if(ival_extrinsics >= 0)
+            {
+                state_index_accumulating_cam           = Jcolidx[ival_extrinsics];
+                state_index_accumulating_frame         = -1;
+                state_index_accumulating_point         = -1;
+                state_index_accumulating_frame_for_cam = state_index_accumulating_frame_here;
+                state_index_accumulating_point_for_cam = state_index_accumulating_point_here;
+            }
+            else
+            {
+                state_index_accumulating_cam   = -1;
+                state_index_accumulating_frame = state_index_accumulating_frame_here;
+                state_index_accumulating_point = state_index_accumulating_point_here;
+            }
+        }
+        else
+        {
+            state_index_accumulating_frame = state_index_accumulating_frame_here;
+            state_index_accumulating_point = state_index_accumulating_point_here;
+        }
+
+
+        if(state_index_accumulating_cam >= 0)
+        {
+            // I have dx/drt_cam_ref. This is 6 numbers
+            const double* dx_drt_cam_ref_packed = &Jval[ival_extrinsics];
+
+            // sum(outer(dx/drt_cam_ref,dx/drt_cam_ref)) into sum_outer_jpackede_jpackede
+
+            // This is used to compute Jcross_t J_packed_efpcw and Jcross_t
+            // Jcross. This result is used in accumulate_frame()
+            //
+            // Uses PACKED gradients. Only the upper triangle is stored, in
+            // the usual row-major order
+            for(int i=0, ivalue=0; i<6; i++)
+                for(int j=i; j<6; j++, ivalue++)
+                    sum_outer_jpackede_jpackede[ivalue] +=
+                        dx_drt_cam_ref_packed[i]*dx_drt_cam_ref_packed[j];
+
+            if(ival_frames >= 0)
+            {
+                const double* dx_drt_ref_frame_packed = &Jval[ival_frames];
+                // Similar to the above, but this isn't symmetric, so I store it
+                // densely
+                int ivalue = 0;
+                for(int i=0; i<6; i++)
+                    for(int j=0; j<6; j++, ivalue++)
+                        sum_outer_jpackede_jpackedf[ivalue] +=
+                            dx_drt_cam_ref_packed[i]*
+                            dx_drt_ref_frame_packed[j];
+            }
+
+            if(ival_points >= 0)
+            {
+                const double* dx_dpoint_packed = &Jval[ival_points];
+                // Similar to the above, but this isn't symmetric, so I store it
+                // densely
+                int ivalue = 0;
+                for(int i=0; i<6; i++)
+                    for(int j=0; j<3; j++, ivalue++)
+                        sum_outer_jpackede_jpackedp[ivalue] +=
+                            dx_drt_cam_ref_packed[i]*
+                            dx_dpoint_packed[j];
+            }
+
+            if(ival_calobject_warp >= 0)
+            {
+                const double* dx_dcalobject_warp_packed = &Jval[ival_calobject_warp];
+                // Similar to the above, but this isn't symmetric, so I store it
+                // densely
+                int ivalue = 0;
+                for(int i=0; i<6; i++)
+                    for(int j=0; j<2; j++, ivalue++)
+                        sum_outer_jpackede_jpackedcw[ivalue] +=
+                            dx_drt_cam_ref_packed[i]*
+                            dx_dcalobject_warp_packed[j];
+            }
+        }
+
+        if(state_index_accumulating_cam >= 0)
+            // This is cross_reprojection_ccp. We have extrinsics, so we do not
+            // accumulate the others
+            continue;
+
+        // The frames and points accumulators below are identical in the
+        // cross_reprojection_ccp and cross_reprojection_rrp cases
+        if(state_index_accumulating_frame >= 0)
         {
             // We're looking at SOME rt_ref_frame gradient. I expect 6 values
             // for the rt_ref_frame gradient followed by 2 values for the
@@ -1233,9 +1414,7 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
                         dx_dcalobject_warp_packed[j];
         }
 
-        // if(point gradient). If these don't exist in this problem,
-        // Nstate_points==0, and this will always be false
-        if(ival_points >= 0)
+        if(state_index_accumulating_point >= 0)
         {
             // We're looking at SOME point gradient: 3 values
 
@@ -1257,6 +1436,27 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
     }
 
     // Finish up existing accumulations
+    if(state_index_accumulating_cam >= 0)
+        accumulate_rt_block( // output
+                            &Kpackede[state_index_accumulating_cam-state_index_extrinsics0],
+                            Kpackede_stride0_elems,
+                            (state_index_accumulating_frame_for_cam>=0) ? &Kpackedf[state_index_accumulating_frame_for_cam-state_index_frames0] : NULL,
+                            Kpackedf_stride0_elems,
+                            (state_index_accumulating_point_for_cam>=0) ? &Kpackedp[state_index_accumulating_point_for_cam-state_index_points0] : NULL,
+                            Kpackedp_stride0_elems,
+                            Kpackedcw,
+                            Kpackedcw_stride0_elems,
+                            Jcross_t__Jcross,
+
+                            // input
+                            sum_outer_jpackede_jpackede,
+                            sum_outer_jpackede_jpackedf,
+                            sum_outer_jpackede_jpackedp,
+                            sum_outer_jpackedf_jpackedcw,
+                            &b_packed[state_index_accumulating_cam],
+                            SCALE_ROTATION_CAMERA,
+                            SCALE_TRANSLATION_CAMERA);
+
     if(state_index_accumulating_frame >= 0)
         accumulate_rt_block( // output
                             &Kpackedf[state_index_accumulating_frame-state_index_frames0],

@@ -608,6 +608,12 @@ bool mrcal_optimizer_callback(// out
                              bool verbose);
 
 bool _mrcal_drt_ref_refperturbed__dbpacked(// output
+                                          // used for cross_reprojection_ccp only. May be NULL
+                                          // Shape (6,Nstate_cameras)
+                                          double* Kpackede,
+                                          int Kpackede_stride0, // in bytes. <= 0 means "contiguous"
+                                          int Kpackede_stride1, // in bytes. <= 0 means "contiguous"
+
                                           // Shape (6,Nstate_frames)
                                           double* Kpackedf,
                                           int Kpackedf_stride0, // in bytes. <= 0 means "contiguous"
@@ -624,6 +630,15 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
                                           int Kpackedcw_stride1, // in bytes. <= 0 means "contiguous"
 
                                           // inputs
+
+                                          // which camera we're interested in.
+                                          // If <0, we report K using the
+                                          // cross_reprojection_rrp method.
+                                          // Otherwise, we use
+                                          // cross_reprojection_ccp for THIS
+                                          // camera
+                                          const int icam_intrinsics,
+
                                           // stuff that describes this solve
                                           const double* b_packed,
                                           // used only to confirm that the user passed-in the buffer they

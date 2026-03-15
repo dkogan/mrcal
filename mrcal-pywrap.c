@@ -931,6 +931,9 @@ int PyArray_Converter_checkrenamed_leaveNone(PyObject* obj, PyObject** address)
     _(no_jacobian,                        int,               0,    "p",  ,                                  NULL,           -1,         {}) \
     _(no_factorization,                   int,               0,    "p",  ,                                  NULL,           -1,         {})
 
+#define CROSS_REPROJECTION_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(_) \
+    _(icam_intrinsics,                    int,              -1,    "i",  ,                                  NULL,           -1,         {})
+
 
 typedef enum {
     OPTIMIZEMODE_OPTIMIZE,
@@ -976,7 +979,7 @@ static bool optimize_validate_args( // out
                                     OPTIMIZE_ARGUMENTS_REQUIRED(ARG_LIST_DEFINE)
                                     OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_LIST_DEFINE)
                                     OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(ARG_LIST_DEFINE)
-
+                                    CROSS_REPROJECTION_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(ARG_LIST_DEFINE)
                                     void* dummy __attribute__((unused)))
 {
     _Static_assert( sizeof(mrcal_pose_t)/sizeof(double) == 6, "mrcal_pose_t is assumed to contain 6 elements");
@@ -984,6 +987,7 @@ static bool optimize_validate_args( // out
     OPTIMIZE_ARGUMENTS_REQUIRED(CHECK_LAYOUT);
     OPTIMIZE_ARGUMENTS_OPTIONAL(CHECK_LAYOUT);
     OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(CHECK_LAYOUT);
+    CROSS_REPROJECTION_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(CHECK_LAYOUT);
 
     int Ncameras_intrinsics = PyArray_DIMS(intrinsics)[0];
     int Ncameras_extrinsics = PyArray_DIMS(rt_cam_ref)[0];
@@ -1035,6 +1039,13 @@ static bool optimize_validate_args( // out
         BARF("Inconsistent Nobservations_point_triangulated: 'observations_point_triangulated...' says %ld, 'indices_triangulated_point_camintrinsics_camextrinsics' says %ld",
                      Nobservations_point_triangulated,
                      PyArray_DIMS(indices_point_triangulated_camintrinsics_camextrinsics)[0]);
+        return false;
+    }
+
+    if(icam_intrinsics >= Ncameras_intrinsics)
+    {
+        BARF("icam_intrinsics MUST be <0 (if unused) or in [0,Ncameras_intrinsics-1]. got %d NOT in [0,%d]",
+             icam_intrinsics, Ncameras_intrinsics-1);
         return false;
     }
 
@@ -1561,6 +1572,7 @@ PyObject* _optimize(optimizemode_t optimizemode,
     OPTIMIZE_ARGUMENTS_REQUIRED(ARG_DEFINE);
     OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_DEFINE);
     OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(ARG_DEFINE);
+    CROSS_REPROJECTION_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(ARG_DEFINE);
 
     bool need_decref_kwargs = false;
     if(!optimization_inputs_kwargs_delete_unknown(&kwargs, &need_decref_kwargs))
@@ -1571,8 +1583,7 @@ PyObject* _optimize(optimizemode_t optimizemode,
 
     SET_SIGINT();
 
-    if(optimizemode == OPTIMIZEMODE_OPTIMIZE   ||
-       optimizemode == OPTIMIZEMODE_DRTRRP_DB)
+    if(optimizemode == OPTIMIZEMODE_OPTIMIZE)
     {
         char* keywords[] = { OPTIMIZE_ARGUMENTS_REQUIRED(NAMELIST)
                              OPTIMIZE_ARGUMENTS_OPTIONAL(NAMELIST)
@@ -1586,6 +1597,26 @@ PyObject* _optimize(optimizemode_t optimizemode,
 
                                          OPTIMIZE_ARGUMENTS_REQUIRED(PARSEARG)
                                          OPTIMIZE_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
+            goto done;
+    }
+    else if(optimizemode == OPTIMIZEMODE_DRTRRP_DB)
+
+    {
+        char* keywords[] = { OPTIMIZE_ARGUMENTS_REQUIRED(NAMELIST)
+                             OPTIMIZE_ARGUMENTS_OPTIONAL(NAMELIST)
+                             CROSS_REPROJECTION_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(NAMELIST)
+                             NULL};
+        if(!PyArg_ParseTupleAndKeywords( args, kwargs,
+                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSECODE) "|$"
+                                         OPTIMIZE_ARGUMENTS_OPTIONAL(PARSECODE)
+                                         CROSS_REPROJECTION_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(PARSECODE)
+                                         ":mrcal.optimize",
+
+                                         keywords,
+
+                                         OPTIMIZE_ARGUMENTS_REQUIRED(PARSEARG)
+                                         OPTIMIZE_ARGUMENTS_OPTIONAL(PARSEARG)
+                                         CROSS_REPROJECTION_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(PARSEARG) NULL))
             goto done;
     }
     else if(optimizemode == OPTIMIZEMODE_CALLBACK)
@@ -1661,6 +1692,7 @@ PyObject* _optimize(optimizemode_t optimizemode,
                                 OPTIMIZE_ARGUMENTS_REQUIRED(ARG_LIST_CALL)
                                 OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_LIST_CALL)
                                 OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(ARG_LIST_CALL)
+                                CROSS_REPROJECTION_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(ARG_LIST_CALL)
                                 NULL))
         goto done;
 
@@ -1973,6 +2005,13 @@ PyObject* _optimize(optimizemode_t optimizemode,
             else
             {
                 // OPTIMIZEMODE_DRTRRP_DB
+                const int state_index_extrinsics0 =
+                    mrcal_state_index_extrinsics(0,
+                                                 Ncameras_intrinsics, Ncameras_extrinsics,
+                                                 Nframes,
+                                                 Npoints, Npoints_fixed, Nobservations_board,
+                                                 problem_selections,
+                                                 &mrcal_lensmodel);
                 const int state_index_frame0 =
                     mrcal_state_index_frames(0,
                                              Ncameras_intrinsics, Ncameras_extrinsics,
@@ -1995,11 +2034,11 @@ PyObject* _optimize(optimizemode_t optimizemode,
                                                      &mrcal_lensmodel);
 
                 // _mrcal_drt_ref_refperturbed__dbpacked() returns an array of
-                // shape (6,Nstate_noi_noe). I eventually want to use each of
-                // its rows to solve a linear system using the big cholesky
+                // shape (6,Nstate_subset). I eventually want to use each of its
+                // rows to solve a linear system using the big cholesky
                 // factorization: factorization.solve_xt_JtJ_bt(K). This uses
                 // CHOLMOD internally. CHOLMOD has no good API interface to use
-                // a subset of the state vector for its RHS (Nstate_noi_noe
+                // a subset of the state vector for its RHS (Nstate_subset
                 // instead of Nstate). I can pass in a sparsity pattern, but
                 // that feels like it wouldn't win me anything. So I construct
                 // and use a full K, filling the unused entries with 0
@@ -2020,6 +2059,11 @@ PyObject* _optimize(optimizemode_t optimizemode,
                 const npy_intp* strides = PyArray_STRIDES((PyArrayObject*)K);
 
                 if(!_mrcal_drt_ref_refperturbed__dbpacked(// output
+                                                         state_index_extrinsics0 >= 0 ?
+                                                         &((double*)(PyArray_DATA((PyArrayObject*)K)))[state_index_extrinsics0] : NULL,
+                                                         (int)strides[0],
+                                                         (int)strides[1],
+
                                                          state_index_frame0 >= 0 ?
                                                          &((double*)(PyArray_DATA((PyArrayObject*)K)))[state_index_frame0] : NULL,
                                                          (int)strides[0],
@@ -2034,6 +2078,8 @@ PyObject* _optimize(optimizemode_t optimizemode,
                                                          &((double*)(PyArray_DATA((PyArrayObject*)K)))[state_index_calobject_warp0] : NULL,
                                                          (int)strides[0],
                                                          (int)strides[1],
+
+                                                         icam_intrinsics,
 
                                                          c_b_packed_final, Nstate*sizeof(double),
                                                          &Jt,
@@ -2070,6 +2116,7 @@ PyObject* _optimize(optimizemode_t optimizemode,
     OPTIMIZE_ARGUMENTS_REQUIRED(FREE_PYARRAY);
     OPTIMIZE_ARGUMENTS_OPTIONAL(FREE_PYARRAY);
     OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(FREE_PYARRAY);
+    CROSS_REPROJECTION_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(FREE_PYARRAY);
 
     Py_XDECREF(b_packed_final);
     Py_XDECREF(x_final);
@@ -4520,12 +4567,12 @@ static bool _init_mrcal_common(PyObject* module)
     }
 #endif
 
-#define COUNT(name, pytype, initialvalue, parsecode, parseprearg, name_pyarrayobj, npy_type, dims_ref) \
-    +1
+#define COUNT(name, pytype, initialvalue, parsecode, parseprearg, name_pyarrayobj, npy_type, dims_ref) +1
     const int Nkeys = 0
         OPTIMIZE_ARGUMENTS_REQUIRED(COUNT)
         OPTIMIZE_ARGUMENTS_OPTIONAL(COUNT)
-        OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(COUNT);
+        OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(COUNT)
+        CROSS_REPROJECTION_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(COUNT);
 #undef COUNT
 
     PyObject* optimization_inputs_known_keys_tuple;
@@ -4550,6 +4597,7 @@ static bool _init_mrcal_common(PyObject* module)
     OPTIMIZE_ARGUMENTS_REQUIRED(ADD_TO_TUPLE);
     OPTIMIZE_ARGUMENTS_OPTIONAL(ADD_TO_TUPLE);
     OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(ADD_TO_TUPLE);
+    CROSS_REPROJECTION_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(ADD_TO_TUPLE);
 #undef ADD_TO_TUPLE
 
     _optimization_inputs_known_keys_frozenset =
