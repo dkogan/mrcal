@@ -100,15 +100,15 @@ void mul_gen33_gen33_into33insym66_accum(// output
 }
 __attribute__((unused))
 static
-void set_gen33_from_gen33insym66(// output
-                                 double* restrict P, int P_strideelems0, int P_strideelems1,
-                                 // input
-                                 const double* Msym66, int M_i0, int M_j0,
-                                 const double scale)
+void set_gen33_from_gen33insym66_accum(// output
+                                       double* restrict P, int P_strideelems0, int P_strideelems1,
+                                       // input
+                                       const double* Msym66, int M_i0, int M_j0,
+                                       const double scale)
 {
     for(int iout=0; iout<3; iout++)
         for(int jout=0; jout<3; jout++)
-            P[iout*P_strideelems0 + jout*P_strideelems1] =
+            P[iout*P_strideelems0 + jout*P_strideelems1] +=
                 Msym66[index_sym66(iout+M_i0, jout+M_j0)] * scale;
 }
 // Assumes the output is symmetric, and only computes the upper triangle
