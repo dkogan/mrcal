@@ -564,11 +564,6 @@ void accumulate_rt_block(// output
 }
 
 // Used for the rrp computation only
-//
-// This writes to Jcross_t__Jpackedp and then reuses these values below to
-// compute Jcross_t__Jcross. This works ONLY if Jcross_t__Jpackedp was 0 in the
-// call to this function. The caller confirms that state_index_points is
-// non-decreasing
 static
 void accumulate_point(// output
                       // shape (6,3)
@@ -630,8 +625,8 @@ void accumulate_point(// output
     //
     // A = skew_p sum_outer_jpackedp_jpackedp /SCALE
     // B =        sum_outer_jpackedp_jpackedp /SCALE
-    double* A = &Jcross_t__Jpackedp[Jcross_t__Jpackedp_stride0_elems*0 + 0];
-    double* B = &Jcross_t__Jpackedp[Jcross_t__Jpackedp_stride0_elems*3 + 0];
+    double A[3*3];
+    double B[3*3];
 
     // A <- skew_p sum_outer_jpackedp_jpackedp /SCALE
     {
@@ -646,7 +641,7 @@ void accumulate_point(// output
             int i;
 
             i = 0;
-            A[i*Jcross_t__Jpackedp_stride0_elems + j] +=
+            A[i*3 + j] =
                 (
                  /*skew[i*3 + 0]   + (          0)*sum_outer_jpackedp_jpackedp[index_sym33(0,j)] */
                  /*skew[i*3 + 1]*/ + (-ppacked[2])*sum_outer_jpackedp_jpackedp[index_sym33(1,j)]
@@ -654,7 +649,7 @@ void accumulate_point(// output
                  );
 
             i = 1;
-            A[i*Jcross_t__Jpackedp_stride0_elems + j] +=
+            A[i*3 + j] =
                 (
                  /*skew[i*3 + 0]*/ + ( ppacked[2])*sum_outer_jpackedp_jpackedp[index_sym33(0,j)]
                  /*skew[i*3 + 1]   + (          0)*sum_outer_jpackedp_jpackedp[index_sym33(1,j)] */
@@ -662,7 +657,7 @@ void accumulate_point(// output
                  );
 
             i = 2;
-            A[i*Jcross_t__Jpackedp_stride0_elems + j] +=
+            A[i*3 + j] =
                 (
                  /*skew[i*3 + 0]*/ + (-ppacked[1])*sum_outer_jpackedp_jpackedp[index_sym33(0,j)]
                  /*skew[i*3 + 1]*/ + ( ppacked[0])*sum_outer_jpackedp_jpackedp[index_sym33(1,j)]
@@ -676,7 +671,7 @@ void accumulate_point(// output
     {
         for(int j=0; j<3; j++)
             for(int i=0; i<3; i++)
-                B[i*Jcross_t__Jpackedp_stride0_elems + j] +=
+                B[i*3 + j] =
                     sum_outer_jpackedp_jpackedp[index_sym33(i,j)]
                     / SCALE_POSITION_POINT;
     }
@@ -699,25 +694,25 @@ void accumulate_point(// output
                 if(j == 0)
                     Jcross_t__Jcross[ivalue] -=
                         (
-                         /*skew[j + 0*3]   + A[i*Jcross_t__Jpackedp_stride0_elems+0]*(          0) */
-                         /*skew[j + 1*3]*/ + A[i*Jcross_t__Jpackedp_stride0_elems+1]*( ppacked[2])
-                         /*skew[j + 2*3]*/ + A[i*Jcross_t__Jpackedp_stride0_elems+2]*(-ppacked[1])
+                         /*skew[j + 0*3]   + A[i*3+0]*(          0) */
+                         /*skew[j + 1*3]*/ + A[i*3+1]*( ppacked[2])
+                         /*skew[j + 2*3]*/ + A[i*3+2]*(-ppacked[1])
                          );
 
                 if(j == 1)
                     Jcross_t__Jcross[ivalue] -=
                         (
-                         /*skew[j + 0*3]*/ + A[i*Jcross_t__Jpackedp_stride0_elems+0]*(-ppacked[2])
-                         /*skew[j + 1*3]   + A[i*Jcross_t__Jpackedp_stride0_elems+1]*(          0) */
-                         /*skew[j + 2*3]*/ + A[i*Jcross_t__Jpackedp_stride0_elems+2]*( ppacked[0])
+                         /*skew[j + 0*3]*/ + A[i*3+0]*(-ppacked[2])
+                         /*skew[j + 1*3]   + A[i*3+1]*(          0) */
+                         /*skew[j + 2*3]*/ + A[i*3+2]*( ppacked[0])
                          );
 
                 if(j == 2)
                     Jcross_t__Jcross[ivalue] -=
                         (
-                         /*skew[j + 0*3]*/ + A[i*Jcross_t__Jpackedp_stride0_elems+0]*( ppacked[1])
-                         /*skew[j + 1*3]*/ + A[i*Jcross_t__Jpackedp_stride0_elems+1]*(-ppacked[0])
-                         /*skew[j + 2*3]   + A[i*Jcross_t__Jpackedp_stride0_elems+2]*(          0) */
+                         /*skew[j + 0*3]*/ + A[i*3+0]*( ppacked[1])
+                         /*skew[j + 1*3]*/ + A[i*3+1]*(-ppacked[0])
+                         /*skew[j + 2*3]   + A[i*3+2]*(          0) */
                          );
             }
             ivalue += 3;
@@ -727,7 +722,7 @@ void accumulate_point(// output
     // Jcross_t__Jcross[01] <- A/SCALE
     {
         set_33insym66_from_gen33_accum(Jcross_t__Jcross, 0, 3,
-                                       A, Jcross_t__Jpackedp_stride0_elems, 1,
+                                       A, 3, 1,
                                        1./SCALE_POSITION_POINT);
     }
 
@@ -743,6 +738,13 @@ void accumulate_point(// output
                 sum_outer_jpackedp_jpackedp[i-i0] /
                 (SCALE_POSITION_POINT*SCALE_POSITION_POINT);
     }
+
+    for(int i=0; i<3; i++)
+        for(int j=0; j<3; j++)
+        {
+            Jcross_t__Jpackedp[Jcross_t__Jpackedp_stride0_elems*(i+0) + j] += A[3*i + j];
+            Jcross_t__Jpackedp[Jcross_t__Jpackedp_stride0_elems*(i+3) + j] += B[3*i + j];
+        }
 }
 
 static int get_Nstate_intrinsics_in_jacobian_row(const int* Jrowptr,
@@ -1169,13 +1171,6 @@ bool _mrcal_drt_ref_refperturbed__dbpacked(// output
         }
         state_index_accumulating_frame = (ival_frames < 0) ? -1 : Jcolidx[ival_frames];
 
-
-        if(ival_points >= 0 &&
-           Jcolidx[ival_points] < state_index_accumulating_point)
-        {
-            MSG("Unexpected jacobian structure. I'm assuming non-decreasing point references. accumulate_point() re-uses chunks of Kpackedp; it assumes that once the chunk is computed, it is DONE, and never revisited. Non-monotonic point indices break that");
-            return false;
-        }
         if(state_index_accumulating_point >= 0 &&
            ival_points >= 0 &&
            state_index_accumulating_point != Jcolidx[ival_points])
