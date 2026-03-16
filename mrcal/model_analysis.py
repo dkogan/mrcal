@@ -623,15 +623,28 @@ In the regularized case I have
 
   Var(F) = dF/db D inv(J*tJ*) J*[observations]t J*[observations] inv(J*tJ*) D dF/dbt observed_pixel_uncertainty^2
 
-It is far more efficient to compute inv(J*tJ*) D dF/dbt than
-inv(J*tJ*) J*[observations]t: there's far less to compute, and the matrices
-are far smaller. Thus I don't compute the covariances directly.
+I have
+
+  J* = [ J*[o] ]
+       [ J*[r] ]
+
+where J*[r] has MANY FEWER rows than J*[o]. J*tJ* = J*[o]tJ*[o] + J*[r]tJ*[r], so
+
+  J*[o]tJ*[o] = J*tJ* - J*[r]tJ*[r]
+
+  Var(F) = dF/db D inv(J*tJ*) (J*tJ* - J*[r]tJ*[r]) inv(J*tJ*) D dF/dbt observed_pixel_uncertainty^2
+         = dF/db D inv(J*tJ*) D dF/dbt observed_pixel_uncertainty^2 -
+           dF/db D inv(J*tJ*) J*[r]tJ*[r] inv(J*tJ*) D dF/dbt observed_pixel_uncertainty^2
+
+It is more efficient to compute inv(J*tJ*) D dF/dbt than inv(J*tJ*) J*[r]t:
+there's less to compute, and the matrices are smaller. Thus I don't compute the
+covariances directly.
 
 In the non-regularized case:
 
   Var(F) = dF/db D inv(J*tJ*) D dF/dbt
 
-  1. solve( J*tJ*, D dF/dbt)
+  1. dF/db D inv(J*tJ*) = solve( J*tJ*, D dF/dbt)
      The result has shape (Nstate,len(F))
 
   2. pre-multiply by dF/db D
@@ -721,11 +734,6 @@ In the regularized case:
     def process_slice(dF_dbpacked):
         if Nmeasurements_observations_leading > 0:
             # I have regularization. Use the more complicated expression
-
-            # I can probably adapt this path to use the faster solve_xt_JtJ_bt()
-            # expressions below, but I don't bother. I will be using the fast path
-            # 99% of the time: ignoring regularization
-            # (Nmeasurements_observations_leading=0)
 
             # shape (N,Nstate) where N=2 usually
             A = factorization.solve_xt_JtJ_bt( dF_dbpacked )
