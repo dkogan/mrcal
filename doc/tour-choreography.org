@@ -16,6 +16,9 @@ I run all of these studies using the =LENSMODEL_OPENCV8= model. It computes
 faster than the splined model, and qualitatively produces similar results.
 
 ** How many chessboard observations should we get?
+:PROPERTIES:
+:CUSTOM_ID: choreography-observation-count
+:END:
 
 #+begin_src sh
 dance-study.py                   \
@@ -189,6 +192,10 @@ tilt. Extra effort can be expended to improve this situation to make circle
 grids usable, or chessboards can be used.
 
 ** How many cameras should observe the chessboard?
+:PROPERTIES:
+:CUSTOM_ID: choreography-Ncameras
+:END:
+
 Moving on. Often we want to calibrate multiple cameras, and if we only care
 about the intrinsics we are free to do one N-way calibration or N separate
 monocular calibrations or anything in-between. The former has more constraints,
@@ -253,6 +260,10 @@ kind of chessboard do we want? mrcal assumes a chessboard being an evenly-spaced
 points and any spacing.
 
 ** How dense should the chessboard pattern be?
+:PROPERTIES:
+:CUSTOM_ID: choreography-chessboard-density
+:END:
+
 Let's examine the point counts. We expect that adding more points to a
 chessboard of the same size would produce better results, since we would have
 strictly more data to work with. This expectation is correct:
@@ -304,6 +315,10 @@ Here we varied =object-width-n=, but also adjusted =object-spacing= to keep the
 chessboard size the same.
 
 ** How big should the chessboard be?
+:PROPERTIES:
+:CUSTOM_ID: choreography-chessboard-size
+:END:
+
 What if we leave the point counts alone, but vary the spacing? As we increase
 the point spacing, the board grows in size, spanning more and more of the
 imager. We expect this would improve things:
