@@ -1433,7 +1433,7 @@ else:                    we return an array of shape (...)
     istate_frames0  = mrcal.state_index_frames(0, **optimization_inputs)
 
     if method == 'cross-reprojection-rrp-Jfp':
-        Kunpacked_rrp = mrcal.drt_ref_refperturbed__dbpacked(**optimization_inputs)
+        Kunpacked_rrp = mrcal.drt_cross_reprojection__dbpacked(**optimization_inputs)
         # The value was packed in the denominator. So I call pack() to unpack it
         mrcal.pack_state(Kunpacked_rrp, **optimization_inputs)
     else:

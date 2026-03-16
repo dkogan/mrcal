@@ -938,7 +938,7 @@ int PyArray_Converter_checkrenamed_leaveNone(PyObject* obj, PyObject** address)
 typedef enum {
     OPTIMIZEMODE_OPTIMIZE,
     OPTIMIZEMODE_CALLBACK,
-    OPTIMIZEMODE_DRTRRP_DB
+    OPTIMIZEMODE_DRTCROSS_REPROJECTION_DB
 } optimizemode_t;
 
 static bool lensmodel_one_validate_args( // out
@@ -1599,7 +1599,7 @@ PyObject* _optimize(optimizemode_t optimizemode,
                                          OPTIMIZE_ARGUMENTS_OPTIONAL(PARSEARG) NULL))
             goto done;
     }
-    else if(optimizemode == OPTIMIZEMODE_DRTRRP_DB)
+    else if(optimizemode == OPTIMIZEMODE_DRTCROSS_REPROJECTION_DB)
 
     {
         char* keywords[] = { OPTIMIZE_ARGUMENTS_REQUIRED(NAMELIST)
@@ -1880,7 +1880,7 @@ PyObject* _optimize(optimizemode_t optimizemode,
             Py_INCREF(result);
         }
         else if(optimizemode == OPTIMIZEMODE_CALLBACK ||
-                optimizemode == OPTIMIZEMODE_DRTRRP_DB)
+                optimizemode == OPTIMIZEMODE_DRTCROSS_REPROJECTION_DB)
         {
             int N_j_nonzero = _mrcal_num_j_nonzero(Nobservations_board,
                                                    Nobservations_point,
@@ -2004,7 +2004,7 @@ PyObject* _optimize(optimizemode_t optimizemode,
             }
             else
             {
-                // OPTIMIZEMODE_DRTRRP_DB
+                // OPTIMIZEMODE_DRTCROSS_REPROJECTION_DB
                 const int state_index_extrinsics0 =
                     mrcal_state_index_extrinsics(0,
                                                  Ncameras_intrinsics, Ncameras_extrinsics,
@@ -2033,7 +2033,7 @@ PyObject* _optimize(optimizemode_t optimizemode,
                                                      problem_selections,
                                                      &mrcal_lensmodel);
 
-                // _mrcal_drt_ref_refperturbed__dbpacked() returns an array of
+                // _mrcal_drt_cross_reprojection__dbpacked() returns an array of
                 // shape (6,Nstate_subset). I eventually want to use each of its
                 // rows to solve a linear system using the big cholesky
                 // factorization: factorization.solve_xt_JtJ_bt(K). This uses
@@ -2058,7 +2058,7 @@ PyObject* _optimize(optimizemode_t optimizemode,
 
                 const npy_intp* strides = PyArray_STRIDES((PyArrayObject*)K);
 
-                if(!_mrcal_drt_ref_refperturbed__dbpacked(// output
+                if(!_mrcal_drt_cross_reprojection__dbpacked(// output
                                                          state_index_extrinsics0 >= 0 ?
                                                          &((double*)(PyArray_DATA((PyArrayObject*)K)))[state_index_extrinsics0] : NULL,
                                                          (int)strides[0],
@@ -2094,7 +2094,7 @@ PyObject* _optimize(optimizemode_t optimizemode,
                                                          calibration_object_width_n,
                                                          calibration_object_height_n))
                 {
-                    BARF("_mrcal_drt_ref_refperturbed__dbpacked() failed");
+                    BARF("_mrcal_drt_cross_reprojection__dbpacked() failed");
                     Py_DECREF(K);
                     goto done;
                 }
@@ -2144,11 +2144,11 @@ static PyObject* optimize(PyObject* NPY_UNUSED(self),
     return _optimize(OPTIMIZEMODE_OPTIMIZE,
                      args, kwargs);
 }
-static PyObject* drt_ref_refperturbed__dbpacked(PyObject* NPY_UNUSED(self),
-                                                PyObject* args,
-                                                PyObject* kwargs)
+static PyObject* drt_cross_reprojection__dbpacked(PyObject* NPY_UNUSED(self),
+                                                  PyObject* args,
+                                                  PyObject* kwargs)
 {
-    return _optimize(OPTIMIZEMODE_DRTRRP_DB, args, kwargs);
+    return _optimize(OPTIMIZEMODE_DRTCROSS_REPROJECTION_DB, args, kwargs);
 }
 
 
@@ -4453,8 +4453,8 @@ static const char optimize_docstring[] =
 static const char optimizer_callback_docstring[] =
 #include "optimizer_callback.docstring.h"
     ;
-static const char drt_ref_refperturbed__dbpacked_docstring[] =
-#include "drt_ref_refperturbed__dbpacked.docstring.h"
+static const char drt_cross_reprojection__dbpacked_docstring[] =
+#include "drt_cross_reprojection__dbpacked.docstring.h"
     ;
 static const char lensmodel_metadata_and_config_docstring[] =
 #include "lensmodel_metadata_and_config.docstring.h"
@@ -4492,7 +4492,7 @@ static const char _test_python_cameramodel_converter_docstring[] =
 static PyMethodDef methods[] =
     { PYMETHODDEF_ENTRY(,optimize,                         METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(,optimizer_callback,               METH_VARARGS | METH_KEYWORDS),
-      PYMETHODDEF_ENTRY(,drt_ref_refperturbed__dbpacked,   METH_VARARGS | METH_KEYWORDS),
+      PYMETHODDEF_ENTRY(,drt_cross_reprojection__dbpacked, METH_VARARGS | METH_KEYWORDS),
 
       PYMETHODDEF_ENTRY(, state_index_intrinsics,          METH_VARARGS | METH_KEYWORDS),
       PYMETHODDEF_ENTRY(, state_index_extrinsics,          METH_VARARGS | METH_KEYWORDS),

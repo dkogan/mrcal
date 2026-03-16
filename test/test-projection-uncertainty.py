@@ -1761,13 +1761,13 @@ The rt_refperturbed_ref formulation:
                         -np.linalg.lstsq(J_cross_fp,
                                          Jpacked_fpcw,
                                          rcond = None)[0]
-                    Kpacked = mrcal.drt_ref_refperturbed__dbpacked(**optimization_inputs_baseline)
+                    Kpacked = mrcal.drt_cross_reprojection__dbpacked(**optimization_inputs_baseline)
 
                     testutils.confirm_equal(Kpacked_ref_fpcw,
                                             Kpacked,
                                             eps       = 1e-12,
                                             worstcase = True,
-                                            msg = f"drt_ref_refperturbed__dbpacked() does the right thing")
+                                            msg = f"drt_cross_reprojection__dbpacked() does the right thing")
 
 
                     if 0:
@@ -2300,7 +2300,7 @@ The rt_refperturbed_ref formulation:
                     wait = True)
 
         # shape (6,Nstate)
-        Kpacked = mrcal.drt_ref_refperturbed__dbpacked(**optimization_inputs_baseline)
+        Kpacked = mrcal.drt_cross_reprojection__dbpacked(**optimization_inputs_baseline)
 
         # I have
         #

@@ -607,7 +607,9 @@ bool mrcal_optimizer_callback(// out
                              int calibration_object_height_n,
                              bool verbose);
 
-bool _mrcal_drt_ref_refperturbed__dbpacked(// output
+// computes drt_ref_refperturbed/db (if icam_intrinsics<0) or
+// drt_cam_camperturbed/db (if icam_intrinsics >= 0)
+bool _mrcal_drt_cross_reprojection__dbpacked(// output
                                           // used for cross_reprojection_ccp only. May be NULL
                                           // Shape (6,Nstate_cameras)
                                           double* Kpackede,
