@@ -17,11 +17,6 @@ faster uncertainty computation:
   cecab50a CHOLMOD_factorization.solve_xt_JtJ_bt() can solve other problems
   9393ef79 Much faster uncertainty computation
 
-2024-11-27 bestq uncertainty method
-  - works
-  - needs documentation
-  - MUCH slower than the mean-pcam, since it solves the linear problem (Nframes
-    or Ncameras_extrinsics) more times than mean-pcam
 
 * Migration notes 2.4 -> 3.0
 
