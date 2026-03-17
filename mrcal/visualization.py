@@ -1706,9 +1706,14 @@ ARGUMENTS
   want the RMS size of the ellipse instead of the worst-direction size, pass
   isotropic=True.
 
-- method: optional string, defaulting to 'mean-pcam'. Multiple uncertainty
-  quantification methods are available. One of ('mean-pcam',
-  'cross-reprojection-rrp-Jfp') is selected by this option
+- method: optional string, selecting the uncertainty-computing method. Must be
+  one of
+
+  - 'mean-pcam'
+  - 'cross-reprojection-rrp-Jfp'
+  - 'cross-reprojection-ccp'
+
+  The default is 'mean-pcam'
 
 - cbmax: optional value, defaulting to 3.0. Sets the maximum range of the color
   map
@@ -1756,7 +1761,8 @@ plot
     import gnuplotlib as gp
 
     known_methods = set(('mean-pcam',
-                         'cross-reprojection-rrp-Jfp'),)
+                         'cross-reprojection-rrp-Jfp',
+                         'cross-reprojection-ccp'),)
     if method not in known_methods:
         raise Exception(f"Unknown uncertainty method: '{method}'. I know about {known_methods}")
 

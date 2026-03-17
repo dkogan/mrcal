@@ -932,7 +932,7 @@ def _dq_db__projection_uncertainty( # shape (...,3)
                                     istate_extrinsics0, istate_frames0,
                                     *,
                                     # shape (6,Nstate)
-                                    Kunpacked_rrp, # used iff method ~ "cross-reprojection..."
+                                    Kunpacked_cross_reprojection, # used iff method ~ "cross-reprojection-..."
                                     method,
                                     atinfinity):
     r'''Helper for projection_uncertainty()
@@ -1145,7 +1145,7 @@ def _dq_db__projection_uncertainty( # shape (...,3)
                               # shape (..., Ncameras_extrinsics,3,3)
                               dpcam_dpref,
                               # shape (6,Nstate)
-                              Kunpacked_rrp,
+                              Kunpacked_cross_reprojection,
                               atinfinity = atinfinity)
     else:
         raise Exception(f"Unknown {method=}")
@@ -1227,6 +1227,15 @@ broadcasts on p_cam only. We accept
 - model: a mrcal.cameramodel object that contains optimization_inputs, which are
   used to propagate the uncertainty
 
+- method: optional string, selecting the uncertainty-computing method. Must be
+  one of
+
+  - 'mean-pcam'
+  - 'cross-reprojection-rrp-Jfp'
+  - 'cross-reprojection-ccp'
+
+  The default is 'mean-pcam'
+
 - atinfinity: optional boolean, defaults to False. If True, we want to know the
   projection uncertainty, looking at a point infinitely-far away. We propagate
   all the uncertainties, ignoring the translation components of the poses
@@ -1272,7 +1281,8 @@ else:                    we return an array of shape (...)
 
 
     known_methods = set(('mean-pcam',
-                         'cross-reprojection-rrp-Jfp'),)
+                         'cross-reprojection-rrp-Jfp',
+                         'cross-reprojection-ccp'),)
     if method not in known_methods:
         raise Exception(f"Unknown uncertainty method: '{method}'. I know about {known_methods}")
 
@@ -1291,11 +1301,18 @@ else:                    we return an array of shape (...)
     istate_frames0  = mrcal.state_index_frames(0, **optimization_inputs)
 
     if method == 'cross-reprojection-rrp-Jfp':
-        Kunpacked_rrp = mrcal.drt_cross_reprojection__dbpacked(**optimization_inputs)
-        # The value was packed in the denominator. So I call pack() to unpack it
-        mrcal.pack_state(Kunpacked_rrp, **optimization_inputs)
+        icam_intrinsics_for_cross_reprojection = -1
     else:
-        Kunpacked_rrp = None
+        icam_intrinsics_for_cross_reprojection = icam_intrinsics
+
+    if re.match('cross-reprojection', method):
+        Kunpacked_cross_reprojection = \
+            mrcal.drt_cross_reprojection__dbpacked(icam_intrinsics = icam_intrinsics_for_cross_reprojection,
+                                                   **optimization_inputs)
+        # The value was packed in the denominator. So I call pack() to unpack it
+        mrcal.pack_state(Kunpacked_cross_reprojection, **optimization_inputs)
+    else:
+        Kunpacked_cross_reprojection = None
         if optimization_inputs.get('do_optimize_frames'):
             if get_input('observations_point')              is not None or \
                get_input('observations_point_triangulated') is not None:
@@ -1360,19 +1377,89 @@ else:                    we return an array of shape (...)
 
     Nstate = mrcal.num_states(**optimization_inputs)
 
-    # shape (..., 2, Nstate)
-    dq_db = \
-        _dq_db__projection_uncertainty( p_cam,
-                                        lensmodel, intrinsics_data,
-                                        rt_cam_ref, rt_ref_frame,
-                                        Nstate,
-                                        istate_intrinsics0,
-                                        istate_intrinsics0_onecam,
-                                        Nstates_intrinsics,
-                                        istate_extrinsics0, istate_frames0,
-                                        atinfinity = atinfinity,
-                                        method     = method,
-                                        Kunpacked_rrp = Kunpacked_rrp)
+
+    if method == 'cross-reprojection-ccp':
+
+        # q*    = project( pcam*, intrinsics* )
+        # pcam* = Tc*c pcam
+        #
+        # So q* depends on Tc*c, intrinsics*:
+        #   dq*/db =
+        #     dq*/dintrinsics* dintrinsics*/db +
+        #     dq*/dpcam* dpcam*/drt_cam_camp drt_cam_camp/db
+        #
+        # dq*/dintrinsics* ~ dq/dintrinsics: it comes directly from the
+        # projection
+        #
+        # dintrinsics*/db ~ dintrinsics/db ~ I. The intrinsics are stored
+        # directly in the state vector b, modulo some scaling
+        #
+        # dq*/dpcam* ~ dq/dpcam: ALSO comes directly from the projection
+        #
+        # dpcam*/drt_cam_camp we derive a few lines down
+        #
+        # drt_cam_camp/db is Kunpacked_cross_reprojection
+
+        # pcam = transform(rt_cam_cam*, pcam*)
+        #   where rt_cam_cam* is tiny
+        # -> pcam ~ pcam* + cross(r_cam_cam*, pcam) + t_cam_cam*
+        #         = pcam* - cross(pcam, r_cam_cam*) + t_cam_cam*
+        # -> 0 = dpcam*/dr_cam_cam* - skew(pcam)
+        #    0 = dpcam*/dt_cam_cam* + I
+        # -> dpcam*/dr_cam_cam* = skew(pcam)
+        #    dpcam*/dt_cam_cam* = -I
+
+        ### The output array. This function fills this in, and returns it
+        # shape (..., 2,Nstate)
+        dq_db = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
+
+        # shape (..., 2,3)
+        # shape (..., 2,Nintrinsics)
+        _, dq_dpcam, dq_dintrinsics = \
+            mrcal.project( p_cam, lensmodel, intrinsics_data,
+                           get_gradients = True)
+
+        if istate_intrinsics0 is not None:
+            dq_db[         ...,
+                           istate_intrinsics0:
+                           istate_intrinsics0+Nstates_intrinsics] = \
+            dq_dintrinsics[...,
+                           istate_intrinsics0_onecam:
+                           istate_intrinsics0_onecam+Nstates_intrinsics]
+
+
+
+        dpcamp__dr_cam_camp = mrcal.skew_symmetric(p_cam)
+
+        # I don't explicitly store dpcam*/dt = -I. I do that implicitly
+
+        dq__dr_cam_camp = nps.matmult(dq_dpcam, dpcamp__dr_cam_camp)
+
+        # I apply this to the whole dq_db array. Kunpacked_cross_reprojection has 0 rows for
+        # the unaffected state, so the columns that should be untouched will
+        # be untouched
+        dq_db += nps.matmult(dq__dr_cam_camp, Kunpacked_cross_reprojection[:3,:])
+
+        if not atinfinity:
+            dq_db -= nps.matmult(dq_dpcam, Kunpacked_cross_reprojection[3:,:])
+
+
+    else:
+
+        # shape (..., 2, Nstate)
+        dq_db = \
+            _dq_db__projection_uncertainty( p_cam,
+                                            lensmodel, intrinsics_data,
+                                            rt_cam_ref,
+                                            rt_ref_frame,
+                                            Nstate,
+                                            istate_intrinsics0,
+                                            istate_intrinsics0_onecam,
+                                            Nstates_intrinsics,
+                                            istate_extrinsics0, istate_frames0,
+                                            atinfinity = atinfinity,
+                                            method     = method,
+                                            Kunpacked_cross_reprojection = Kunpacked_cross_reprojection)
 
     return \
         _propagate_calibration_uncertainty(what,
