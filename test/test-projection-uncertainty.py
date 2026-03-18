@@ -1407,140 +1407,141 @@ noise, and reoptimizing'''
             J_cross  = np.zeros((args.Nsamples,Nmeas_observations_all,6), dtype=float)
 
             for what in have_state.keys():
-                if have_state[what]:
-                    x_cross0_what = \
-                        x_cross0[imeas0_observations[what]:
-                                 imeas0_observations[what] + Nmeas_observations[what]]
-                    x_cross0_what = x_cross0_what.reshape(pcam[what].shape[:-1] + (2,))
-                    if not np.shares_memory(x_cross0,x_cross0_what): raise Exception("reshape() made new array. This is a bug")
+                if not have_state[what]: continue
 
-                    J_cross_what = \
-                        J_cross[...,
-                                imeas0_observations[what]:
-                                imeas0_observations[what] + Nmeas_observations[what],
-                                :]
-                    if not np.shares_memory(J_cross,J_cross_what): raise Exception("reshape() made new array. This is a bug")
+                x_cross0_what = \
+                    x_cross0[imeas0_observations[what]:
+                             imeas0_observations[what] + Nmeas_observations[what]]
+                x_cross0_what = x_cross0_what.reshape(pcam[what].shape[:-1] + (2,))
+                if not np.shares_memory(x_cross0,x_cross0_what): raise Exception("reshape() made new array. This is a bug")
 
-                    if direction == 'rt_ref_refperturbed':
-                        # The operating point is at: rt_ref_ref* = 0. So we have
+                J_cross_what = \
+                    J_cross[...,
+                            imeas0_observations[what]:
+                            imeas0_observations[what] + Nmeas_observations[what],
+                            :]
+                if not np.shares_memory(J_cross,J_cross_what): raise Exception("reshape() made new array. This is a bug")
 
-                        #   x_cross0 =
-                        #     + W project(intrinsics,
-                        #                 T_cam_ref T_ref*_frame* p*)
-                        #     - W qref
+                if direction == 'rt_ref_refperturbed':
+                    # The operating point is at: rt_ref_ref* = 0. So we have
 
-                        dpcam_drt_ref_refperturbed = dpcam_drt_ref_ref
+                    #   x_cross0 =
+                    #     + W project(intrinsics,
+                    #                 T_cam_ref T_ref*_frame* p*)
+                    #     - W qref
 
-
-                        if what == 'board':
-                            # shape (Nsamples, Nmeas_observations_all,Nh,Nw,2)
-                            #       (Nsamples, Nmeas_observations_all,Nh,Nw,2,3)
-                            qcross,dq_dpcam,_ = \
-                                mrcal.project(pcam[what],
-                                              baseline_optimization_inputs['lensmodel'],
-                                              nps.dummy(baseline_intrinsics[ idx_camintrinsics[what], :], -2,-2),
-                                              get_gradients = True)
-                        elif what == 'point':
-                            # shape (Nsamples, Nmeas_observations_all,2)
-                            #       (Nsamples, Nmeas_observations_all,2,3)
-                            qcross,dq_dpcam,_ = \
-                                mrcal.project(pcam[what],
-                                              baseline_optimization_inputs['lensmodel'],
-                                              baseline_intrinsics[ idx_camintrinsics[what], :],
-                                              get_gradients = True)
-                        else:
-                            raise Exception(f"Unknown what={what}")
-
-                        qref = baseline_observations[what][...,:2]
-                        x_cross0_what[:] = (qcross - qref)*nps.dummy(weight[what],-1)
-                        x_cross0_what[...,weight[what]<=0,:] = 0 # outliers
-
-                        dx_dpcam = dq_dpcam*nps.dummy(weight[what],-1,-1)
-                        dx_dpcam[...,weight[what]<=0,:,:] = 0 # outliers
-                        dx_drt_ref_refperturbed = nps.matmult(dx_dpcam, dpcam_drt_ref_refperturbed[what])
-
-                        del qcross,dq_dpcam,_ # I'm running out of memory; free stuff when I can
+                    dpcam_drt_ref_refperturbed = dpcam_drt_ref_ref
 
 
-
-                        if what == 'board':
-                            # shape (Nsamples,Nmeas_observations_all,Nh,Nw,2,6) ->
-                            #       (Nsamples,Nmeas_observations_all*Nh*Nw*2,6) ->
-                            J_cross_what[:] = \
-                                nps.mv(nps.clump(nps.mv(dx_drt_ref_refperturbed, -1, -5),
-                                                 n = -4),
-                                       -2, -1)
-                        elif what == 'point':
-                            # shape (Nsamples,Nmeas_observations_all,2,6) ->
-                            #       (Nsamples,Nmeas_observations_all*2,6) ->
-                            J_cross_what[:] = \
-                                nps.mv(nps.clump(nps.mv(dx_drt_ref_refperturbed, -1, -3),
-                                                 n = -2),
-                                       -2, -1)
-                        else:
-                            raise Exception(f"Unknown what={what}")
-                        del dx_drt_ref_refperturbed # I'm running out of memory. Let's free stuff when we can
-
+                    if what == 'board':
+                        # shape (Nsamples, Nmeas_observations_all,Nh,Nw,2)
+                        #       (Nsamples, Nmeas_observations_all,Nh,Nw,2,3)
+                        qcross,dq_dpcam,_ = \
+                            mrcal.project(pcam[what],
+                                          baseline_optimization_inputs['lensmodel'],
+                                          nps.dummy(baseline_intrinsics[ idx_camintrinsics[what], :], -2,-2),
+                                          get_gradients = True)
+                    elif what == 'point':
+                        # shape (Nsamples, Nmeas_observations_all,2)
+                        #       (Nsamples, Nmeas_observations_all,2,3)
+                        qcross,dq_dpcam,_ = \
+                            mrcal.project(pcam[what],
+                                          baseline_optimization_inputs['lensmodel'],
+                                          baseline_intrinsics[ idx_camintrinsics[what], :],
+                                          get_gradients = True)
                     else:
-                        # The operating point as T_ref*_ref = identity:
-                        # rt_ref*_ref = 0. So we have
+                        raise Exception(f"Unknown what={what}")
 
-                        #   x_cross0 =
-                        #     + W project(intrinsics*,
-                        #                 T_cam*_ref* T_ref_frame pframe)
-                        #     - W qref*
+                    qref = baseline_observations[what][...,:2]
+                    x_cross0_what[:] = (qcross - qref)*nps.dummy(weight[what],-1)
+                    x_cross0_what[...,weight[what]<=0,:] = 0 # outliers
 
-                        # this is what is actually passed into this function with this
-                        # path
-                        pcamperturbed                       = pcam
-                        dpcamperturbed_drt_refperturbed_ref = dpcam_drt_ref_ref
+                    dx_dpcam = dq_dpcam*nps.dummy(weight[what],-1,-1)
+                    dx_dpcam[...,weight[what]<=0,:,:] = 0 # outliers
+                    dx_drt_ref_refperturbed = nps.matmult(dx_dpcam, dpcam_drt_ref_refperturbed[what])
 
-                        if what == 'board':
-                            # shape (..., Nmeas_observations_all,Nh,Nw,2)
-                            #       (..., Nmeas_observations_all,Nh,Nw,2,3)
-                            qcross,dq_dpcamperturbed,_ = \
-                                mrcal.project(pcamperturbed[what],
-                                              baseline_optimization_inputs['lensmodel'],
-                                              nps.dummy(query_intrinsics[:, idx_camintrinsics[what] ], -2,-2),
-                                              get_gradients = True)
-                        elif what == 'point':
-                            # shape (..., Nmeas_observations_all,2)
-                            #       (..., Nmeas_observations_all,2,3)
-                            qcross,dq_dpcamperturbed,_ = \
-                                mrcal.project(pcamperturbed[what],
-                                              baseline_optimization_inputs['lensmodel'],
-                                              query_intrinsics[:, idx_camintrinsics[what] ],
-                                              get_gradients = True)
-                        else:
-                            raise Exception(f"Unknown what={what}")
+                    del qcross,dq_dpcam,_ # I'm running out of memory; free stuff when I can
 
-                        qrefperturbed = query_observations[what][...,:2]
-                        x_cross0_what[:] = (qcross - qrefperturbed)*nps.dummy(weight[what],-1)
-                        x_cross0_what[...,weight[what]<=0,:] = 0 # outliers
 
-                        dx_dpcamperturbed = dq_dpcamperturbed*nps.dummy(weight[what],-1,-1)
-                        dx_dpcamperturbed[...,weight[what]<=0,:,:] = 0 # outliers
-                        dx_drt_ref_refperturbed = nps.matmult(dx_dpcamperturbed, dpcamperturbed_drt_refperturbed_ref[what])
 
-                        del qcross,dq_dpcamperturbed,_ # I'm running out of memory; free stuff when I can
+                    if what == 'board':
+                        # shape (Nsamples,Nmeas_observations_all,Nh,Nw,2,6) ->
+                        #       (Nsamples,Nmeas_observations_all*Nh*Nw*2,6) ->
+                        J_cross_what[:] = \
+                            nps.mv(nps.clump(nps.mv(dx_drt_ref_refperturbed, -1, -5),
+                                             n = -4),
+                                   -2, -1)
+                    elif what == 'point':
+                        # shape (Nsamples,Nmeas_observations_all,2,6) ->
+                        #       (Nsamples,Nmeas_observations_all*2,6) ->
+                        J_cross_what[:] = \
+                            nps.mv(nps.clump(nps.mv(dx_drt_ref_refperturbed, -1, -3),
+                                             n = -2),
+                                   -2, -1)
+                    else:
+                        raise Exception(f"Unknown what={what}")
+                    del dx_drt_ref_refperturbed # I'm running out of memory. Let's free stuff when we can
 
-                        if what == 'board':
-                            # shape (...,Nmeas_observations_all,Nh,Nw,2,6) ->
-                            #       (...,Nmeas_observations_all*Nh*Nw*2,6) ->
-                            J_cross_what[:] = \
-                                nps.mv(nps.clump(nps.mv(dx_drt_ref_refperturbed, -1, -5),
-                                                 n = -4),
-                                       -2, -1)
-                        elif what == 'point':
-                            # shape (...,Nmeas_observations_all,2,6) ->
-                            #       (...,Nmeas_observations_all*2,6) ->
-                            J_cross_what[:] = \
-                                nps.mv(nps.clump(nps.mv(dx_drt_ref_refperturbed, -1, -3),
-                                                 n = -2),
-                                       -2, -1)
-                        else:
-                            raise Exception(f"Unknown what={what}")
-                        del dx_drt_ref_refperturbed # I'm running out of memory. Let's free stuff when we can
+                else:
+                    # The operating point as T_ref*_ref = identity:
+                    # rt_ref*_ref = 0. So we have
+
+                    #   x_cross0 =
+                    #     + W project(intrinsics*,
+                    #                 T_cam*_ref* T_ref_frame pframe)
+                    #     - W qref*
+
+                    # this is what is actually passed into this function with this
+                    # path
+                    pcamperturbed                       = pcam
+                    dpcamperturbed_drt_refperturbed_ref = dpcam_drt_ref_ref
+
+                    if what == 'board':
+                        # shape (..., Nmeas_observations_all,Nh,Nw,2)
+                        #       (..., Nmeas_observations_all,Nh,Nw,2,3)
+                        qcross,dq_dpcamperturbed,_ = \
+                            mrcal.project(pcamperturbed[what],
+                                          baseline_optimization_inputs['lensmodel'],
+                                          nps.dummy(query_intrinsics[:, idx_camintrinsics[what] ], -2,-2),
+                                          get_gradients = True)
+                    elif what == 'point':
+                        # shape (..., Nmeas_observations_all,2)
+                        #       (..., Nmeas_observations_all,2,3)
+                        qcross,dq_dpcamperturbed,_ = \
+                            mrcal.project(pcamperturbed[what],
+                                          baseline_optimization_inputs['lensmodel'],
+                                          query_intrinsics[:, idx_camintrinsics[what] ],
+                                          get_gradients = True)
+                    else:
+                        raise Exception(f"Unknown what={what}")
+
+                    qrefperturbed = query_observations[what][...,:2]
+                    x_cross0_what[:] = (qcross - qrefperturbed)*nps.dummy(weight[what],-1)
+                    x_cross0_what[...,weight[what]<=0,:] = 0 # outliers
+
+                    dx_dpcamperturbed = dq_dpcamperturbed*nps.dummy(weight[what],-1,-1)
+                    dx_dpcamperturbed[...,weight[what]<=0,:,:] = 0 # outliers
+                    dx_drt_ref_refperturbed = nps.matmult(dx_dpcamperturbed, dpcamperturbed_drt_refperturbed_ref[what])
+
+                    del qcross,dq_dpcamperturbed,_ # I'm running out of memory; free stuff when I can
+
+                    if what == 'board':
+                        # shape (...,Nmeas_observations_all,Nh,Nw,2,6) ->
+                        #       (...,Nmeas_observations_all*Nh*Nw*2,6) ->
+                        J_cross_what[:] = \
+                            nps.mv(nps.clump(nps.mv(dx_drt_ref_refperturbed, -1, -5),
+                                             n = -4),
+                                   -2, -1)
+                    elif what == 'point':
+                        # shape (...,Nmeas_observations_all,2,6) ->
+                        #       (...,Nmeas_observations_all*2,6) ->
+                        J_cross_what[:] = \
+                            nps.mv(nps.clump(nps.mv(dx_drt_ref_refperturbed, -1, -3),
+                                             n = -2),
+                                   -2, -1)
+                    else:
+                        raise Exception(f"Unknown what={what}")
+                    del dx_drt_ref_refperturbed # I'm running out of memory. Let's free stuff when we can
 
             return x_cross0 - x_baseline[imeas0_observations_all:imeas0_observations_all+Nmeas_observations_all], J_cross
 
