@@ -1303,6 +1303,23 @@ The logic here is described thoroughly in
 
     def get_rt_ref_refperturbed():
 
+        def transform_point_rt3_withgrad_drt0(rt0, rt1, rt2, p):
+
+            def compose_rt3_withgrad_drt0(rt0, rt1, rt2):
+                rt01,drt01_drt0,drt01_drt1 = \
+                    mrcal.compose_rt(rt0, rt1, get_gradients = True)
+                rt012,drt012_drt01,drt012_drt2 = \
+                    mrcal.compose_rt(rt01, rt2, get_gradients = True)
+                drt012_drt0 = nps.matmult(drt012_drt01, drt01_drt0)
+                return rt012,drt012_drt0
+
+
+            rt012,drt012_drt0 = compose_rt3_withgrad_drt0(rt0,rt1,rt2)
+            pp, dpp_drt012, dpp_dp = mrcal.transform_point_rt(rt012, p, get_gradients = True)
+            dpp_drt0 = nps.matmult(dpp_drt012, drt012_drt0)
+            del dpp_dp,dpp_drt012 # I'm running out of memory. Let's free stuff when we can
+            return pp, dpp_drt0
+
         def transform_point_rt3_withgrad_drt1(rt0, rt1, rt2, p):
 
             def compose_rt3_withgrad_drt1(rt0, rt1, rt2):
@@ -1389,13 +1406,22 @@ The logic here is described thoroughly in
             return dprot_drt
 
         def get_cross_operating_point(
+                ### The meaning of "pcam" depends on the "direction" argument.
+                ### The flow diagram is traversed along the path indicated by
+                ### the direction
+
                 # dict( boards = shape (Nsamples, Nobservations_board,Nh,Nw,3),
                 #       points = shape (Nsamples, Nobservations_point,      3) )
                 pcam,
                 # dict( boards = shape (Nsamples, Nobservations_board,Nh,Nw,3),
                 #       points = shape (Nsamples, Nobservations_point,      3,6) )
-                dpcam_drt_ref_ref,
+                dpcam_drt,
                 *,
+                # One of
+                #   'rt_ref_refperturbed'
+                #   'rt_refperturbed_ref'
+                #   'rt_cam_camperturbed'
+                #   'rt_camperturbed_cam'
                 direction):
 
             r'''Compute (dx_cross0,J_cross) directly, from a projection
@@ -1423,27 +1449,22 @@ noise, and reoptimizing'''
                 if not np.shares_memory(J_cross,J_cross_what): raise Exception("reshape() made new array. This is a bug")
 
                 if direction == 'rt_ref_refperturbed':
-                    # The operating point is at: rt_ref_ref* = 0. So we have
-
                     #   x_cross0 =
                     #     + W project(intrinsics,
-                    #                 T_cam_ref T_ref*_frame* p*)
+                    #                 T_cam_ref T_ref*_frame* pframe*)
                     #     - W qref
-
-                    dpcam_drt_ref_refperturbed = dpcam_drt_ref_ref
-
-
+                    dpcam_drt_ref_refperturbed = dpcam_drt
                     if what == 'board':
-                        # shape (Nsamples, Nmeas_observations_all,Nh,Nw,2)
-                        #       (Nsamples, Nmeas_observations_all,Nh,Nw,2,3)
+                        # shape (..., Nmeas_observations_all,Nh,Nw,2)
+                        #       (..., Nmeas_observations_all,Nh,Nw,2,3)
                         qcross,dq_dpcam,_ = \
                             mrcal.project(pcam[what],
                                           baseline_optimization_inputs['lensmodel'],
                                           nps.dummy(baseline_intrinsics[ idx_camintrinsics[what], :], -2,-2),
                                           get_gradients = True)
                     elif what == 'point':
-                        # shape (Nsamples, Nmeas_observations_all,2)
-                        #       (Nsamples, Nmeas_observations_all,2,3)
+                        # shape (..., Nmeas_observations_all,2)
+                        #       (..., Nmeas_observations_all,2,3)
                         qcross,dq_dpcam,_ = \
                             mrcal.project(pcam[what],
                                           baseline_optimization_inputs['lensmodel'],
@@ -1462,40 +1483,29 @@ noise, and reoptimizing'''
 
                     del qcross,dq_dpcam,_ # I'm running out of memory; free stuff when I can
 
-
-
                     if what == 'board':
-                        # shape (Nsamples,Nmeas_observations_all,Nh,Nw,2,6) ->
-                        #       (Nsamples,Nmeas_observations_all*Nh*Nw*2,6) ->
+                        # shape (...,Nmeas_observations_all,Nh,Nw,2,6) ->
+                        #       (...,Nmeas_observations_all*Nh*Nw*2,6) ->
                         J_cross_what[:] = \
                             nps.mv(nps.clump(nps.mv(dx_drt_ref_refperturbed, -1, -5),
                                              n = -4),
                                    -2, -1)
                     elif what == 'point':
-                        # shape (Nsamples,Nmeas_observations_all,2,6) ->
-                        #       (Nsamples,Nmeas_observations_all*2,6) ->
+                        # shape (...,Nmeas_observations_all,2,6) ->
+                        #       (...,Nmeas_observations_all*2,6) ->
                         J_cross_what[:] = \
                             nps.mv(nps.clump(nps.mv(dx_drt_ref_refperturbed, -1, -3),
                                              n = -2),
                                    -2, -1)
-                    else:
-                        raise Exception(f"Unknown what={what}")
                     del dx_drt_ref_refperturbed # I'm running out of memory. Let's free stuff when we can
 
-                else:
-                    # The operating point as T_ref*_ref = identity:
-                    # rt_ref*_ref = 0. So we have
-
+                elif direction == 'rt_refperturbed_ref':
                     #   x_cross0 =
                     #     + W project(intrinsics*,
                     #                 T_cam*_ref* T_ref_frame pframe)
                     #     - W qref*
-
-                    # this is what is actually passed into this function with this
-                    # path
                     pcamperturbed                       = pcam
-                    dpcamperturbed_drt_refperturbed_ref = dpcam_drt_ref_ref
-
+                    dpcamperturbed_drt_refperturbed_ref = dpcam_drt
                     if what == 'board':
                         # shape (..., Nmeas_observations_all,Nh,Nw,2)
                         #       (..., Nmeas_observations_all,Nh,Nw,2,3)
@@ -1521,7 +1531,7 @@ noise, and reoptimizing'''
 
                     dx_dpcamperturbed = dq_dpcamperturbed*nps.dummy(weight[what],-1,-1)
                     dx_dpcamperturbed[...,weight[what]<=0,:,:] = 0 # outliers
-                    dx_drt_ref_refperturbed = nps.matmult(dx_dpcamperturbed, dpcamperturbed_drt_refperturbed_ref[what])
+                    dx_drt_refperturbed_ref = nps.matmult(dx_dpcamperturbed, dpcamperturbed_drt_refperturbed_ref[what])
 
                     del qcross,dq_dpcamperturbed,_ # I'm running out of memory; free stuff when I can
 
@@ -1529,19 +1539,125 @@ noise, and reoptimizing'''
                         # shape (...,Nmeas_observations_all,Nh,Nw,2,6) ->
                         #       (...,Nmeas_observations_all*Nh*Nw*2,6) ->
                         J_cross_what[:] = \
-                            nps.mv(nps.clump(nps.mv(dx_drt_ref_refperturbed, -1, -5),
+                            nps.mv(nps.clump(nps.mv(dx_drt_refperturbed_ref, -1, -5),
                                              n = -4),
                                    -2, -1)
                     elif what == 'point':
                         # shape (...,Nmeas_observations_all,2,6) ->
                         #       (...,Nmeas_observations_all*2,6) ->
                         J_cross_what[:] = \
-                            nps.mv(nps.clump(nps.mv(dx_drt_ref_refperturbed, -1, -3),
+                            nps.mv(nps.clump(nps.mv(dx_drt_refperturbed_ref, -1, -3),
                                              n = -2),
                                    -2, -1)
+                    del dx_drt_refperturbed_ref # I'm running out of memory. Let's free stuff when we can
+
+                elif direction == 'rt_cam_camperturbed':
+                    #   x_cross0 =
+                    #     + W project(intrinsics,
+                    #                 T_cam*_ref* T_ref*_frame* p*)
+                    #     - W qref
+                    dpcam_drt_cam_camperturbed = dpcam_drt
+                    if what == 'board':
+                        # shape (..., Nmeas_observations_all,Nh,Nw,2)
+                        #       (..., Nmeas_observations_all,Nh,Nw,2,3)
+                        qcross,dq_dpcam,_ = \
+                            mrcal.project(pcam[what],
+                                          baseline_optimization_inputs['lensmodel'],
+                                          nps.dummy(baseline_intrinsics[ idx_camintrinsics[what], :], -2,-2),
+                                          get_gradients = True)
+                    elif what == 'point':
+                        # shape (..., Nmeas_observations_all,2)
+                        #       (..., Nmeas_observations_all,2,3)
+                        qcross,dq_dpcam,_ = \
+                            mrcal.project(pcam[what],
+                                          baseline_optimization_inputs['lensmodel'],
+                                          baseline_intrinsics[ idx_camintrinsics[what], :],
+                                          get_gradients = True)
                     else:
                         raise Exception(f"Unknown what={what}")
-                    del dx_drt_ref_refperturbed # I'm running out of memory. Let's free stuff when we can
+
+                    qref = baseline_observations[what][...,:2]
+                    x_cross0_what[:] = (qcross - qref)*nps.dummy(weight[what],-1)
+                    x_cross0_what[...,weight[what]<=0,:] = 0 # outliers
+
+                    dx_dpcam = dq_dpcam*nps.dummy(weight[what],-1,-1)
+                    dx_dpcam[...,weight[what]<=0,:,:] = 0 # outliers
+                    dx_drt_cam_camperturbed = nps.matmult(dx_dpcam, dpcam_drt_cam_camperturbed[what])
+
+                    del qcross,dq_dpcam,_ # I'm running out of memory; free stuff when I can
+
+                    if what == 'board':
+                        # shape (...,Nmeas_observations_all,Nh,Nw,2,6) ->
+                        #       (...,Nmeas_observations_all*Nh*Nw*2,6) ->
+                        J_cross_what[:] = \
+                            nps.mv(nps.clump(nps.mv(dx_drt_cam_camperturbed, -1, -5),
+                                             n = -4),
+                                   -2, -1)
+                    elif what == 'point':
+                        # shape (...,Nmeas_observations_all,2,6) ->
+                        #       (...,Nmeas_observations_all*2,6) ->
+                        J_cross_what[:] = \
+                            nps.mv(nps.clump(nps.mv(dx_drt_cam_camperturbed, -1, -3),
+                                             n = -2),
+                                   -2, -1)
+                    del dx_drt_cam_camperturbed # I'm running out of memory. Let's free stuff when we can
+
+                elif direction == 'rt_camperturbed_cam':
+                    #   x_cross0 =
+                    #     + W project(intrinsics*,
+                    #                 T_cam_ref T_ref_frame pframe)
+                    #     - W qref*
+                    pcamperturbed                       = pcam
+                    dpcamperturbed_drt_camperturbed_cam = dpcam_drt
+                    if what == 'board':
+                        # shape (..., Nmeas_observations_all,Nh,Nw,2)
+                        #       (..., Nmeas_observations_all,Nh,Nw,2,3)
+                        qcross,dq_dpcamperturbed,_ = \
+                            mrcal.project(pcamperturbed[what],
+                                          baseline_optimization_inputs['lensmodel'],
+                                          nps.dummy(query_intrinsics[:, idx_camintrinsics[what] ], -2,-2),
+                                          get_gradients = True)
+                    elif what == 'point':
+                        # shape (..., Nmeas_observations_all,2)
+                        #       (..., Nmeas_observations_all,2,3)
+                        qcross,dq_dpcamperturbed,_ = \
+                            mrcal.project(pcamperturbed[what],
+                                          baseline_optimization_inputs['lensmodel'],
+                                          query_intrinsics[:, idx_camintrinsics[what] ],
+                                          get_gradients = True)
+                    else:
+                        raise Exception(f"Unknown what={what}")
+
+                    qrefperturbed = query_observations[what][...,:2]
+                    x_cross0_what[:] = (qcross - qrefperturbed)*nps.dummy(weight[what],-1)
+                    x_cross0_what[...,weight[what]<=0,:] = 0 # outliers
+
+                    dx_dpcamperturbed = dq_dpcamperturbed*nps.dummy(weight[what],-1,-1)
+                    dx_dpcamperturbed[...,weight[what]<=0,:,:] = 0 # outliers
+                    dx_drt_camperturbed_cam = nps.matmult(dx_dpcamperturbed, dpcamperturbed_drt_camperturbed_cam[what])
+
+                    del qcross,dq_dpcamperturbed,_ # I'm running out of memory; free stuff when I can
+
+                    if what == 'board':
+                        # shape (...,Nmeas_observations_all,Nh,Nw,2,6) ->
+                        #       (...,Nmeas_observations_all*Nh*Nw*2,6) ->
+                        J_cross_what[:] = \
+                            nps.mv(nps.clump(nps.mv(dx_drt_camperturbed_cam, -1, -5),
+                                             n = -4),
+                                   -2, -1)
+                    elif what == 'point':
+                        # shape (...,Nmeas_observations_all,2,6) ->
+                        #       (...,Nmeas_observations_all*2,6) ->
+                        J_cross_what[:] = \
+                            nps.mv(nps.clump(nps.mv(dx_drt_camperturbed_cam, -1, -3),
+                                             n = -2),
+                                   -2, -1)
+                    del dx_drt_camperturbed_cam # I'm running out of memory. Let's free stuff when we can
+
+                else:
+                    raise Exception(f"Unexpected {direction=}")
+
+
 
             return x_cross0 - x_baseline[imeas0_observations_all:imeas0_observations_all+Nmeas_observations_all], J_cross
 
@@ -1881,142 +1997,218 @@ The rt_refperturbed_ref formulation:
 
             err_rms_baseline = np.sqrt( nps.norm2(err_sum_of_squares_baseline) / (N_sum_of_squares_baseline/2))
 
-        dxcross_Jcross = dict(rt_ref_refperturbed = dict(),
-                              rt_refperturbed_ref = dict(),)
-        rt_rr_all = dict(rt_ref_refperturbed = dict(),
-                         rt_refperturbed_ref = dict(),)
+        is_rrp = re.search('rrp', mode)
+        is_rpr = re.search('rpr', mode)
+        is_ccp = re.search('ccp', mode)
+        is_cpc = re.search('cpc', mode)
+        if is_rrp or is_rpr:
+            directions = ('rt_ref_refperturbed','rt_refperturbed_ref')
+        else:
+            directions = ('rt_cam_camperturbed','rt_camperturbed_cam',)
+
+        dxcross_Jcross = dict()
+        rt_rr_all      = dict()
+        for direction in directions:
+            rt_rr_all     [direction] = dict()
+            dxcross_Jcross[direction] = dict()
+
+        # shape (..., Nmeas_observations_all,Nh,Nw,3),
+        #       (..., Nmeas_observations_all,Nh,Nw,3,6)
+        pcam         = dict() # might be pcam*
+        dpcam_drt_rr = dict()
 
         if 1:
             method = 'compose-grad'
 
-            # shape (..., Nmeas_observations_all,Nh,Nw,3),
-            #       (..., Nmeas_observations_all,Nh,Nw,3,6)
-            pcam                       = dict()
-            dpcam_drt_ref_refperturbed = dict()
+            for direction in directions:
+                if direction == 'rt_ref_refperturbed':
+                    if have_state['board']:
+                        pcam['board'], dpcam_drt_rr['board'] = \
+                            transform_point_rt3_withgrad_drt1(nps.dummy(baseline_rt_cam_ref[ idx_camextrinsics['board'] +1, :], -2,-2),
+                                                              mrcal.identity_rt(),
+                                                              nps.dummy(query_rt_ref_frame   [ ..., idx_frame, :], -2,-2),
+                                                              nps.mv(query_calibration_object,-4,-5))
+                    if have_state['point']:
+                        pcam['point'], dpcam_drt_rr['point'] = \
+                            transform_point_rt3_withgrad_drt1(baseline_rt_cam_ref[ idx_camextrinsics['point'] +1, :],
+                                                              mrcal.identity_rt(),
+                                                              mrcal.identity_rt(),
+                                                              query_point[:,idx_points])
+                    dxcross_Jcross[direction][method] = get_cross_operating_point(pcam,
+                                                                                  dpcam_drt_rr,
+                                                                                  direction = direction)
 
-            if have_state['board']:
-                pcam['board'], dpcam_drt_ref_refperturbed['board'] = \
-                    transform_point_rt3_withgrad_drt1(nps.dummy(baseline_rt_cam_ref[ idx_camextrinsics['board'] +1, :], -2,-2),
-                                                      mrcal.identity_rt(),
-                                                      nps.dummy(query_rt_ref_frame   [ ..., idx_frame, :], -2,-2),
-                                                      nps.mv(query_calibration_object,-4,-5))
-            if have_state['point']:
-                pcam['point'], dpcam_drt_ref_refperturbed['point'] = \
-                    transform_point_rt3_withgrad_drt1(baseline_rt_cam_ref[ idx_camextrinsics['point'] +1, :],
-                                                      mrcal.identity_rt(),
-                                                      mrcal.identity_rt(),
-                                                      query_point[:,idx_points])
+                if direction == 'rt_refperturbed_ref':
+                    if have_state['board']:
+                        pcam['board'], dpcam_drt_rr['board'] = \
+                            transform_point_rt3_withgrad_drt1(nps.dummy(query_rt_cam_ref[ ..., idx_camextrinsics['board'] +1, :], -2,-2),
+                                                              mrcal.identity_rt(),
+                                                              nps.dummy(baseline_rt_ref_frame[ ..., idx_frame, :], -2,-2),
+                                                              baseline_calibration_object)
+                    if have_state['point']:
+                        pcam['point'], dpcam_drt_rr['point'] = \
+                            transform_point_rt3_withgrad_drt1(query_rt_cam_ref[ ..., idx_camextrinsics['point'] +1, :],
+                                                              mrcal.identity_rt(),
+                                                              mrcal.identity_rt(),
+                                                              baseline_point[idx_points])
+                    dxcross_Jcross[direction][method] = get_cross_operating_point(pcam,
+                                                                                  dpcam_drt_rr,
+                                                                                  direction = direction)
 
-            dxcross_Jcross['rt_ref_refperturbed'][method] = \
-                get_cross_operating_point(pcam,
-                                          dpcam_drt_ref_refperturbed,
-                                          direction = 'rt_ref_refperturbed')
-            del pcam,dpcam_drt_ref_refperturbed
+                if direction == 'rt_cam_camperturbed':
+                    if have_state['board']:
+                        pcam['board'], dpcam_drt_rr['board'] = \
+                            transform_point_rt3_withgrad_drt0(mrcal.identity_rt(),
+                                                              nps.dummy(query_rt_cam_ref[ ..., idx_camextrinsics['board'] +1, :], -2,-2),
+                                                              nps.dummy(query_rt_ref_frame   [ ..., idx_frame, :], -2,-2),
+                                                              nps.mv(query_calibration_object,-4,-5))
+                    if have_state['point']:
+                        pcam['point'], dpcam_drt_rr['point'] = \
+                            transform_point_rt3_withgrad_drt0(mrcal.identity_rt(),
+                                                              query_rt_cam_ref[ ..., idx_camextrinsics['point'] +1, :],
+                                                              mrcal.identity_rt(),
+                                                              query_point[:,idx_points])
+                    dxcross_Jcross[direction][method] = get_cross_operating_point(pcam,
+                                                                                  dpcam_drt_rr,
+                                                                                  direction = direction)
 
-            ###########
-
-            pcamperturbed                       = dict()
-            dpcamperturbed_drt_refperturbed_ref = dict()
-
-            if have_state['board']:
-                pcamperturbed['board'], dpcamperturbed_drt_refperturbed_ref['board'] = \
-                    transform_point_rt3_withgrad_drt1(nps.dummy(query_rt_cam_ref[ ..., idx_camextrinsics['board'] +1, :], -2,-2),
-                                                      mrcal.identity_rt(),
-                                                      nps.dummy(baseline_rt_ref_frame[ ..., idx_frame, :], -2,-2),
-                                                      baseline_calibration_object)
-            if have_state['point']:
-                pcamperturbed['point'], dpcamperturbed_drt_refperturbed_ref['point'] = \
-                    transform_point_rt3_withgrad_drt1(query_rt_cam_ref[ ..., idx_camextrinsics['point'] +1, :],
-                                                      mrcal.identity_rt(),
-                                                      mrcal.identity_rt(),
-                                                      baseline_point[idx_points])
-            dxcross_Jcross['rt_refperturbed_ref'][method] = \
-                get_cross_operating_point(pcamperturbed,
-                                          dpcamperturbed_drt_refperturbed_ref,
-                                          direction = 'rt_refperturbed_ref')
-            del pcamperturbed,dpcamperturbed_drt_refperturbed_ref
+                if direction == 'rt_camperturbed_cam':
+                    if have_state['board']:
+                        pcam['board'], dpcam_drt_rr['board'] = \
+                            transform_point_rt3_withgrad_drt0(mrcal.identity_rt(),
+                                                              nps.dummy(baseline_rt_cam_ref[ idx_camextrinsics['board'] +1, :], -2,-2),
+                                                              nps.dummy(baseline_rt_ref_frame[ ..., idx_frame, :], -2,-2),
+                                                              baseline_calibration_object)
+                    if have_state['point']:
+                        pcam['point'], dpcam_drt_rr['point'] = \
+                            transform_point_rt3_withgrad_drt0(mrcal.identity_rt(),
+                                                              baseline_rt_cam_ref[ idx_camextrinsics['point'] +1, :],
+                                                              mrcal.identity_rt(),
+                                                              baseline_point[idx_points])
+                    dxcross_Jcross[direction][method] = get_cross_operating_point(pcam,
+                                                                                  dpcam_drt_rr,
+                                                                                  direction = direction)
 
         if 1:
             method = 'transform-grad'
 
-            # shape (..., Nmeas_observations_all,Nh,Nw,3),
-            #       (..., Nmeas_observations_all,Nh,Nw,3,6)
-            pcam                       = dict()
-            dpcam_drt_ref_refperturbed = dict()
+            for direction in directions:
+                if direction == 'rt_ref_refperturbed':
+                    if have_state['board']:
+                        # shape (..., Nmeas_observations_all,Nh,Nw,3),
+                        prefperturbed = mrcal.transform_point_rt( nps.dummy(query_rt_ref_frame   [ ..., idx_frame, :], -2,-2),
+                                                                  nps.mv(query_calibration_object,-4,-5))
 
-            if have_state['board']:
-                # shape (..., Nmeas_observations_all,Nh,Nw,3),
-                prefperturbed = mrcal.transform_point_rt( nps.dummy(query_rt_ref_frame   [ ..., idx_frame, :], -2,-2),
-                                                          nps.mv(query_calibration_object,-4,-5))
+                        dpref_drt_ref_refperturbed = transform_point_identity_gradient(prefperturbed)
+                        # shape (..., Nmeas_observations_all,Nh,Nw,3),
+                        #       (..., Nmeas_observations_all,Nh,Nw,3,6)
+                        pcam['board'], _, dpcam_dpref = \
+                            mrcal.transform_point_rt(nps.dummy(baseline_rt_cam_ref[ idx_camextrinsics['board'] +1, :], -2,-2),
+                                                     prefperturbed,
+                                                     get_gradients = True)
+                        dpcam_drt_rr['board'] = \
+                            nps.matmult(dpcam_dpref, dpref_drt_ref_refperturbed)
 
-                dpref_drt_ref_refperturbed = transform_point_identity_gradient(prefperturbed)
-                # shape (..., Nmeas_observations_all,Nh,Nw,3),
-                #       (..., Nmeas_observations_all,Nh,Nw,3,6)
-                pcam['board'], _, dpcam_dpref = \
-                    mrcal.transform_point_rt(nps.dummy(baseline_rt_cam_ref[ idx_camextrinsics['board'] +1, :], -2,-2),
-                                             prefperturbed,
-                                             get_gradients = True)
-                dpcam_drt_ref_refperturbed['board'] = \
-                    nps.matmult(dpcam_dpref, dpref_drt_ref_refperturbed)
-                del dpref_drt_ref_refperturbed,dpcam_dpref,_ # I'm running out of memory; free stuff when I can
+                    if have_state['point']:
+                        # shape (..., Nmeas_observations_all,3),
+                        prefperturbed = query_point[:,idx_points]
 
-            if have_state['point']:
-                # shape (..., Nmeas_observations_all,3),
-                prefperturbed = query_point[:,idx_points]
+                        dpref_drt_ref_refperturbed = transform_point_identity_gradient(prefperturbed)
+                        # shape (..., Nmeas_observations_all,3),
+                        #       (..., Nmeas_observations_all,3,6)
+                        pcam['point'], _, dpcam_dpref = \
+                            mrcal.transform_point_rt(baseline_rt_cam_ref[ idx_camextrinsics['point'] +1, :],
+                                                     prefperturbed,
+                                                     get_gradients = True)
+                        dpcam_drt_rr['point'] = \
+                            nps.matmult(dpcam_dpref, dpref_drt_ref_refperturbed)
 
-                dpref_drt_ref_refperturbed = transform_point_identity_gradient(prefperturbed)
-                # shape (..., Nmeas_observations_all,3),
-                #       (..., Nmeas_observations_all,3,6)
-                pcam['point'], _, dpcam_dpref = \
-                    mrcal.transform_point_rt(baseline_rt_cam_ref[ idx_camextrinsics['point'] +1, :],
-                                             prefperturbed,
-                                             get_gradients = True)
-                dpcam_drt_ref_refperturbed['point'] = \
-                    nps.matmult(dpcam_dpref, dpref_drt_ref_refperturbed)
-                del dpref_drt_ref_refperturbed,dpcam_dpref,_ # I'm running out of memory; free stuff when I can
+                    dxcross_Jcross[direction][method] = \
+                        get_cross_operating_point(pcam,
+                                                  dpcam_drt_rr,
+                                                  direction = direction)
 
-            dxcross_Jcross['rt_ref_refperturbed'][method] = \
-                get_cross_operating_point(pcam,
-                                          dpcam_drt_ref_refperturbed,
-                                          direction = 'rt_ref_refperturbed')
+                if direction == 'rt_refperturbed_ref':
+                    if have_state['board']:
+                        dprefperturbed_drt_refperturbed_ref = transform_point_identity_gradient(pref['board'])
+                        # shape (..., Nmeas_observations_all,Nh,Nw,3),
+                        #       (..., Nmeas_observations_all,Nh,Nw,3,6)
+                        pcam['board'], _, dpcamperturbed_dprefperturbed = \
+                            mrcal.transform_point_rt(nps.dummy(query_rt_cam_ref[ ..., idx_camextrinsics['board'] +1, :], -2,-2),
+                                                     pref['board'],
+                                                     get_gradients = True)
+                        dpcam_drt_rr['board'] = \
+                            nps.matmult(dpcamperturbed_dprefperturbed,
+                                        dprefperturbed_drt_refperturbed_ref)
+                        del dprefperturbed_drt_refperturbed_ref,dpcamperturbed_dprefperturbed,_ # I'm running out of memory; free stuff when I can
 
-            del pcam,prefperturbed,dpcam_drt_ref_refperturbed
-            ###########
+                    if have_state['point']:
+                        dprefperturbed_drt_refperturbed_ref = transform_point_identity_gradient(pref['point'])
+                        # shape (..., Nmeas_observations_all,3),
+                        #       (..., Nmeas_observations_all,3,6)
+                        pcam['point'], _, dpcamperturbed_dprefperturbed = \
+                            mrcal.transform_point_rt(query_rt_cam_ref[ ..., idx_camextrinsics['point'] +1, :],
+                                                     pref['point'],
+                                                     get_gradients = True)
+                        dpcam_drt_rr['point'] = \
+                            nps.matmult(dpcamperturbed_dprefperturbed,
+                                        dprefperturbed_drt_refperturbed_ref)
+                        del dprefperturbed_drt_refperturbed_ref,dpcamperturbed_dprefperturbed,_ # I'm running out of memory; free stuff when I can
 
-            pcamperturbed                       = dict()
-            dpcamperturbed_drt_refperturbed_ref = dict()
+                    dxcross_Jcross[direction][method] = \
+                        get_cross_operating_point(pcam,
+                                                  dpcam_drt_rr,
+                                                  direction = direction)
 
-            if have_state['board']:
-                dprefperturbed_drt_refperturbed_ref = transform_point_identity_gradient(pref['board'])
-                # shape (..., Nmeas_observations_all,Nh,Nw,3),
-                #       (..., Nmeas_observations_all,Nh,Nw,3,6)
-                pcamperturbed['board'], _, dpcamperturbed_dprefperturbed = \
-                    mrcal.transform_point_rt(nps.dummy(query_rt_cam_ref[ ..., idx_camextrinsics['board'] +1, :], -2,-2),
-                                             pref['board'],
-                                             get_gradients = True)
-                dpcamperturbed_drt_refperturbed_ref['board'] = \
-                    nps.matmult(dpcamperturbed_dprefperturbed,
-                                dprefperturbed_drt_refperturbed_ref)
-                del dprefperturbed_drt_refperturbed_ref,dpcamperturbed_dprefperturbed,_ # I'm running out of memory; free stuff when I can
+                if direction == 'rt_cam_camperturbed':
+                    if have_state['board']:
+                        # shape (..., Nmeas_observations_all,Nh,Nw,3),
+                        prefperturbed = mrcal.transform_point_rt( nps.dummy(query_rt_ref_frame   [ ..., idx_frame, :], -2,-2),
+                                                                  nps.mv(query_calibration_object,-4,-5))
 
-            if have_state['point']:
-                dprefperturbed_drt_refperturbed_ref = transform_point_identity_gradient(pref['point'])
-                # shape (..., Nmeas_observations_all,3),
-                #       (..., Nmeas_observations_all,3,6)
-                pcamperturbed['point'], _, dpcamperturbed_dprefperturbed = \
-                    mrcal.transform_point_rt(query_rt_cam_ref[ ..., idx_camextrinsics['point'] +1, :],
-                                             pref['point'],
-                                             get_gradients = True)
-                dpcamperturbed_drt_refperturbed_ref['point'] = \
-                    nps.matmult(dpcamperturbed_dprefperturbed,
-                                dprefperturbed_drt_refperturbed_ref)
-                del dprefperturbed_drt_refperturbed_ref,dpcamperturbed_dprefperturbed,_ # I'm running out of memory; free stuff when I can
+                        # shape (..., Nmeas_observations_all,Nh,Nw,3),
+                        #       (..., Nmeas_observations_all,Nh,Nw,3,6)
+                        pcam['board'] = \
+                            mrcal.transform_point_rt(nps.dummy(query_rt_cam_ref[ ..., idx_camextrinsics['board'] +1, :], -2,-2),
+                                                     prefperturbed)
+                        dpcam_drt_rr['board'] = transform_point_identity_gradient(pcam['board'])
 
-            dxcross_Jcross['rt_refperturbed_ref'][method] = \
-                get_cross_operating_point(pcamperturbed,
-                                          dpcamperturbed_drt_refperturbed_ref,
-                                          direction = 'rt_refperturbed_ref')
-            del pcamperturbed, dpcamperturbed_drt_refperturbed_ref
+                    if have_state['point']:
+                        # shape (..., Nmeas_observations_all,3),
+                        prefperturbed = query_point[:,idx_points]
+
+                        # shape (..., Nmeas_observations_all,3),
+                        #       (..., Nmeas_observations_all,3,6)
+                        pcam['point'] = \
+                            mrcal.transform_point_rt(query_rt_cam_ref[ ..., idx_camextrinsics['point'] +1, :],
+                                                     prefperturbed)
+                        dpcam_drt_rr['point'] = transform_point_identity_gradient(pcam['point'])
+
+                    dxcross_Jcross[direction][method] = \
+                        get_cross_operating_point(pcam,
+                                                  dpcam_drt_rr,
+                                                  direction = direction)
+
+                if direction == 'rt_refperturbed_ref':
+                    if have_state['board']:
+                        # shape (..., Nmeas_observations_all,Nh,Nw,3),
+                        pcam['board'] = \
+                            mrcal.transform_point_rt(nps.dummy(baseline_rt_cam_ref[ idx_camextrinsics['board'] +1, :], -2,-2),
+                                                     pref['board'])
+                        dpcam_drt_rr['board'] = transform_point_identity_gradient(pcam['board'])
+
+                    if have_state['point']:
+                        # shape (..., Nmeas_observations_all,3),
+                        pcam['point'] = \
+                            mrcal.transform_point_rt(baseline_rt_cam_ref[ idx_camextrinsics['point'] +1, :],
+                                                     pref['point'])
+                        dpcam_drt_rr['point'] = transform_point_identity_gradient(pcam['point'])
+
+                    dxcross_Jcross[direction][method] = \
+                        get_cross_operating_point(pcam,
+                                                  dpcam_drt_rr,
+                                                  direction = direction)
+        del pcam, dpcam_drt_rr
 
         if 1:
             method = 'linearization'
@@ -2069,7 +2261,7 @@ The rt_refperturbed_ref formulation:
         def lstsq(J,x): return np.linalg.lstsq(J, x, rcond = None)[0]
 
 
-        for direction in ('rt_ref_refperturbed','rt_refperturbed_ref'):
+        for direction in directions:
             for method in dxcross_Jcross[direction].keys():
                 dx_cross0,J_cross = dxcross_Jcross[direction][method]
                 rt_rr_all[direction][method] = -lstsq(J_cross, dx_cross0)
@@ -2079,7 +2271,7 @@ The rt_refperturbed_ref formulation:
         # if any no-extrinsics observations are present, and we usually have
         # some of those. I'm assuming the same issue doesn't affect the frames:
         # we do NOT have fixed frames
-        for direction in ('rt_ref_refperturbed','rt_refperturbed_ref'):
+        for direction in directions:
 
             # compose-grad and transform-grad should be exactly the same, modulo numerical fuzz
             testutils.confirm_equal(dxcross_Jcross[direction]['compose-grad'  ][0],
