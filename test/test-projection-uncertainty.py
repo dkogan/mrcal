@@ -2189,7 +2189,7 @@ The rt_refperturbed_ref formulation:
                                                   dpcam_drt_rr,
                                                   direction = direction)
 
-                if direction == 'rt_refperturbed_ref':
+                if direction == 'rt_camperturbed_cam':
                     if have_state['board']:
                         # shape (..., Nmeas_observations_all,Nh,Nw,3),
                         pcam['board'] = \
@@ -2229,7 +2229,7 @@ The rt_refperturbed_ref formulation:
             del b
 
             # a (2,3) array indexed as
-            # (rt_ref_refperturbed,rt_refperturbed_ref),(Jextrinsics,Jframes,x).
+            # (rt_ref_refperturbed,rt_refperturbed_ref),(x,Jextrinsics,Jframes).
             rrp_rpr__xcross__Jcross_e__Jcross_fp = np.empty( (args.Nsamples,2,3), dtype=object)
             get_cross_operating_point__linearization( W_delta_qref,
                                                       Jt_W_qref,
@@ -2290,22 +2290,24 @@ The rt_refperturbed_ref formulation:
             # So this should be close, but will not be exact. This threshold and
             # reldiff_eps look high, but I'm pretty sure this is correct. Enable
             # the plot immediately below to see
-            testutils.confirm_equal(dxcross_Jcross[direction]['compose-grad'     ][0],
-                                    dxcross_Jcross[direction]['linearization-Jfp'][0],
-                                    eps = 0.1,
-                                    reldiff_eps = 1e-2,
-                                    reldiff_smooth_radius = 1,
-                                    percentile = 90,
-                                    relative = True,
-                                    msg = f"cross-reprojection uncertainty at distance={distance}: linearized dx_cross0 is correct using {direction}")
-            testutils.confirm_equal(dxcross_Jcross[direction]['compose-grad'     ][1],
-                                    dxcross_Jcross[direction]['linearization-Jfp'][1],
-                                    eps = 0.1,
-                                    reldiff_eps = 1e-2,
-                                    reldiff_smooth_radius = 1,
-                                    percentile = 90,
-                                    relative = True,
-                                    msg = f"cross-reprojection uncertainty at distance={distance}: linearized J_cross is correct using {direction}")
+            if 'linearization-Jfp' in dxcross_Jcross[direction]:
+                testutils.confirm_equal(dxcross_Jcross[direction]['compose-grad'     ][0],
+                                        dxcross_Jcross[direction]['linearization-Jfp'][0],
+                                        eps = 0.1,
+                                        reldiff_eps = 1e-2,
+                                        reldiff_smooth_radius = 1,
+                                        percentile = 90,
+                                        relative = True,
+                                        msg = f"cross-reprojection uncertainty at distance={distance}: linearized dx_cross0 is correct using {direction}")
+
+                testutils.confirm_equal(dxcross_Jcross[direction]['compose-grad'     ][1],
+                                        dxcross_Jcross[direction]['linearization-Jfp'][1],
+                                        eps = 0.1,
+                                        reldiff_eps = 1e-2,
+                                        reldiff_smooth_radius = 1,
+                                        percentile = 90,
+                                        relative = True,
+                                        msg = f"cross-reprojection uncertainty at distance={distance}: linearized J_cross is correct using {direction}")
 
         # I compared the linearization result to the sampled result. Now let's
         # compare the rt_ref_refperturbed,rt_refperturbed_ref results to each
@@ -2326,19 +2328,20 @@ The rt_refperturbed_ref formulation:
                                     msg = f"cross-reprojection uncertainty at distance={distance}: rt_refperturbed_ref is the inverse of rt_ref_refperturbed with method {method} (t)")
 
         if 0:
-            import gnuplotlib as gp
-            direction = 'rt_ref_refperturbed'
-            gp.plot( nps.cat(dxcross_Jcross[direction]['compose-grad'     ][0][0],
-                             dxcross_Jcross[direction]['linearization-Jfp'][0][0]),
-                     wait = True )
-            # dx/dr
-            gp.plot( nps.cat(np.ravel(dxcross_Jcross[direction]['compose-grad'     ][1][0,:1000,:3]),
-                             np.ravel(dxcross_Jcross[direction]['linearization-Jfp'][1][0,:1000,:3])),
-                     wait = True)
-            # dx/dt
-            gp.plot( nps.cat(np.ravel(dxcross_Jcross[direction]['compose-grad'     ][1][0,:1000,3:]),
-                             np.ravel(dxcross_Jcross[direction]['linearization-Jfp'][1][0,:1000,3:])),
-                     wait = True)
+            if 'linearization-Jfp' in dxcross_Jcross[direction]:
+                import gnuplotlib as gp
+                direction = 'rt_ref_refperturbed'
+                gp.plot( nps.cat(dxcross_Jcross[direction]['compose-grad'     ][0][0],
+                                 dxcross_Jcross[direction]['linearization-Jfp'][0][0]),
+                         wait = True )
+                # dx/dr
+                gp.plot( nps.cat(np.ravel(dxcross_Jcross[direction]['compose-grad'     ][1][0,:1000,:3]),
+                                 np.ravel(dxcross_Jcross[direction]['linearization-Jfp'][1][0,:1000,:3])),
+                         wait = True)
+                # dx/dt
+                gp.plot( nps.cat(np.ravel(dxcross_Jcross[direction]['compose-grad'     ][1][0,:1000,3:]),
+                                 np.ravel(dxcross_Jcross[direction]['linearization-Jfp'][1][0,:1000,3:])),
+                         wait = True)
 
         del dxcross_Jcross
 
