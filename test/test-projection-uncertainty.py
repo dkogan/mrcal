@@ -2823,9 +2823,7 @@ if args.write_models:
 
 
 
-def check_uncertainties_at(q0_baseline, idistance):
-
-    distance = args.distances[idistance]
+def check_uncertainties_at(q0_baseline, distance):
 
     # distance of "None" means I'll simulate a large distance, but compare
     # against a special-case distance of "infinity"
@@ -2919,10 +2917,10 @@ def check_uncertainties_at(q0_baseline, idistance):
     return q_sampled,Var_dq_predicted
 
 
-# I plot the data from the first distance
-q_sampled__dist0,Var_dq_predicted__dist0 = check_uncertainties_at(q0_baseline, 0)
-for idistance in range(1,len(args.distances)):
-    check_uncertainties_at(q0_baseline, idistance)
+# I plot the data from the first distance, so I loop in reverse. The last
+# iteration is the first distance, and I save those results
+for distance in reversed(args.distances):
+    check_uncertainties_at(q0_baseline, distance)
 
 if not (args.explore or \
         args.show_distribution or \
