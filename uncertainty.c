@@ -918,6 +918,8 @@ bool _mrcal_drt_cross_reprojection__dbpacked(// output
         mrcal_num_states_intrinsics(Ncameras_intrinsics,
                                     problem_selections,
                                     lensmodel);
+    const int Nstate_intrinsics_per_camera =
+        Nstate_intrinsics / Ncameras_intrinsics;
     const int Nstate_intrinsics_in_jacobian_row =
         get_Nstate_intrinsics_in_jacobian_row(Jrowptr,
                                               Jcolidx,
@@ -1105,7 +1107,7 @@ bool _mrcal_drt_cross_reprojection__dbpacked(// output
                 if( state_index_intrinsics0 <= state_index &&
                     state_index < state_index_intrinsics0 + Nstate_intrinsics )
                 {
-                    icam_intrinsics_here = (state_index - state_index_intrinsics0) / Nstate_intrinsics_in_jacobian_row;
+                    icam_intrinsics_here = (state_index - state_index_intrinsics0) / Nstate_intrinsics_per_camera;
 
                     ival_intrinsics = ival;
                     ival += Nstate_intrinsics_in_jacobian_row;
