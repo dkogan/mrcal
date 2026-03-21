@@ -259,7 +259,11 @@ def parse_args():
                                  'cross-reprojection-rrp-Je',
                                  'cross-reprojection-rpr-empirical',
                                  'cross-reprojection-rpr-Jfp',
-                                 'cross-reprojection-rpr-Je'),
+                                 'cross-reprojection-rpr-Je',
+                                 'cross-reprojection-ccp-empirical',
+                                 'cross-reprojection-ccp',
+                                 'cross-reprojection-cpc-empirical',
+                                 'cross-reprojection-cpc'),
                         default = 'mean-pcam',
                         help='''Which reproject-after-perturbation method to use. This is for experiments.
                         Some of these methods will be probably wrong.''')
@@ -1274,6 +1278,24 @@ The logic here is described thoroughly in
 
     J_observations = J_packed_baseline[imeas0_observations_all:imeas0_observations_all+Nmeas_observations_all,:]
 
+
+    if istate_extrinsics0 is not None:
+        j_is_extrinsics = \
+            (J_observations.indices >= istate_extrinsics0) * \
+            (J_observations.indices <  istate_extrinsics0 + Nstates_extrinsics)
+        cumsum = np.zeros(len(J_observations.indices) + 1, dtype=int)
+        np.cumsum(j_is_extrinsics, out=cumsum[1:])
+        mask_jrow_has_extrinsics = cumsum[J_observations.indptr[1:]] > cumsum[J_observations.indptr[:-1]]
+    else:
+        mask_jrow_has_extrinsics = None
+
+    Nstate_intrinsics_per_camera = Nstates_intrinsics // args.Ncameras
+    istate0_per_row = J_observations.indices[ J_observations.indptr[:-1] ]
+    if len(istate0_per_row) != Nmeas_observations_all:
+        raise Exception("unexpected jacobian layout")
+    icam_intrinsics_in_jrow = istate0_per_row // Nstate_intrinsics_per_camera
+
+
     for what in have_state.keys():
         if have_state[what]:
 
@@ -1301,7 +1323,7 @@ The logic here is described thoroughly in
                             W_delta_qref,
                             out = Jt_W_qref)
 
-    def get_rt_ref_refperturbed():
+    def get_rt_nominal_perturbed():
 
         def transform_point_rt3_withgrad_drt0(rt0, rt1, rt2, p):
 
@@ -1436,7 +1458,8 @@ noise, and reoptimizing'''
                 if not have_state[what]: continue
 
                 x_cross0_what = \
-                    x_cross0[imeas0_observations[what]:
+                    x_cross0[...,
+                             imeas0_observations[what]:
                              imeas0_observations[what] + Nmeas_observations[what]]
                 x_cross0_what = x_cross0_what.reshape(pcam[what].shape[:-1] + (2,))
                 if not np.shares_memory(x_cross0,x_cross0_what): raise Exception("reshape() made new array. This is a bug")
@@ -1675,6 +1698,7 @@ noise, and reoptimizing'''
                                                      scale_extrinsics,
                                                      scale_frames,
                                                      scale_points,
+                                                     directions,
                                                      *,
                                                      out):
             r'''Compute (dx_cross0,J_cross) from the optimized linearization
@@ -1683,10 +1707,9 @@ This function computes the operating point by looking at the baseline gradients
 only. WITHOUT reoptimizing.
 
 
-This has two different formulations. I return a (2,3) array indexed as
+This has different formulations. I return a (Ndirections,3) array indexed as
 
-  rt_ref_refperturbed
-  rt_refperturbed_ref
+  *directions
 ,
   xcross
   dxcross/drr (extrinsics)
@@ -1715,6 +1738,9 @@ The rt_refperturbed_ref formulation:
 
             if have_state['board'] and slice_state_calobject_warp is not None:
                 state_mask_fpcw[slice_state_calobject_warp] = 1
+
+            state_mask_efpcw = np.array(state_mask_fpcw) # make a copy
+            if slice_state_extrinsics is not None: state_mask_efpcw[slice_state_extrinsics] = 1
 
             state_mask_ie [slice_state_intrinsics]      = 1
             if slice_state_extrinsics is not None:
@@ -1750,11 +1776,15 @@ The rt_refperturbed_ref formulation:
             #### Look only at the effects of frames and calobject_warp when
             #### computing the initial dx_cross0 value
 
-            # set db_cross_fpcw_packed to contain only state from
-            # frames,points,calobject_warp. All other state is 0
+            # set db_cross_..._packed to contain only state from a subset. All
+            # other state is 0
             db_cross_fpcw_packed = np.array(db_predicted)
             mrcal.pack_state(db_cross_fpcw_packed, **baseline_optimization_inputs)
             db_cross_fpcw_packed[~state_mask_fpcw] = 0
+
+            db_cross_efpcw_packed = np.array(db_predicted)
+            mrcal.pack_state(db_cross_efpcw_packed, **baseline_optimization_inputs)
+            db_cross_efpcw_packed[~state_mask_efpcw] = 0
 
             # set db_cross_ie_packed to contain only state from intrinsics,
             # extrinsics (if we have extrinsics). All other state is 0
@@ -1762,8 +1792,9 @@ The rt_refperturbed_ref formulation:
             mrcal.pack_state(db_cross_ie_packed, **baseline_optimization_inputs)
             db_cross_ie_packed[~state_mask_ie] = 0
 
-            dx_cross_fpcw0 = J_observations.dot(db_cross_fpcw_packed)
-            dx_cross_ie0   = J_observations.dot(db_cross_ie_packed) - W_delta_qref.ravel()
+            dx_cross_efpcw0 = J_observations.dot(db_cross_efpcw_packed)
+            dx_cross_fpcw0  = J_observations.dot(db_cross_fpcw_packed)
+            dx_cross_ie0    = J_observations.dot(db_cross_ie_packed) - W_delta_qref.ravel()
 
             Nframes     = Nstates_frame     //6
             Npoints     = Nstates_point     //3
@@ -1773,152 +1804,257 @@ The rt_refperturbed_ref formulation:
             # actually identical in the two directions: rt_ref_refperturbed and
             # rt_refperturbed_ref
 
-            #### J_cross_e
-            if every_observation_has_extrinsics:
-                #### In the rt_ref_refperturbed direction:
-                # J_cross_e = dx_cross/drt_ref_ref*
-                #           = J_extrinsics drt_cam_ref*/drt_ref_ref*
-                #           = J_extrinsics d(compose_rt(rt_cam_ref,rt_ref_ref*))/drt_ref_ref*
+            if is_rrp or is_rpr:
+                #### J_cross_e
+                if every_observation_has_extrinsics:
+                    #### In the rt_ref_refperturbed direction:
+                    # J_cross_e = dx_cross/drt_ref_ref*
+                    #           = J_extrinsics drt_cam_ref*/drt_ref_ref*
+                    #           = J_extrinsics d(compose_rt(rt_cam_ref,rt_ref_ref*))/drt_ref_ref*
 
-                #### In the rt_refperturbed_ref direction:
-                # rt_cam*_ref* is a tiny shift off rt_cam_ref AND I'm
-                # assuming that everything is locally linear. So this shift
-                # is insignificant, and I use rt_cam_ref to compute the
-                # gradient instead
+                    #### In the rt_refperturbed_ref direction:
+                    # rt_cam*_ref* is a tiny shift off rt_cam_ref AND I'm
+                    # assuming that everything is locally linear. So this shift
+                    # is insignificant, and I use rt_cam_ref to compute the
+                    # gradient instead
 
-                # J_cross_e = dx_cross/drt_ref*_ref
-                #           = J_extrinsics drt_cam*_ref/drt_ref*_ref
-                #           = J_extrinsics d(compose_rt(rt_cam*_ref*,rt_ref*_ref))/drt_ref*_ref
-                #           = J_extrinsics d(compose_rt(rt_cam_ref,  rt_ref*_ref))/drt_ref*_ref
+                    # J_cross_e = dx_cross/drt_ref*_ref
+                    #           = J_extrinsics drt_cam*_ref/drt_ref*_ref
+                    #           = J_extrinsics d(compose_rt(rt_cam*_ref*,rt_ref*_ref))/drt_ref*_ref
+                    #           = J_extrinsics d(compose_rt(rt_cam_ref,  rt_ref*_ref))/drt_ref*_ref
 
-                # It's the same exact value either way
-                rt_cam_ref = b_baseline_unpacked[slice_state_extrinsics].reshape(Nextrinsics,6)
-                # shape (Nextrinsics,6,6)
-                drt_drt = mrcal.compose_rt_tinyrt1_gradientrt1(rt_cam_ref)
-                # Pack
-                drt_drt /= nps.dummy(scale_extrinsics, -1)
-                # shape (Nextrinsics*6,6) = (Nstates_extrinsics,6)
-                drt_drt = nps.clump(drt_drt, n=2)
-                J_cross_e = J_observations[:, slice_state_extrinsics].dot(drt_drt)
-            else:
-                J_cross_e = None
-
-            #### J_cross_fp
-            J_cross_fp = np.zeros(dx_cross_fpcw0.shape + (6,), dtype=float)
-            if 1:
-                #### In the rt_ref_refperturbed direction:
-                # rt_ref*_frame* is a tiny shift off rt_ref_frame AND I'm assuming that
-                # everything is locally linear. So this shift is insignificant, and I use
-                # rt_ref_frame to compute the gradient instead. Same for points and p*/p
-
-                # J_cross_f = dx_cross/drt_ref_ref*
-                #           = J_frame drt_ref_frame*/drt_ref_ref*
-                #           = J_frame d(compose_rt(rt_ref_ref*,rt_ref*_frame*))/drt_ref_ref*
-                #           = J_frame d(compose_rt(rt_ref_ref*,rt_ref_frame))/drt_ref_ref*
-                #
-                # J_cross_p = dx_cross/drt_ref_ref*
-                #           = J_p dp*/drt_ref_ref*
-                #           = J_p d(transform(rt_ref_ref*,p*))/drt_ref_ref*
-                #           = J_p d(transform(rt_ref_ref*,p ))/drt_ref_ref*
-
-
-                #### In the rt_refperturbed_ref direction:
-                # J_cross_f = dx_cross/drt_ref*_ref
-                #           = J_frame drt_ref*_frame/drt_ref*_ref
-                #
-                # J_cross_p = dx_cross/drt_ref*_ref
-                #           = J_p dp*/drt_ref*_ref
-                #           = J_p d(transform(rt_ref*_ref,p ))/drt_ref*_ref
-
-                # Note that in both directions we have exactly the same
-                # gradients. So I have a single path here that I apply to both
-                if have_state['board']:
-                    rt_ref_frame = b_baseline_unpacked[slice_state_frame].reshape(Nframes,6)
-                    # shape (Nframes,6,6)
-                    drt_drt = mrcal.compose_rt_tinyrt0_gradientrt0(rt_ref_frame)
-                    # Pack numerator
-                    drt_drt /= nps.dummy(scale_frames, -1)
-                    # shape (Nframes*6,6) = (Nstates_frame,6)
+                    # It's the same exact value either way
+                    rt_cam_ref = b_baseline_unpacked[slice_state_extrinsics].reshape(Nextrinsics,6)
+                    # shape (Nextrinsics,6,6)
+                    drt_drt = mrcal.compose_rt_tinyrt1_gradientrt1(rt_cam_ref)
+                    # Pack
+                    drt_drt /= nps.dummy(scale_extrinsics, -1)
+                    # shape (Nextrinsics*6,6) = (Nstates_extrinsics,6)
                     drt_drt = nps.clump(drt_drt, n=2)
-                    J_cross_fp[:] = J_observations[:, slice_state_frame].dot(drt_drt)
+                    J_cross_e = J_observations[:, slice_state_extrinsics].dot(drt_drt)
+                else:
+                    J_cross_e = None
 
-                if have_state['point']:
-                    p = b_baseline_unpacked[slice_state_point].reshape(Npoints,3)
+                #### J_cross_fp
+                J_cross_fp = np.zeros(dx_cross_fpcw0.shape + (6,), dtype=float)
+                if 1:
+                    #### In the rt_ref_refperturbed direction:
+                    # rt_ref*_frame* is a tiny shift off rt_ref_frame AND I'm assuming that
+                    # everything is locally linear. So this shift is insignificant, and I use
+                    # rt_ref_frame to compute the gradient instead. Same for points and p*/p
 
-                    # I have rt ~ identity, so transform(rt,p) ~ p - skew(p) r + t
-                    # Thus d/dr = -skew(p), d/dt = I
+                    # J_cross_f = dx_cross/drt_ref_ref*
+                    #           = J_frame drt_ref_frame*/drt_ref_ref*
+                    #           = J_frame d(compose_rt(rt_ref_ref*,rt_ref*_frame*))/drt_ref_ref*
+                    #           = J_frame d(compose_rt(rt_ref_ref*,rt_ref_frame))/drt_ref_ref*
+                    #
+                    # J_cross_p = dx_cross/drt_ref_ref*
+                    #           = J_p dp*/drt_ref_ref*
+                    #           = J_p d(transform(rt_ref_ref*,p*))/drt_ref_ref*
+                    #           = J_p d(transform(rt_ref_ref*,p ))/drt_ref_ref*
 
-                    # shape (Npoints,3,6)
-                    dp_drt = np.zeros((Npoints,3,6), dtype=float)
-                    mrcal.skew_symmetric(p, out = dp_drt[...,:3])
-                    dp_drt[...,:3] *= -1
 
-                    # I want:
-                    #   mrcal.identity_R(out = dp_drt[...,3:])
-                    # But this doesn't work today: npsp has a fix in 0.39, but I
-                    # don't want to demand this later release
-                    dp_drt[...,:,3:] = 0
-                    dp_drt[...,0,3 ] = 1
-                    dp_drt[...,1,4 ] = 1
-                    dp_drt[...,2,5 ] = 1
+                    #### In the rt_refperturbed_ref direction:
+                    # J_cross_f = dx_cross/drt_ref*_ref
+                    #           = J_frame drt_ref*_frame/drt_ref*_ref
+                    #
+                    # J_cross_p = dx_cross/drt_ref*_ref
+                    #           = J_p dp*/drt_ref*_ref
+                    #           = J_p d(transform(rt_ref*_ref,p ))/drt_ref*_ref
 
-                    # Pack numerator
-                    dp_drt /= nps.dummy(scale_points, -1)
-                    # shape (Npoints*3,6) = (Nstates_point,6)
-                    dp_drt = nps.clump(dp_drt, n=2)
-                    J_cross_fp[:] = J_observations[:, slice_state_point].dot(dp_drt)
+                    # Note that in both directions we have exactly the same
+                    # gradients. So I have a single path here that I apply to both
+                    if have_state['board']:
+                        rt_ref_frame = b_baseline_unpacked[slice_state_frame].reshape(Nframes,6)
+                        # shape (Nframes,6,6)
+                        drt_drt = mrcal.compose_rt_tinyrt0_gradientrt0(rt_ref_frame)
+                        # Pack numerator
+                        drt_drt /= nps.dummy(scale_frames, -1)
+                        # shape (Nframes*6,6) = (Nstates_frame,6)
+                        drt_drt = nps.clump(drt_drt, n=2)
+                        J_cross_fp[:] = J_observations[:, slice_state_frame].dot(drt_drt)
 
+                    if have_state['point']:
+                        p = b_baseline_unpacked[slice_state_point].reshape(Npoints,3)
+
+                        # I have rt ~ identity, so transform(rt,p) ~ p - skew(p) r + t
+                        # Thus d/dr = -skew(p), d/dt = I
+
+                        # shape (Npoints,3,6)
+                        dp_drt = np.zeros((Npoints,3,6), dtype=float)
+                        mrcal.skew_symmetric(p, out = dp_drt[...,:3])
+                        dp_drt[...,:3] *= -1
+
+                        # I want:
+                        #   mrcal.identity_R(out = dp_drt[...,3:])
+                        # But this doesn't work today: npsp has a fix in 0.39, but I
+                        # don't want to demand this later release
+                        dp_drt[...,:,3:] = 0
+                        dp_drt[...,0,3 ] = 1
+                        dp_drt[...,1,4 ] = 1
+                        dp_drt[...,2,5 ] = 1
+
+                        # Pack numerator
+                        dp_drt /= nps.dummy(scale_points, -1)
+                        # shape (Npoints*3,6) = (Nstates_point,6)
+                        dp_drt = nps.clump(dp_drt, n=2)
+                        J_cross_fp[:] = J_observations[:, slice_state_point].dot(dp_drt)
+
+
+                    # check the first 5 samples
+                    if get_cross_operating_point__linearization.did_check_count < 5:
+
+                        Jpacked_fpcw = J_observations.toarray()
+                        Jpacked_fpcw[:,~state_mask_fpcw] = 0
+                        Kpacked_ref_fpcw = \
+                            -np.linalg.lstsq(J_cross_fp,
+                                             Jpacked_fpcw,
+                                             rcond = None)[0]
+                        Kpacked = mrcal.drt_cross_reprojection__dbpacked(**optimization_inputs_baseline)
+
+                        testutils.confirm_equal(Kpacked_ref_fpcw,
+                                                Kpacked,
+                                                eps       = 1e-12,
+                                                worstcase = True,
+                                                msg = f"drt_cross_reprojection__dbpacked(icam_intrinsics=None) (rrp) does the right thing")
+
+
+                        if 0:
+                            JctJc_ref = nps.matmult( J_cross_fp.T, J_cross_fp )
+                            JctJc_flat = np.fromfile("/tmp/Jcross_t__Jcross", dtype=float)
+                            JctJc = np.zeros((6,6), dtype=float)
+                            JctJc[0,0:] = JctJc_flat[0:6]
+                            JctJc[1,1:] = JctJc_flat[6:11]
+                            JctJc[2,2:] = JctJc_flat[11:15]
+                            JctJc[3,3:] = JctJc_flat[15:18]
+                            JctJc[4,4:] = JctJc_flat[18:20]
+                            JctJc[5,5:] = JctJc_flat[20:21]
+                            for i in np.arange(6): JctJc[i,i] /= 2.
+                            JctJc = JctJc + JctJc.T
+                            print(JctJc)
+                            print(JctJc_ref)
+
+                            istate_point0 = mrcal.state_index_points(0, **optimization_inputs_baseline)
+
+                            Kpackedp_noinv = np.fromfile("/tmp/Kpackedp_noinv", dtype=float).reshape(6,Nstates_point)
+                            Kpackedp_noinv_ref = nps.matmult(J_cross_fp.T,Jpacked_fpcw)[:,istate_point0:]
+                            print(np.max(np.abs(Kpackedp_noinv_ref - Kpackedp_noinv)))
+
+                            import IPython
+                            IPython.embed()
+                            sys.exit()
+
+                        del Jpacked_fpcw # I'm running out of memory. Let's free stuff when we can
+
+            else:
+                # ccp or cpc. There's no separate J_cross_e and J_cross_fp. For
+                # each measurement: if extrinsics are used, I use e, else: I use
+                # fp
+
+                if is_cpc:
+                    raise Exception("This path is not yet implemented")
+
+                # I only consider ccp
+
+                if slice_state_extrinsics is not None:
+                    # I compute J_cross_e for ALL measurements. Those that have
+                    # no extrinsics will automatically be set to 0
+
+                    # J_cross_e = dx_cross/drt_cam_cam*
+                    #           = J_extrinsics drt_cam_ref*/drt_cam_cam*
+                    #           ~ J_extrinsics d(compose_rt(rt_cam_cam*,rt_cam_ref))/drt_cam_cam*
+                    rt_cam_ref = b_baseline_unpacked[slice_state_extrinsics].reshape(Nextrinsics,6)
+                    # shape (Nextrinsics,6,6)
+                    drt_drt = mrcal.compose_rt_tinyrt0_gradientrt0(rt_cam_ref)
+                    # Pack
+                    drt_drt /= nps.dummy(scale_extrinsics, -1)
+                    # shape (Nextrinsics*6,6) = (Nstates_extrinsics,6)
+                    drt_drt = nps.clump(drt_drt, n=2)
+                    J_cross_e = J_observations[:, slice_state_extrinsics].dot(drt_drt)
+                else:
+                    J_cross_e = None
+
+                # if extrinsics are NOT used in this measurement:
+                J_cross_fp = np.zeros(dx_cross_fpcw0.shape + (6,), dtype=float)
+                if 1:
+                    # I compute J_cross_fp for ALL measurements; will mask out
+                    # those that DO have extrinsics shortly
+
+                    # J_cross_f = dx_cross/drt_cam_cam*
+                    #           = J_frame drt_cam_frame*/drt_cam_cam*
+                    #           ~ J_frame d(compose_rt(rt_cam_cam*,rt_ref_frame))/drt_cam_cam*
+                    #
+                    # J_cross_p = dx_cross/drt_cam_cam*
+                    #           = J_p dp/drt_cam_cam*
+                    #           ~ J_p d(transform(rt_cam_cam*,p))/drt_cam_cam*
+                    if have_state['board']:
+                        rt_ref_frame = b_baseline_unpacked[slice_state_frame].reshape(Nframes,6)
+                        # shape (Nframes,6,6)
+                        drt_drt = mrcal.compose_rt_tinyrt0_gradientrt0(rt_ref_frame)
+                        # Pack numerator
+                        drt_drt /= nps.dummy(scale_frames, -1)
+                        # shape (Nframes*6,6) = (Nstates_frame,6)
+                        drt_drt = nps.clump(drt_drt, n=2)
+                        J_cross_fp[:] = J_observations[:, slice_state_frame].dot(drt_drt)
+
+                    if have_state['point']:
+                        p = b_baseline_unpacked[slice_state_point].reshape(Npoints,3)
+
+                        # I have rt ~ identity, so transform(rt,p) ~ p - skew(p) r + t
+                        # Thus d/dr = -skew(p), d/dt = I
+
+                        # shape (Npoints,3,6)
+                        dp_drt = np.zeros((Npoints,3,6), dtype=float)
+                        mrcal.skew_symmetric(p, out = dp_drt[...,:3])
+                        dp_drt[...,:3] *= -1
+
+                        # I want:
+                        #   mrcal.identity_R(out = dp_drt[...,3:])
+                        # But this doesn't work today: npsp has a fix in 0.39, but I
+                        # don't want to demand this later release
+                        dp_drt[...,:,3:] = 0
+                        dp_drt[...,0,3 ] = 1
+                        dp_drt[...,1,4 ] = 1
+                        dp_drt[...,2,5 ] = 1
+
+                        # Pack numerator
+                        dp_drt /= nps.dummy(scale_points, -1)
+                        # shape (Npoints*3,6) = (Nstates_point,6)
+                        dp_drt = nps.clump(dp_drt, n=2)
+                        J_cross_fp[:] = J_observations[:, slice_state_point].dot(dp_drt)
+
+                # ccp uses J_cross_e for each measurement that has extrinsics
+                # and J_cross_fp for all the others. I combine them
+                J_cross = J_cross_e
+                J_cross[~mask_jrow_has_extrinsics,:] = J_cross_fp[~mask_jrow_has_extrinsics,:]
 
                 # check the first 5 samples
                 if get_cross_operating_point__linearization.did_check_count < 5:
 
-                    Jpacked_fpcw = J_observations.toarray()
-                    Jpacked_fpcw[:,~state_mask_fpcw] = 0
-                    Kpacked_ref_fpcw = \
-                        -np.linalg.lstsq(J_cross_fp,
-                                         Jpacked_fpcw,
-                                         rcond = None)[0]
-                    Kpacked = mrcal.drt_cross_reprojection__dbpacked(**optimization_inputs_baseline)
+                    Jpacked_efpcw = J_observations.toarray()
+                    Jpacked_efpcw[:,~state_mask_efpcw] = 0
+                    for icam in range(args.Ncameras):
+                        Kpacked_ref_efpcw = \
+                            -np.linalg.lstsq(J_cross * nps.dummy(icam == icam_intrinsics_in_jrow,
+                                                                 axis = -1),
+                                             Jpacked_efpcw,
+                                             rcond = None)[0]
+                        Kpacked = mrcal.drt_cross_reprojection__dbpacked(**optimization_inputs_baseline,
+                                                                         icam_intrinsics = icam)
 
-                    testutils.confirm_equal(Kpacked_ref_fpcw,
-                                            Kpacked,
-                                            eps       = 1e-12,
-                                            worstcase = True,
-                                            msg = f"drt_cross_reprojection__dbpacked() does the right thing")
+                        testutils.confirm_equal(Kpacked_ref_efpcw,
+                                                Kpacked,
+                                                eps       = 1e-12,
+                                                worstcase = True,
+                                                msg = f"drt_cross_reprojection__dbpacked(icam_intrinsics={icam}) (ccp) does the right thing")
 
+                    del Jpacked_efpcw # I'm running out of memory. Let's free stuff when we can
 
-                    if 0:
-                        JctJc_ref = nps.matmult( J_cross_fp.T, J_cross_fp )
-                        JctJc_flat = np.fromfile("/tmp/Jcross_t__Jcross", dtype=float)
-                        JctJc = np.zeros((6,6), dtype=float)
-                        JctJc[0,0:] = JctJc_flat[0:6]
-                        JctJc[1,1:] = JctJc_flat[6:11]
-                        JctJc[2,2:] = JctJc_flat[11:15]
-                        JctJc[3,3:] = JctJc_flat[15:18]
-                        JctJc[4,4:] = JctJc_flat[18:20]
-                        JctJc[5,5:] = JctJc_flat[20:21]
-                        for i in np.arange(6): JctJc[i,i] /= 2.
-                        JctJc = JctJc + JctJc.T
-                        print(JctJc)
-                        print(JctJc_ref)
-
-                        istate_point0 = mrcal.state_index_points(0, **optimization_inputs_baseline)
-
-                        Kpackedp_noinv = np.fromfile("/tmp/Kpackedp_noinv", dtype=float).reshape(6,Nstates_point)
-                        Kpackedp_noinv_ref = nps.matmult(J_cross_fp.T,Jpacked_fpcw)[:,istate_point0:]
-                        print(np.max(np.abs(Kpackedp_noinv_ref - Kpackedp_noinv)))
-
-                        import IPython
-                        IPython.embed()
-                        sys.exit()
-
-                    del Jpacked_fpcw # I'm running out of memory. Let's free stuff when we can
-
-
-
-
-            out[0,:] = (dx_cross_fpcw0, J_cross_e, J_cross_fp)
-            out[1,:] = (dx_cross_ie0,   J_cross_e, J_cross_fp)
+            for idirection,direction in enumerate(directions):
+                if   direction == 'rt_ref_refperturbed': out[idirection,:] = (dx_cross_fpcw0, J_cross_e, J_cross_fp)
+                elif direction == 'rt_refperturbed_ref': out[idirection,:] = (dx_cross_ie0,   J_cross_e, J_cross_fp)
+                elif direction == 'rt_cam_camperturbed': out[idirection,:] = (dx_cross_efpcw0,J_cross,   None)
+                elif direction == 'rt_camperturbed_cam': raise Exception("This path is not yet implemented")
 
             get_cross_operating_point__linearization.did_check_count += 1
 
@@ -2004,18 +2140,23 @@ The rt_refperturbed_ref formulation:
         if is_rrp or is_rpr:
             directions = ('rt_ref_refperturbed','rt_refperturbed_ref')
         else:
-            directions = ('rt_cam_camperturbed','rt_camperturbed_cam',)
+            directions = ('rt_cam_camperturbed',
+                          # This isn't implemented yet.
+                          # get_cross_operating_point() expects the inputs to
+                          # have shape (Nsamples,...), but here the inputs are
+                          # identical for each sample.
+                          #
+                          # 'rt_camperturbed_cam',
+                          )
 
         dxcross_Jcross = dict()
-        rt_rr_all      = dict()
         for direction in directions:
-            rt_rr_all     [direction] = dict()
             dxcross_Jcross[direction] = dict()
 
         # shape (..., Nmeas_observations_all,Nh,Nw,3),
         #       (..., Nmeas_observations_all,Nh,Nw,3,6)
-        pcam         = dict() # might be pcam*
-        dpcam_drt_rr = dict()
+        pcam                        = dict() # might be pcam*
+        dpcam_drt_nominal_perturbed = dict()
 
         if 1:
             method = 'compose-grad'
@@ -2023,70 +2164,70 @@ The rt_refperturbed_ref formulation:
             for direction in directions:
                 if direction == 'rt_ref_refperturbed':
                     if have_state['board']:
-                        pcam['board'], dpcam_drt_rr['board'] = \
+                        pcam['board'], dpcam_drt_nominal_perturbed['board'] = \
                             transform_point_rt3_withgrad_drt1(nps.dummy(baseline_rt_cam_ref[ idx_camextrinsics['board'] +1, :], -2,-2),
                                                               mrcal.identity_rt(),
                                                               nps.dummy(query_rt_ref_frame   [ ..., idx_frame, :], -2,-2),
                                                               nps.mv(query_calibration_object,-4,-5))
                     if have_state['point']:
-                        pcam['point'], dpcam_drt_rr['point'] = \
+                        pcam['point'], dpcam_drt_nominal_perturbed['point'] = \
                             transform_point_rt3_withgrad_drt1(baseline_rt_cam_ref[ idx_camextrinsics['point'] +1, :],
                                                               mrcal.identity_rt(),
                                                               mrcal.identity_rt(),
                                                               query_point[:,idx_points])
                     dxcross_Jcross[direction][method] = get_cross_operating_point(pcam,
-                                                                                  dpcam_drt_rr,
+                                                                                  dpcam_drt_nominal_perturbed,
                                                                                   direction = direction)
 
                 if direction == 'rt_refperturbed_ref':
                     if have_state['board']:
-                        pcam['board'], dpcam_drt_rr['board'] = \
+                        pcam['board'], dpcam_drt_nominal_perturbed['board'] = \
                             transform_point_rt3_withgrad_drt1(nps.dummy(query_rt_cam_ref[ ..., idx_camextrinsics['board'] +1, :], -2,-2),
                                                               mrcal.identity_rt(),
                                                               nps.dummy(baseline_rt_ref_frame[ ..., idx_frame, :], -2,-2),
                                                               baseline_calibration_object)
                     if have_state['point']:
-                        pcam['point'], dpcam_drt_rr['point'] = \
+                        pcam['point'], dpcam_drt_nominal_perturbed['point'] = \
                             transform_point_rt3_withgrad_drt1(query_rt_cam_ref[ ..., idx_camextrinsics['point'] +1, :],
                                                               mrcal.identity_rt(),
                                                               mrcal.identity_rt(),
                                                               baseline_point[idx_points])
                     dxcross_Jcross[direction][method] = get_cross_operating_point(pcam,
-                                                                                  dpcam_drt_rr,
+                                                                                  dpcam_drt_nominal_perturbed,
                                                                                   direction = direction)
 
                 if direction == 'rt_cam_camperturbed':
                     if have_state['board']:
-                        pcam['board'], dpcam_drt_rr['board'] = \
+                        pcam['board'], dpcam_drt_nominal_perturbed['board'] = \
                             transform_point_rt3_withgrad_drt0(mrcal.identity_rt(),
                                                               nps.dummy(query_rt_cam_ref[ ..., idx_camextrinsics['board'] +1, :], -2,-2),
                                                               nps.dummy(query_rt_ref_frame   [ ..., idx_frame, :], -2,-2),
                                                               nps.mv(query_calibration_object,-4,-5))
                     if have_state['point']:
-                        pcam['point'], dpcam_drt_rr['point'] = \
+                        pcam['point'], dpcam_drt_nominal_perturbed['point'] = \
                             transform_point_rt3_withgrad_drt0(mrcal.identity_rt(),
                                                               query_rt_cam_ref[ ..., idx_camextrinsics['point'] +1, :],
                                                               mrcal.identity_rt(),
                                                               query_point[:,idx_points])
                     dxcross_Jcross[direction][method] = get_cross_operating_point(pcam,
-                                                                                  dpcam_drt_rr,
+                                                                                  dpcam_drt_nominal_perturbed,
                                                                                   direction = direction)
 
                 if direction == 'rt_camperturbed_cam':
                     if have_state['board']:
-                        pcam['board'], dpcam_drt_rr['board'] = \
+                        pcam['board'], dpcam_drt_nominal_perturbed['board'] = \
                             transform_point_rt3_withgrad_drt0(mrcal.identity_rt(),
                                                               nps.dummy(baseline_rt_cam_ref[ idx_camextrinsics['board'] +1, :], -2,-2),
                                                               nps.dummy(baseline_rt_ref_frame[ ..., idx_frame, :], -2,-2),
                                                               baseline_calibration_object)
                     if have_state['point']:
-                        pcam['point'], dpcam_drt_rr['point'] = \
+                        pcam['point'], dpcam_drt_nominal_perturbed['point'] = \
                             transform_point_rt3_withgrad_drt0(mrcal.identity_rt(),
                                                               baseline_rt_cam_ref[ idx_camextrinsics['point'] +1, :],
                                                               mrcal.identity_rt(),
                                                               baseline_point[idx_points])
                     dxcross_Jcross[direction][method] = get_cross_operating_point(pcam,
-                                                                                  dpcam_drt_rr,
+                                                                                  dpcam_drt_nominal_perturbed,
                                                                                   direction = direction)
 
         if 1:
@@ -2106,7 +2247,7 @@ The rt_refperturbed_ref formulation:
                             mrcal.transform_point_rt(nps.dummy(baseline_rt_cam_ref[ idx_camextrinsics['board'] +1, :], -2,-2),
                                                      prefperturbed,
                                                      get_gradients = True)
-                        dpcam_drt_rr['board'] = \
+                        dpcam_drt_nominal_perturbed['board'] = \
                             nps.matmult(dpcam_dpref, dpref_drt_ref_refperturbed)
 
                     if have_state['point']:
@@ -2120,12 +2261,12 @@ The rt_refperturbed_ref formulation:
                             mrcal.transform_point_rt(baseline_rt_cam_ref[ idx_camextrinsics['point'] +1, :],
                                                      prefperturbed,
                                                      get_gradients = True)
-                        dpcam_drt_rr['point'] = \
+                        dpcam_drt_nominal_perturbed['point'] = \
                             nps.matmult(dpcam_dpref, dpref_drt_ref_refperturbed)
 
                     dxcross_Jcross[direction][method] = \
                         get_cross_operating_point(pcam,
-                                                  dpcam_drt_rr,
+                                                  dpcam_drt_nominal_perturbed,
                                                   direction = direction)
 
                 if direction == 'rt_refperturbed_ref':
@@ -2137,7 +2278,7 @@ The rt_refperturbed_ref formulation:
                             mrcal.transform_point_rt(nps.dummy(query_rt_cam_ref[ ..., idx_camextrinsics['board'] +1, :], -2,-2),
                                                      pref['board'],
                                                      get_gradients = True)
-                        dpcam_drt_rr['board'] = \
+                        dpcam_drt_nominal_perturbed['board'] = \
                             nps.matmult(dpcamperturbed_dprefperturbed,
                                         dprefperturbed_drt_refperturbed_ref)
                         del dprefperturbed_drt_refperturbed_ref,dpcamperturbed_dprefperturbed,_ # I'm running out of memory; free stuff when I can
@@ -2150,14 +2291,14 @@ The rt_refperturbed_ref formulation:
                             mrcal.transform_point_rt(query_rt_cam_ref[ ..., idx_camextrinsics['point'] +1, :],
                                                      pref['point'],
                                                      get_gradients = True)
-                        dpcam_drt_rr['point'] = \
+                        dpcam_drt_nominal_perturbed['point'] = \
                             nps.matmult(dpcamperturbed_dprefperturbed,
                                         dprefperturbed_drt_refperturbed_ref)
                         del dprefperturbed_drt_refperturbed_ref,dpcamperturbed_dprefperturbed,_ # I'm running out of memory; free stuff when I can
 
                     dxcross_Jcross[direction][method] = \
                         get_cross_operating_point(pcam,
-                                                  dpcam_drt_rr,
+                                                  dpcam_drt_nominal_perturbed,
                                                   direction = direction)
 
                 if direction == 'rt_cam_camperturbed':
@@ -2171,7 +2312,7 @@ The rt_refperturbed_ref formulation:
                         pcam['board'] = \
                             mrcal.transform_point_rt(nps.dummy(query_rt_cam_ref[ ..., idx_camextrinsics['board'] +1, :], -2,-2),
                                                      prefperturbed)
-                        dpcam_drt_rr['board'] = transform_point_identity_gradient(pcam['board'])
+                        dpcam_drt_nominal_perturbed['board'] = transform_point_identity_gradient(pcam['board'])
 
                     if have_state['point']:
                         # shape (..., Nmeas_observations_all,3),
@@ -2182,11 +2323,11 @@ The rt_refperturbed_ref formulation:
                         pcam['point'] = \
                             mrcal.transform_point_rt(query_rt_cam_ref[ ..., idx_camextrinsics['point'] +1, :],
                                                      prefperturbed)
-                        dpcam_drt_rr['point'] = transform_point_identity_gradient(pcam['point'])
+                        dpcam_drt_nominal_perturbed['point'] = transform_point_identity_gradient(pcam['point'])
 
                     dxcross_Jcross[direction][method] = \
                         get_cross_operating_point(pcam,
-                                                  dpcam_drt_rr,
+                                                  dpcam_drt_nominal_perturbed,
                                                   direction = direction)
 
                 if direction == 'rt_camperturbed_cam':
@@ -2195,20 +2336,20 @@ The rt_refperturbed_ref formulation:
                         pcam['board'] = \
                             mrcal.transform_point_rt(nps.dummy(baseline_rt_cam_ref[ idx_camextrinsics['board'] +1, :], -2,-2),
                                                      pref['board'])
-                        dpcam_drt_rr['board'] = transform_point_identity_gradient(pcam['board'])
+                        dpcam_drt_nominal_perturbed['board'] = transform_point_identity_gradient(pcam['board'])
 
                     if have_state['point']:
                         # shape (..., Nmeas_observations_all,3),
                         pcam['point'] = \
                             mrcal.transform_point_rt(baseline_rt_cam_ref[ idx_camextrinsics['point'] +1, :],
                                                      pref['point'])
-                        dpcam_drt_rr['point'] = transform_point_identity_gradient(pcam['point'])
+                        dpcam_drt_nominal_perturbed['point'] = transform_point_identity_gradient(pcam['point'])
 
                     dxcross_Jcross[direction][method] = \
                         get_cross_operating_point(pcam,
-                                                  dpcam_drt_rr,
+                                                  dpcam_drt_nominal_perturbed,
                                                   direction = direction)
-        del pcam, dpcam_drt_rr
+        del pcam, dpcam_drt_nominal_perturbed
 
         if 1:
             method = 'linearization'
@@ -2228,44 +2369,46 @@ The rt_refperturbed_ref formulation:
 
             del b
 
-            # a (2,3) array indexed as
-            # (rt_ref_refperturbed,rt_refperturbed_ref),(x,Jextrinsics,Jframes).
-            rrp_rpr__xcross__Jcross_e__Jcross_fp = np.empty( (args.Nsamples,2,3), dtype=object)
+            # a (Ndirections,3) array indexed as
+            # (*directions),(xcross, Jcross_extrinsics, Jcross_frames).
+            # cross-reprojection-ccp and -cpc only have a single Jcross, so they report (..., Jcross, None)
+            directions__xcross__Jcross_e__Jcross_fp = np.empty( (args.Nsamples,2,3), dtype=object)
             get_cross_operating_point__linearization( W_delta_qref,
                                                       Jt_W_qref,
                                                       query_b_unpacked, # only for plotting and checking
                                                       scale_extrinsics,
                                                       scale_frames,
                                                       scale_points,
-                                                      out = rrp_rpr__xcross__Jcross_e__Jcross_fp)
+                                                      directions,
+                                                      out = directions__xcross__Jcross_e__Jcross_fp)
             del scale_frames, scale_points
 
-            if every_observation_has_extrinsics:
-                dxcross_Jcross['rt_ref_refperturbed'][f"{method}-Je"] = \
-                    np.array(tuple(rrp_rpr__xcross__Jcross_e__Jcross_fp[:,0,0])), \
-                    np.array(tuple(rrp_rpr__xcross__Jcross_e__Jcross_fp[:,0,1]))
-                dxcross_Jcross['rt_refperturbed_ref'][f"{method}-Je"] = \
-                    np.array(tuple(rrp_rpr__xcross__Jcross_e__Jcross_fp[:,1,0])), \
-                    np.array(tuple(rrp_rpr__xcross__Jcross_e__Jcross_fp[:,1,1]))
-            dxcross_Jcross['rt_ref_refperturbed'][f"{method}-Jfp"] = \
-                np.array(tuple(rrp_rpr__xcross__Jcross_e__Jcross_fp[:,0,0])), \
-                np.array(tuple(rrp_rpr__xcross__Jcross_e__Jcross_fp[:,0,2]))
-            dxcross_Jcross['rt_refperturbed_ref'][f"{method}-Jfp"] = \
-                np.array(tuple(rrp_rpr__xcross__Jcross_e__Jcross_fp[:,1,0])), \
-                np.array(tuple(rrp_rpr__xcross__Jcross_e__Jcross_fp[:,1,2]))
+            for idirection,direction in enumerate(directions):
+                if is_rrp or is_rpr:
+                    if every_observation_has_extrinsics:
+                        dxcross_Jcross[direction]["linearization-Je"] = \
+                            np.array(tuple(directions__xcross__Jcross_e__Jcross_fp[:,idirection,0])), \
+                            np.array(tuple(directions__xcross__Jcross_e__Jcross_fp[:,idirection,1]))
+                    dxcross_Jcross[direction]["linearization-Jfp"] = \
+                        np.array(tuple(directions__xcross__Jcross_e__Jcross_fp[:,idirection,0])), \
+                        np.array(tuple(directions__xcross__Jcross_e__Jcross_fp[:,idirection,2]))
+                else:
+                    # cpc or ccp
+                    dxcross_Jcross[direction]["linearization"] = \
+                        np.array(tuple(directions__xcross__Jcross_e__Jcross_fp[:,idirection,0])), \
+                        np.array(tuple(directions__xcross__Jcross_e__Jcross_fp[:,idirection,1]))
 
-            del rrp_rpr__xcross__Jcross_e__Jcross_fp
+            del directions__xcross__Jcross_e__Jcross_fp
 
 
         @nps.broadcast_define((('N',6),('N',)), (6,))
         def lstsq(J,x): return np.linalg.lstsq(J, x, rcond = None)[0]
 
 
-        for direction in directions:
-            for method in dxcross_Jcross[direction].keys():
-                dx_cross0,J_cross = dxcross_Jcross[direction][method]
-                rt_rr_all[direction][method] = -lstsq(J_cross, dx_cross0)
-
+        ##### All the dxcross_Jcross have been gathered, and we can run the
+        ##### checks. Note: the cross-reprojection-ccp and -cpc methods require
+        ##### icam_intrinsics-specific logic, so we must mask out those arrays
+        ##### before using them
 
         # I do NOT evaluate the "linearization-Je" mode because it cannot work
         # if any no-extrinsics observations are present, and we usually have
@@ -2273,7 +2416,11 @@ The rt_refperturbed_ref formulation:
         # we do NOT have fixed frames
         for direction in directions:
 
-            # compose-grad and transform-grad should be exactly the same, modulo numerical fuzz
+            # compose-grad and transform-grad should be exactly the same, modulo
+            # numerical fuzz
+            #
+            # for ccp and ccp here I can look at the FULL arrays, without
+            # looking at the icam_intrinsics-specific pieces
             testutils.confirm_equal(dxcross_Jcross[direction]['compose-grad'  ][0],
                                     dxcross_Jcross[direction]['transform-grad'][0],
                                     eps       = 1e-6,
@@ -2290,9 +2437,15 @@ The rt_refperturbed_ref formulation:
             # So this should be close, but will not be exact. This threshold and
             # reldiff_eps look high, but I'm pretty sure this is correct. Enable
             # the plot immediately below to see
-            if 'linearization-Jfp' in dxcross_Jcross[direction]:
-                testutils.confirm_equal(dxcross_Jcross[direction]['compose-grad'     ][0],
-                                        dxcross_Jcross[direction]['linearization-Jfp'][0],
+            #
+            # for ccp and ccp here I can look at the FULL arrays, without
+            # looking at the icam_intrinsics-specific pieces
+            for linearization_type in ('linearization-Jfp', 'linearization'):
+                if linearization_type not in dxcross_Jcross[direction].keys():
+                    continue
+
+                testutils.confirm_equal(dxcross_Jcross[direction]['compose-grad'    ][0],
+                                        dxcross_Jcross[direction][linearization_type][0],
                                         eps = 0.1,
                                         reldiff_eps = 1e-2,
                                         reldiff_smooth_radius = 1,
@@ -2300,8 +2453,8 @@ The rt_refperturbed_ref formulation:
                                         relative = True,
                                         msg = f"cross-reprojection uncertainty at distance={distance}: linearized dx_cross0 is correct using {direction}")
 
-                testutils.confirm_equal(dxcross_Jcross[direction]['compose-grad'     ][1],
-                                        dxcross_Jcross[direction]['linearization-Jfp'][1],
+                testutils.confirm_equal(dxcross_Jcross[direction]['compose-grad'    ][1],
+                                        dxcross_Jcross[direction][linearization_type][1],
                                         eps = 0.1,
                                         reldiff_eps = 1e-2,
                                         reldiff_smooth_radius = 1,
@@ -2312,53 +2465,78 @@ The rt_refperturbed_ref formulation:
         # I compared the linearization result to the sampled result. Now let's
         # compare the rt_ref_refperturbed,rt_refperturbed_ref results to each
         # other
-        for method in rt_rr_all['rt_ref_refperturbed'].keys():
-            rt_error = mrcal.compose_rt(rt_rr_all['rt_ref_refperturbed'][method],
-                                        rt_rr_all['rt_refperturbed_ref'][method])
+        if is_rrp or is_rpr:
+            for method in dxcross_Jcross['rt_ref_refperturbed'].keys():
 
-            th_deg = nps.mag(rt_error[:,:3]) * 180./np.pi
-            t      = nps.mag(rt_error[:,3:])
-            testutils.confirm_equal(th_deg,
-                                    0,
-                                    eps = 1e-3,
-                                    msg = f"cross-reprojection uncertainty at distance={distance}: rt_refperturbed_ref is the inverse of rt_ref_refperturbed with method {method} (r)")
-            testutils.confirm_equal(t,
-                                    0,
-                                    eps = 1e-4,
-                                    msg = f"cross-reprojection uncertainty at distance={distance}: rt_refperturbed_ref is the inverse of rt_ref_refperturbed with method {method} (t)")
+                dx_cross0,J_cross = dxcross_Jcross['rt_ref_refperturbed'][method]
+                rt_ref_refperturbed = -lstsq(J_cross, dx_cross0)
+
+                dx_cross0,J_cross = dxcross_Jcross['rt_refperturbed_ref'][method]
+                rt_refperturbed_ref = -lstsq(J_cross, dx_cross0)
+
+                rt_error = mrcal.compose_rt(rt_ref_refperturbed,
+                                            rt_refperturbed_ref)
+
+                th_deg = nps.mag(rt_error[:,:3]) * 180./np.pi
+                t      = nps.mag(rt_error[:,3:])
+                testutils.confirm_equal(th_deg,
+                                        0,
+                                        eps = 1e-3,
+                                        msg = f"cross-reprojection uncertainty at distance={distance}: rt_refperturbed_ref is the inverse of rt_ref_refperturbed with {method=} (r)")
+                testutils.confirm_equal(t,
+                                        0,
+                                        eps = 1e-4,
+                                        msg = f"cross-reprojection uncertainty at distance={distance}: rt_refperturbed_ref is the inverse of rt_ref_refperturbed with {method=} (t)")
 
         if 0:
-            if 'linearization-Jfp' in dxcross_Jcross[direction]:
+            direction = 'rt_cam_camperturbed'
+            if 'linearization' in dxcross_Jcross[direction]:
                 import gnuplotlib as gp
-                direction = 'rt_ref_refperturbed'
-                gp.plot( nps.cat(dxcross_Jcross[direction]['compose-grad'     ][0][0],
-                                 dxcross_Jcross[direction]['linearization-Jfp'][0][0]),
+                gp.plot( nps.cat(dxcross_Jcross[direction]['compose-grad' ][0][0],
+                                 dxcross_Jcross[direction]['linearization'][0][0]),
                          wait = True )
                 # dx/dr
-                gp.plot( nps.cat(np.ravel(dxcross_Jcross[direction]['compose-grad'     ][1][0,:1000,:3]),
-                                 np.ravel(dxcross_Jcross[direction]['linearization-Jfp'][1][0,:1000,:3])),
+                gp.plot( nps.cat(np.ravel(dxcross_Jcross[direction]['compose-grad' ][1][0,:1000,:3]),
+                                 np.ravel(dxcross_Jcross[direction]['linearization'][1][0,:1000,:3])),
                          wait = True)
                 # dx/dt
-                gp.plot( nps.cat(np.ravel(dxcross_Jcross[direction]['compose-grad'     ][1][0,:1000,3:]),
-                                 np.ravel(dxcross_Jcross[direction]['linearization-Jfp'][1][0,:1000,3:])),
+                gp.plot( nps.cat(np.ravel(dxcross_Jcross[direction]['compose-grad' ][1][0,:1000,3:]),
+                                 np.ravel(dxcross_Jcross[direction]['linearization'][1][0,:1000,3:])),
                          wait = True)
-
-        del dxcross_Jcross
 
         # Done. Let's pick one of the estimates to return to the outside. The
         # "mode" tells us which one
-        if re.match('rrp', mode): direction = 'rt_ref_refperturbed'
-        else:                     direction = 'rt_refperturbed_ref'
+        if   is_rrp: direction = 'rt_ref_refperturbed'
+        elif is_rpr: direction = 'rt_refperturbed_ref'
+        elif is_ccp: direction = 'rt_cam_camperturbed'
+        elif is_cpc: direction = 'rt_camperturbed_cam'
+        else: raise
+
         if   re.search('empirical$', mode):
             method = 'compose-grad'
         else:
-            Jmode = re.search('(Jfp|Je)$', mode).group(1)
-            method = f'linearization-{Jmode}'
+            Jmode = re.search('(Jfp|Je)$', mode)
+            if Jmode is not None:
+                method = f'linearization-{Jmode.group(1)}'
+            else:
+                method = f'linearization'
 
-        if direction == 'rt_ref_refperturbed':
-            rt_ref_refperturbed = rt_rr_all[direction][method]
-        else:
-            rt_ref_refperturbed = mrcal.invert_rt(rt_rr_all[direction][method])
+        import IPython
+        IPython.embed()
+        sys.exit()
+
+
+
+        ################### done until this point
+        ############################## icam_intrinsics
+        dx_cross0,J_cross = dxcross_Jcross[direction][method]
+        rt_nominal_perturbed = -lstsq(J_cross, dx_cross0)
+        ###3333############# need dx_cross0 later
+        del dxcross_Jcross
+
+
+        if is_rpr or is_cpc:
+            rt_nominal_perturbed = mrcal.invert_rt(rt_nominal_perturbed)
 
         # I have a least-squares solve of the linearized system. Let's look at
         # the error to confirm that it's smaller. This is an optional validation
@@ -2381,7 +2559,7 @@ The rt_refperturbed_ref formulation:
                     # shape (..., Nmeas_observations_all,Nh,Nw,3)
                     pcam = \
                         mrcal.transform_point_rt(mrcal.compose_rt(nps.dummy(baseline_rt_cam_ref[ idx_camextrinsics['board'] +1, :], -2,-2),
-                                                                  nps.mv(rt_ref_refperturbed, -2,-5),
+                                                                  nps.mv(rt_nominal_perturbed, -2,-5),
                                                                   nps.dummy(query_rt_ref_frame   [ ..., idx_frame, :], -2,-2)),
                                                  nps.mv(query_calibration_object,-4,-5))
                     # shape (..., Nmeas_observations_all,Nh,Nw,2)
@@ -2393,7 +2571,7 @@ The rt_refperturbed_ref formulation:
                     # shape (..., Nmeas_observations_all,3)
                     pcam = \
                         mrcal.transform_point_rt(mrcal.compose_rt(baseline_rt_cam_ref[ idx_camextrinsics['point'] +1, :],
-                                                                  nps.mv(rt_ref_refperturbed,-2,-3)),
+                                                                  nps.mv(rt_nominal_perturbed,-2,-3)),
                                                  query_point[:,idx_points])
 
                     # shape (..., Nmeas_observations_all,2)
@@ -2435,14 +2613,14 @@ The rt_refperturbed_ref formulation:
 
 
                 if 0:
-                    # crude plotting to make sure the solved rt_ref_refperturbed
+                    # crude plotting to make sure the solved rt_nominal_perturbed
                     # are near optimal
-                    def compute(rt_ref_refperturbed):
+                    def compute(rt_nominal_perturbed):
 
                         what = 'point'
                         pcam = \
                             mrcal.transform_point_rt(mrcal.compose_rt(baseline_rt_cam_ref[ idx_camextrinsics['point'] +1, :],
-                                                                      rt_ref_refperturbed),
+                                                                      rt_nominal_perturbed),
                                                      query_point[0,idx_points])
                         q_cross = \
                             mrcal.project(pcam,
@@ -2457,15 +2635,15 @@ The rt_refperturbed_ref formulation:
 
                     i = 3
 
-                    b = compute(rt_ref_refperturbed[0])
+                    b = compute(rt_nominal_perturbed[0])
                     delta = np.linspace(-1e-5, 1e-5, 1000)
                     dirac = np.zeros((6,), dtype=float)
                     dirac[i] = 1.
-                    e = np.array([compute(rt_ref_refperturbed[0] + d*dirac) \
+                    e = np.array([compute(rt_nominal_perturbed[0] + d*dirac) \
                                   for d in delta])
 
                     import gnuplotlib as gp
-                    gp.plot(delta+rt_ref_refperturbed[0,i], b+e)
+                    gp.plot(delta+rt_nominal_perturbed[0,i], b+e)
 
                     import IPython
                     IPython.embed()
@@ -2473,14 +2651,14 @@ The rt_refperturbed_ref formulation:
 
 
 
-        return rt_ref_refperturbed
+        return rt_nominal_perturbed
 
 
 
 
 
     # shape (Nsamples,6)
-    rt_ref_refperturbed = get_rt_ref_refperturbed()
+    rt_ref_refperturbed = get_rt_nominal_perturbed()
 
     # check the math around computing rt_ref_refperturbed
     if 1:
