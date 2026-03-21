@@ -3134,7 +3134,7 @@ def check_uncertainties_at(q0_baseline, distance):
 # I plot the data from the first distance, so I do this in reverse. The last
 # iteration is the first distance, and I save those results
 for distance in reversed(args.distances):
-    check_uncertainties_at(q0_baseline, distance)
+    q_sampled__dist0,Var_dq_predicted__dist0 = check_uncertainties_at(q0_baseline, distance)
 
 if not (args.explore or \
         args.show_distribution or \
