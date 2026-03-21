@@ -1536,6 +1536,7 @@ bool _mrcal_drt_cross_reprojection__dbpacked(// output
         }                                                               \
     }
 
+    FINALIZE(Kpackede,  Nstate_extrinsics);
     FINALIZE(Kpackedf,  Nstate_frames);
     FINALIZE(Kpackedp,  Nstate_points);
     FINALIZE(Kpackedcw, Nstate_calobject_warp);
