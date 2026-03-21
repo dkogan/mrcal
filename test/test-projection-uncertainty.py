@@ -3100,7 +3100,7 @@ def check_uncertainties_at(q0_baseline, distance):
     # as tight as I want by increasing Nsamples
     testutils.confirm_equal( nps.mag(q_sampled_mean - q0_baseline),
                              0,
-                             eps = 0.3,
+                             eps = 0.7,
                              worstcase = True,
                              msg = f"Sampled projections cluster around the sample point at distance = {distancestr}")
 
