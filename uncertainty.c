@@ -797,7 +797,7 @@ int dpptrs_(char* uplo, int* n, int* nrhs,
 // drt_cam_camperturbed/db (if icam_intrinsics >= 0)
 bool _mrcal_drt_cross_reprojection__dbpacked(// output
                                           // used for cross_reprojection_ccp only. May be NULL
-                                          // Shape (6,Nstate_cameras)
+                                          // Shape (6,Nstate_extrinsics)
                                           double* Kpackede,
                                           int Kpackede_stride0, // in bytes. <= 0 means "contiguous"
                                           int Kpackede_stride1, // in bytes. <= 0 means "contiguous"
