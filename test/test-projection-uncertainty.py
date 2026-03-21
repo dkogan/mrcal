@@ -1149,6 +1149,10 @@ The logic here is described thoroughly in
         return None
 
     mode = re.match('cross-reprojection-(.+)', args.reproject_perturbed).group(1)
+    is_rrp = re.search('rrp', mode)
+    is_rpr = re.search('rpr', mode)
+    is_ccp = re.search('ccp', mode)
+    is_cpc = re.search('cpc', mode)
 
     b_baseline_unpacked, x_baseline, J_packed_baseline, factorization = \
         mrcal.optimizer_callback(**baseline_optimization_inputs)
@@ -2133,10 +2137,6 @@ The rt_refperturbed_ref formulation:
 
             err_rms_baseline = np.sqrt( nps.norm2(err_sum_of_squares_baseline) / (N_sum_of_squares_baseline/2))
 
-        is_rrp = re.search('rrp', mode)
-        is_rpr = re.search('rpr', mode)
-        is_ccp = re.search('ccp', mode)
-        is_cpc = re.search('cpc', mode)
         if is_rrp or is_rpr:
             directions = ('rt_ref_refperturbed','rt_refperturbed_ref')
         else:
@@ -2521,27 +2521,35 @@ The rt_refperturbed_ref formulation:
             else:
                 method = f'linearization'
 
-        import IPython
-        IPython.embed()
-        sys.exit()
-
-
-
-        ################### done until this point
-        ############################## icam_intrinsics
         dx_cross0,J_cross = dxcross_Jcross[direction][method]
-        rt_nominal_perturbed = -lstsq(J_cross, dx_cross0)
-        ###3333############# need dx_cross0 later
-        del dxcross_Jcross
 
+        if is_rpr or is_rrp:
+            # shape (...., 6)
+            rt_nominal_perturbed = -lstsq(J_cross,
+                                          dx_cross0)
+        else:
+            # shape (...., Ncameras, 6)
+            rt_nominal_perturbed = np.zeros(dx_cross0.shape[:-1] + (args.Ncameras,6,), dtype=float)
+            for icam in range(args.Ncameras):
+                rt_nominal_perturbed[...,icam,:] = \
+                    -lstsq(J_cross * nps.dummy(icam == icam_intrinsics_in_jrow, axis = -1),
+                           dx_cross0)
+
+        del dxcross_Jcross
 
         if is_rpr or is_cpc:
             rt_nominal_perturbed = mrcal.invert_rt(rt_nominal_perturbed)
 
+
+        ######## I disable these checks. They worked for rrp and rpr, but need
+        ######## porting for ccp and cpc. This code assumes the same transform
+        ######## for all icam_intrinsics, which isn't right for ccp and cpc, and
+        ######## would need a port
+
         # I have a least-squares solve of the linearized system. Let's look at
         # the error to confirm that it's smaller. This is an optional validation
         # step
-        if 1:
+        if 0:
             # shape (Nsamples,)
             err_rms_cross_ref0 = \
                 np.sqrt( nps.norm2( dx_cross0 + \
@@ -2650,15 +2658,20 @@ The rt_refperturbed_ref formulation:
                     sys.exit()
 
 
-
         return rt_nominal_perturbed
 
 
 
 
 
-    # shape (Nsamples,6)
-    rt_ref_refperturbed = get_rt_nominal_perturbed()
+    if is_rpr or is_rrp:
+        # shape (Nsamples,6)
+        rt_ref_refperturbed = get_rt_nominal_perturbed()
+        Nrtrr_slices = 1
+    else:
+        # shape (Nsamples,Ncameras,6)
+        rt_cam_camperturbed = get_rt_nominal_perturbed()
+        Nrtrr_slices = rt_cam_camperturbed.shape[-2]
 
     # check the math around computing rt_ref_refperturbed
     if 1:
@@ -2673,88 +2686,108 @@ The rt_refperturbed_ref formulation:
                     equation_above = f"{args.observed_pixel_uncertainty} title \"reference\"",
                     wait = True)
 
-        # shape (6,Nstate)
-        Kpacked = mrcal.drt_cross_reprojection__dbpacked(**optimization_inputs_baseline)
+        for icam in range(Nrtrr_slices):
+            if is_rpr or is_rrp:
+                rt_rr = rt_ref_refperturbed
+                icam  = None
+            else:
+                rt_rr = rt_cam_camperturbed[...,icam,:]
 
-        # I have
-        #
-        # rt_ref_refperturbed = Kpacked inv(J*t J*) Jobservations*t W dqref
+            # shape (6,Nstate)
+            Kpacked = mrcal.drt_cross_reprojection__dbpacked(**optimization_inputs_baseline,
+                                                             icam_intrinsics = icam)
 
-        # Kpacked[:,:istate_frame0] is always 0. I return the full array, even with
-        # the 0 because CHOLMOD doesn't give me a good interface to tell it that
-        # these cols are 0 in factorization.solve_xt_JtJ_bt()
+            # I have
+            #
+            # rt_rr = Kpacked inv(J*t J*) Jobservations*t W dqref
 
-        Kpacked_inv_JtJ = factorization.solve_xt_JtJ_bt(Kpacked)
+            # Kpacked[:,:istate_extrinsics0] is always 0. I return the full array, even with
+            # the 0 because CHOLMOD doesn't give me a good interface to tell it that
+            # these cols are 0 in factorization.solve_xt_JtJ_bt()
 
-        # Given the noisy samples I can compute the linearization using the API,
-        # which should match our linearization here exactly
-        #
-        # shape (Nsamples,6)
-        rt_ref_refperturbed_predicted_from_samples = \
-            nps.transpose( \
-                           nps.matmult(Kpacked_inv_JtJ,
-                                       nps.transpose(Jt_W_qref) ) )
+            Kpacked_inv_JtJ = factorization.solve_xt_JtJ_bt(Kpacked)
 
-        testutils.confirm_equal(rt_ref_refperturbed_predicted_from_samples,
-                                rt_ref_refperturbed,
-                                relative    = True,
-                                reldiff_eps = 1e-6,
-                                eps         = 1e-3,
-                                worstcase   = True,
-                                msg = "Linearized rt_ref_refperturbed computations match exactly")
+            # Given the noisy samples I can compute the linearization using the API,
+            # which should match our linearization here exactly
+            #
+            # shape (Nsamples,6)
+            rt_rr_predicted_from_samples = \
+                nps.transpose( \
+                               nps.matmult(Kpacked_inv_JtJ,
+                                           nps.transpose(Jt_W_qref) ) )
 
-        # Now let's compute and compare the linearized Var(rt_ref_refperturbed)
+            testutils.confirm_equal(rt_rr_predicted_from_samples,
+                                    rt_rr,
+                                    relative    = True,
+                                    reldiff_eps = 1e-6,
+                                    eps         = 1e-3,
+                                    worstcase   = True,
+                                    msg = "Linearized rt_rr computations match exactly")
 
-        var_predicted__rt_ref_refperturbed = \
-            mrcal._mrcal_npsp._A_Jt_J_At(Kpacked_inv_JtJ, J_observations.indptr, J_observations.indices, J_observations.data,
-                                         Nleading_rows_J = J_observations.shape[0]) * \
-            args.observed_pixel_uncertainty*args.observed_pixel_uncertainty
+            # Now let's compute and compare the linearized Var(rt_rr)
 
-        rt_ref_refperturbed__mean0 = rt_ref_refperturbed - np.mean(rt_ref_refperturbed, axis=-2)
-        var_empirical__rt_ref_refperturbed = np.mean(nps.outer(rt_ref_refperturbed__mean0,rt_ref_refperturbed__mean0), axis=0)
+            var_predicted__rt_rr = \
+                mrcal._mrcal_npsp._A_Jt_J_At(Kpacked_inv_JtJ, J_observations.indptr, J_observations.indices, J_observations.data,
+                                             Nleading_rows_J = J_observations.shape[0]) * \
+                args.observed_pixel_uncertainty*args.observed_pixel_uncertainty
 
-        if 0:
-            # I do this more or less below in the confirm_covariances_equal()
-            l0,v0 = mrcal.sorted_eig(var_empirical__rt_ref_refperturbed)
-            l1,v1 = mrcal.sorted_eig(var_predicted__rt_ref_refperturbed)
+            rt_rr__mean0 = rt_rr - np.mean(rt_rr, axis=-2)
+            var_empirical__rt_rr = np.mean(nps.outer(rt_rr__mean0,rt_rr__mean0), axis=0)
 
-            import gnuplotlib as gp
+            if 0:
+                # I do this more or less below in the confirm_covariances_equal()
+                l0,v0 = mrcal.sorted_eig(var_empirical__rt_rr)
+                l1,v1 = mrcal.sorted_eig(var_predicted__rt_rr)
 
-            # Eigenvalues should match-ish
-            gp.plot(nps.cat(l0,l1), wait=True)
+                import gnuplotlib as gp
 
-            # eigenvectors of each mode should deviate by a small number of
-            # degrees
-            print(np.arccos(np.abs(np.diag(nps.matmult(v0.T,v1))))*180./np.pi)
+                # Eigenvalues should match-ish
+                gp.plot(nps.cat(l0,l1), wait=True)
 
-        testutils.confirm_covariances_equal(
-            var_empirical__rt_ref_refperturbed,
-            var_predicted__rt_ref_refperturbed,
-            what='Var(rt_ref_refperturbed)',
-            eps_eigenvalues      = 0.1,
-            eps_eigenvectors_deg = 10.0)
+                # eigenvectors of each mode should deviate by a small number of
+                # degrees
+                print(np.arccos(np.abs(np.diag(nps.matmult(v0.T,v1))))*180./np.pi)
+
+            testutils.confirm_covariances_equal(
+                var_empirical__rt_rr,
+                var_predicted__rt_rr,
+                what='Var(rt_rr)',
+                eps_eigenvalues      = 0.1,
+                eps_eigenvectors_deg = 10.0)
 
 
 
 
+    if is_rpr or is_rrp:
+        # shape (Ncameras, 3)
+        p_cam_baseline = mrcal.unproject(q, lensmodel, baseline_intrinsics,
+                                         normalize = True) * distance
+        # shape (Ncameras, 3)
+        p_ref_baseline = \
+            mrcal.transform_point_rt( baseline_rt_cam_ref,
+                                      p_cam_baseline,
+                                      inverted = True)
+        # shape (...,Ncameras, 3)
+        p_ref_query = \
+            mrcal.transform_point_rt( nps.dummy(rt_ref_refperturbed, -2),
+                                      p_ref_baseline,
+                                      inverted = True )
 
-    # shape (Ncameras, 3)
-    p_cam_baseline = mrcal.unproject(q, lensmodel, baseline_intrinsics,
-                                     normalize = True) * distance
-    # shape (Ncameras, 3)
-    p_ref_baseline = \
-        mrcal.transform_point_rt( baseline_rt_cam_ref,
-                                  p_cam_baseline,
-                                  inverted = True)
-    # shape (...,Ncameras, 3)
-    p_ref_query = \
-        mrcal.transform_point_rt( nps.dummy(rt_ref_refperturbed, -2),
-                                  p_ref_baseline,
-                                  inverted = True )
+        # shape (..., Ncameras, 3)
+        p_cam_query = \
+            mrcal.transform_point_rt(query_rt_cam_ref, p_ref_query)
 
-    # shape (..., Ncameras, 3)
-    p_cam_query = \
-        mrcal.transform_point_rt(query_rt_cam_ref, p_ref_query)
+    else:
+        # ccp or cpc
+
+        # shape (Ncameras, 3)
+        p_cam_baseline = mrcal.unproject(q, lensmodel, baseline_intrinsics,
+                                         normalize = True) * distance
+        # shape (...,Ncameras, 3)
+        p_cam_query = \
+            mrcal.transform_point_rt( rt_cam_camperturbed,
+                                      p_cam_baseline,
+                                      inverted = True )
 
     # shape (..., Ncameras, 2)
     #
