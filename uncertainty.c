@@ -1238,7 +1238,7 @@ bool _mrcal_drt_cross_reprojection__dbpacked(// output
                                 sum_outer_jpackede_jpackede,
                                 sum_outer_jpackede_jpackedf,
                                 sum_outer_jpackede_jpackedp,
-                                sum_outer_jpackedf_jpackedcw,
+                                sum_outer_jpackede_jpackedcw,
                                 &b_packed[state_index_accumulating_cam],
                                 SCALE_ROTATION_CAMERA,
                                 SCALE_TRANSLATION_CAMERA);
@@ -1456,7 +1456,7 @@ bool _mrcal_drt_cross_reprojection__dbpacked(// output
                             sum_outer_jpackede_jpackede,
                             sum_outer_jpackede_jpackedf,
                             sum_outer_jpackede_jpackedp,
-                            sum_outer_jpackedf_jpackedcw,
+                            sum_outer_jpackede_jpackedcw,
                             &b_packed[state_index_accumulating_cam],
                             SCALE_ROTATION_CAMERA,
                             SCALE_TRANSLATION_CAMERA);
