@@ -2809,10 +2809,10 @@ else:                                                          reproject_perturb
 
 
 # "method" argument for mrcal.projection_uncertainty()
-if   re.match('^(mean-pcam|bestq)$', args.reproject_perturbed): method = args.reproject_perturbed
-elif re.match('cross-reprojection',  args.reproject_perturbed): method = 'cross-reprojection-rrp-Jfp'
-# default
-else:                                                           method = 'mean-pcam'
+if re.match('mean-pcam|cross-reprojection', args.reproject_perturbed):
+    method = args.reproject_perturbed
+else:
+    method = 'mean-pcam'
 
 q0_true = dict()
 for distance in args.distances:
