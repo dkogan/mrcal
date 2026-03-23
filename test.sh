@@ -32,13 +32,13 @@ TESTS=("test/test-pywrap-functions.py"
        "test/test-surveyed-calibration.py --do-sample"
        "test/test-surveyed-calibration.py --do-sample --distance 8"
        "test/test-surveyed-calibration.py --do-sample --oversample 10"
-       "test/test-projection-uncertainty.py --moving board --ref cam0 --model opencv4 --do-sample"
-       "test/test-projection-uncertainty.py --moving board --ref cam0 --no-optimize-frames --model opencv4 --do-sample --Nsamples 200"
-       "test/test-projection-uncertainty.py --moving board --ref cam0 --model opencv4 --do-sample --observed-pixel-uncertainty 0.3 --reproject-perturbed cross-reprojection-rrp-Jfp --Nsamples 200"
-       "test/test-projection-uncertainty.py --moving board --ref cam0 --model opencv4 --do-sample --observed-pixel-uncertainty 0.03 --reproject-perturbed cross-reprojection-rrp-Jfp --points"
-       "test/test-projection-uncertainty.py --moving board --ref cam0 --model splined"
-       "test/test-projection-uncertainty.py --moving board --ref cam0 --model opencv4 --Ncameras 1 --compare-baseline-against-mrcal-2.4"
-       "test/test-projection-uncertainty.py --moving board --ref cam0 --model opencv4 --Ncameras 4 --compare-baseline-against-mrcal-2.4"
+       "test/test-projection-uncertainty.py --moving board --ref cam0 --reproject-perturbed mean-pcam                  --model opencv4 --do-sample"
+       "test/test-projection-uncertainty.py --moving board --ref cam0 --reproject-perturbed mean-pcam                  --no-optimize-frames --model opencv4 --do-sample --Nsamples 200"
+       "test/test-projection-uncertainty.py --moving board --ref cam0 --reproject-perturbed cross-reprojection-rrp-Jfp --model opencv4 --do-sample --observed-pixel-uncertainty 0.3 --Nsamples 200"
+       "test/test-projection-uncertainty.py --moving board --ref cam0 --reproject-perturbed cross-reprojection-rrp-Jfp --model opencv4 --do-sample --observed-pixel-uncertainty 0.03 --points"
+       "test/test-projection-uncertainty.py --moving board --ref cam0 --reproject-perturbed mean-pcam                  --model splined"
+       "test/test-projection-uncertainty.py --moving board --ref cam0 --reproject-perturbed mean-pcam                  --model opencv4 --Ncameras 1 --compare-baseline-against-mrcal-2.4"
+       "test/test-projection-uncertainty.py --moving board --ref cam0 --reproject-perturbed mean-pcam                  --model opencv4 --Ncameras 4 --compare-baseline-against-mrcal-2.4"
        "test/test-linearizations.py"
        "test/test-lensmodel-string-manipulation"
        "test/test-CHOLMOD-factorization.py"
@@ -64,8 +64,9 @@ TESTS=("test/test-pywrap-functions.py"
        "test/test-python-cameramodel-converter.py")
 
 # Check the non-canonical problem definitions
-TESTS+=("test/test-projection-uncertainty.py --moving board  --ref cam0 --model opencv4 --Ncameras 1 --reproject-perturbed cross-reprojection-rrp-Jfp"
-	"test/test-projection-uncertainty.py --moving camera --ref cam0 --model opencv4 --Ncameras 1 --range-to-boards 4")
+
+TESTS+=("test/test-projection-uncertainty.py --moving board  --ref cam0  --reproject-perturbed cross-reprojection-rrp-Jfp --model opencv4 --Ncameras 1"
+	"test/test-projection-uncertainty.py --moving camera --ref cam0  --reproject-perturbed mean-pcam                  --model opencv4 --Ncameras 1 --range-to-boards 4")
 
 # triangulation-uncertainty tests. Lots and lots of tests to exhaustively try
 # out different scenarios

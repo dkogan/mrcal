@@ -264,9 +264,12 @@ def parse_args():
                                  'cross-reprojection-ccp',
                                  'cross-reprojection-cpc-empirical',
                                  'cross-reprojection-cpc'),
-                        default = 'mean-pcam',
-                        help='''Which reproject-after-perturbation method to use. This is for experiments.
-                        Some of these methods will be probably wrong.''')
+                        required = True,
+                        help='''Which reproject-after-perturbation method to
+                        use. "mean-pcam" was the usual method in mrcal < 3.0;
+                        "cross-reprojection-ccp" is the usual method in mrcal >=
+                        3.0. This is for experiments: some of these methods will
+                        be probably wrong.''')
     parser.add_argument('--compare-baseline-against-mrcal-2.4',
                         action='store_true',
                         dest='compare_baseline_against_mrcal_2_4',
