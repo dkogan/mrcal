@@ -31,16 +31,17 @@ those. We select these with a combination of
   --no-optimize-frames we lock down the geometry of the chessboards and points.
   Special case: if --ref cam0 no-optimize-frames, we set the reference at the
   SEED cam0 coordinate system (assumed identity), but let the optimizer move
-  --cam0 in respect to this seed; this is the old "fixedframes" mode
+  cam0 in respect to this seed; this is the old "fixedframes" mode
+
 
 Let's go over all the combinations
 
-* --moving board --ref cam0
+* --moving board --ref cam0 without --no-optimize-frames
 
-  This is the nominal case. --points is allowed, but not useful: we'll have few
-  observations of many different points, while we want to observe the same small
-  set of points many times. --no-optimize-frames NOT allowed (extra not useful
-  here)
+  This is the nominal case. --points is allowed, and is important to test, but
+  not this case is not useful in practice: we'll have few observations of many
+  different points, while we want to observe the same small set of points many
+  times. This would produce a high-uncertainty solve
 
   For a single camera:
 
@@ -53,11 +54,33 @@ Let's go over all the combinations
     2 0 -1
     ...   ]
 
-* --moving board --ref cam0 --no-optimize-frames
+* --moving board --ref cam0 with --no-optimize-frames
+
+  This is the old "--fixed frames" scenario. Used for surveyed calibration. It
+  is a special case where the reference at the SEED cam0 coordinate system
+  (assumed identity), but allows the optimizer to move cam0 in respect to this
+  seed.
+
+  For a single camera:
+
+  6    state variables for extrinsics
+  0    state variables for frames (or 3*Np*Nf points)
+
+  indices_frame_camintrinsics_camextrinsics =
+  [ 0 0 0
+    1 0 0
+    2 0 0
+    ...   ]
 
 * --moving camera --ref frame0
 
-  --Ncameras >1 not allowed, --no-optimize-frames required (see below for both).
+  I want to have indices_frame = -1 here, but mrcal does not currently support
+  this. Instead we set indices_frame = 0, actually store something into the
+  rt_ref_frame array, and set do_optimize_frames = False. Naturally this can
+  only work with only a single chessboard pose (do_optimize_frames applies to
+  ALL the chessboards). THIS tool's implementation requires --Ncameras 1
+  --no-optimize-frames (although mrcal in general can support bigger Ncameras
+  here) is not supported here.
 
   For a single camera:
 
@@ -68,14 +91,6 @@ Let's go over all the combinations
     0 0 1
     0 0 2
     ... ]
-
-  I want to have indices_frame = -1 here, but mrcal does not currently support
-  this. Instead we set indices_frame = 0, actually store something into the
-  rt_ref_frame array, and set do_optimize_frames = False. Naturally this can
-  only work with only a single chessboard pose (do_optimize_frames applies to
-  ALL the chessboards). This tool always does that with --moving camera
-  --Ncameras 1, but mrcal does support the more general case. Thus --Ncameras >1
-  is not supported here
 
 * --moving camera --ref cam0
 
@@ -279,6 +294,10 @@ def parse_args():
 
     args = parser.parse_args()
 
+    if args.Ncameras > 1 and not (args.moving == 'board' and args.ref == 'cam0'):
+        print("Ncameras > 1 is supported ONLY if --moving board --ref cam0",
+              file=sys.stderr)
+        sys.exit(1)
 
     if args.moving == 'board' and args.ref == 'frame0':
         print("--moving board --ref frame0 is not supported today",
