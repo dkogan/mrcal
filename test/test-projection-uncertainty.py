@@ -442,7 +442,10 @@ if args.compare_baseline_against_mrcal_2_4:
 
 # The "baseline" is a solve with perfect, noiseless observations, reoptimized
 # with regularization. The results will be close to the perfect err=0 solve, but
-# not exactly
+# not exactly: regularization causes a bias
+#
+# The "vanilla" baseline is with --moving board --ref cam0
+optimization_inputs_vanilla_baseline, \
 optimization_inputs_baseline, \
 models_true,                  \
 frames_points_true =          \
@@ -457,25 +460,12 @@ frames_points_true =          \
                          calobject_warp_true,
                          testdir,
                          range_to_boards    = args.range_to_boards,
-                         optimize           = False,
+                         report_vanilla_and_requested = True
                          points             = args.points,
                          moving_cameras     = args.moving == 'camera',
                          ref_frame0         = args.ref    == 'frame0',
                          do_optimize_frames = not args.no_optimize_frames,
                          **calibration_baseline_kwargs)
-
-x_baseline_unoptimized = \
-    mrcal.optimizer_callback(**optimization_inputs_baseline,
-                             no_jacobian      = True,
-                             no_factorization = True)[1]
-mrcal.optimize(**optimization_inputs_baseline)
-x_baseline_optimized = \
-    mrcal.optimizer_callback(**optimization_inputs_baseline,
-                             no_jacobian      = True,
-                             no_factorization = True)[1]
-
-
-
 
 lensmodel       = optimization_inputs_baseline['lensmodel']
 imagersizes     = optimization_inputs_baseline['imagersizes']
@@ -2971,60 +2961,49 @@ for icam in (0,3):
     # (checked above to make sure that --moving camera goes with --Ncameras 1)
     if args.moving == 'camera':
 
-        for (what,optimization_inputs_here) in \
-                (('moving-camera-ref-at-frame0', optimization_inputs_baseline_moving_cameras_refframe0),
-                 ('moving-camera-ref-at-cam0',   optimization_inputs_baseline_moving_cameras_refcam0)):
+        x_vanilla = mrcal.optimizer_callback(**optimization_inputs_vanilla_baseline,
+                                             no_jacobian      = True,
+                                             no_factorization = True)[1]
+        x         = mrcal.optimizer_callback(**optimization_inputs_baseline,
+                                             no_jacobian      = True,
+                                             no_factorization = True)[1]
 
-            ####### compare the measurement vectors x
-            x = mrcal.optimizer_callback(**optimization_inputs_here,
-                                         no_jacobian      = True,
-                                         no_factorization = True)[1]
-            testutils.confirm_equal(x_baseline_unoptimized, x,
-                                    eps = 1e-8,
-                                    worstcase = True,
-                                    msg = f"x is consistent when looking at {what}")
+        testutils.confirm_equal(x_vanilla, x,
+                                eps = 1e-8,
+                                worstcase = True,
+                                msg = f"x is consistent between (--moving board --ref cam0) and the current case: (--moving {args.moving} --ref {args.ref})")
 
+        m_vanilla = mrcal.cameramodel(optimization_inputs = optimization_inputs_vanilla_baseline,
+                                      icam_intrinsics     = 0,
+                                      # Put the camera at the reference. There isn't
+                                      # a single "right" set of extrinsics
+                                      icam_extrinsics     = -1)
 
-            x = mrcal.optimize(**optimization_inputs_here)['x']
-            testutils.confirm_equal(x_baseline_optimized, x,
-                                    eps = 1e-8,
-                                    worstcase = True,
-                                    msg = f"x is consistent when looking at {what}; post-optimization")
+        Var_dq_vanilla = \
+            mrcal.projection_uncertainty( p_cam_baseline * 1.0,
+                                          model = m_vanilla,
+                                          atinfinity = False,
+                                          method     = method,
+                                          observed_pixel_uncertainty = args.observed_pixel_uncertainty )
+        testutils.confirm_equal(Var_dq_vanilla,
+                                Var_dq_ref,
+                                eps = 0.001,
+                                worstcase = True,
+                                relative  = True,
+                                msg = f"var(dq) (at 1m) is consistent between (--moving board --ref cam0) and the current case: (--moving {args.moving} --ref {args.ref})")
 
-            m = mrcal.cameramodel(optimization_inputs = optimization_inputs_here,
-                                  icam_intrinsics     = 0,
-                                  # Put the camera at the reference. There isn't
-                                  # a single "right" set of extrinsics
-                                  icam_extrinsics     = -1)
-
-            ####### compare the uncertainties
-            ####### only implemented for this one scenario
-            if what == 'moving-camera-ref-at-frame0':
-                Var_dq_here = \
-                    mrcal.projection_uncertainty( p_cam_baseline * 1.0,
-                                                  model = m,
-                                                  atinfinity = False,
-                                                  method     = method,
-                                                  observed_pixel_uncertainty = args.observed_pixel_uncertainty )
-                testutils.confirm_equal(Var_dq_here,
-                                        Var_dq_ref,
-                                        eps = 0.001,
-                                        worstcase = True,
-                                        relative  = True,
-                                        msg = f"var(dq) (at 1m) is consistent when looking at {what}")
-
-                Var_dq_inf_here = \
-                    mrcal.projection_uncertainty( p_cam_baseline * 1.0,
-                                                  model = m,
-                                                  atinfinity = True,
-                                                  method     = method,
-                                                  observed_pixel_uncertainty = args.observed_pixel_uncertainty )
-                testutils.confirm_equal(Var_dq_inf_here,
-                                        Var_dq_inf_ref,
-                                        eps = 0.001,
-                                        worstcase = True,
-                                        relative  = True,
-                                        msg = f"var(dq) (infinity) is consistent when looking at {what}")
+        Var_dq_inf_vanilla = \
+            mrcal.projection_uncertainty( p_cam_baseline * 1.0,
+                                          model = m_vanilla,
+                                          atinfinity = True,
+                                          method     = method,
+                                          observed_pixel_uncertainty = args.observed_pixel_uncertainty )
+        testutils.confirm_equal(Var_dq_inf_vanilla,
+                                Var_dq_inf_ref,
+                                eps = 0.001,
+                                worstcase = True,
+                                relative  = True,
+                                msg = f"var(dq) (infinity) is consistent between (--moving board --ref cam0) and the current case: (--moving {args.moving} --ref {args.ref})")
 
 
 

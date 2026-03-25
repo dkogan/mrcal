@@ -140,10 +140,11 @@ def calibration_baseline(model, Ncameras, Nframes, extra_observation_at,
                          x_mirror      = False, # half with +x_offset, half with -x_offset
                          points        = False,
 
-                         optimize           = True,
                          moving_cameras     = False,
                          ref_frame0         = False,
                          do_optimize_frames = True,
+
+                         report_vanilla_and_requested = False,
 
                          # The logic to avoid oblique views was added in
                          #   https://github.com/dkogan/mrcal/commit/b54df5d3
@@ -386,6 +387,20 @@ ARGUMENTS
     # sys.exit()
 
 
+    if report_vanilla_and_requested:
+        optimization_inputs_vanilla_baseline = copy.deepcopy(optimization_inputs_baseline)
+        if points:
+            _calibration_boards_to_points(optimization_inputs_vanilla_baseline)
+        mrcal.optimize(**optimization_inputs_vanilla_baseline)
+
+        optimization_inputs_list = \
+            (optimization_inputs_vanilla_baseline,
+             optimization_inputs_baseline)
+    else:
+        optimization_inputs_list = \
+            (optimization_inputs_baseline,)
+
+
     _calibration_make_non_vanilla(optimization_inputs_baseline,
                                   moving_cameras = moving_cameras,
                                   ref_frame0     = ref_frame0)
@@ -393,20 +408,20 @@ ARGUMENTS
         _calibration_boards_to_points(optimization_inputs_baseline)
         points_true = copy.deepcopy(optimization_inputs_baseline['points'])
 
-    if optimize:
-        mrcal.optimize(**optimization_inputs_baseline)
+    mrcal.optimize(**optimization_inputs_baseline)
+
+
+
 
     if not points:
-        return                                        \
-            optimization_inputs_baseline,             \
-            models_true_refcam0,                      \
-            rt_cam0_board_true
+        return ( *optimization_inputs_list,                \
+                 models_true_refcam0,                      \
+                 rt_cam0_board_true )
 
     else:
-        return                                        \
-            optimization_inputs_baseline,             \
-            models_true_refcam0,                      \
-            points_true
+        return ( *optimization_inputs_list,                \
+                 models_true_refcam0,                      \
+                 points_true )
 
 def _calibration_make_non_vanilla(optimization_inputs,
                                   *,
