@@ -401,9 +401,9 @@ ARGUMENTS
             (optimization_inputs_baseline,)
 
 
-    _calibration_make_non_vanilla(optimization_inputs_baseline,
-                                  moving_cameras = moving_cameras,
-                                  ref_frame0     = ref_frame0)
+    _apply_moving_ref(optimization_inputs_baseline,
+                      moving_cameras = moving_cameras,
+                      ref_frame0     = ref_frame0)
     if points:
         _calibration_boards_to_points(optimization_inputs_baseline)
         points_true = copy.deepcopy(optimization_inputs_baseline['points'])
@@ -423,10 +423,10 @@ ARGUMENTS
                  models_true_refcam0,                      \
                  points_true )
 
-def _calibration_make_non_vanilla(optimization_inputs,
-                                  *,
-                                  moving_cameras,
-                                  ref_frame0):
+def _apply_moving_ref(optimization_inputs,
+                      *,
+                      moving_cameras,
+                      ref_frame0):
     r'''See the docstring for test-projection-uncertainty.py for a description
     of all the cases'''
 
