@@ -190,11 +190,6 @@ ARGUMENTS
     if nps.norm2(extrinsics_rt_fromcam0_true[0]) > 0:
         raise Exception("A non-identity cam0 transform was given. This is not supported")
 
-    fixedframes = not ref_frame0 and not do_optimize_frames
-
-    if fixedframes and moving_cameras:
-        raise Exception("fixedframes only supported in the simple, vanilla case: not moving_cameras and not ref_frame0")
-
     if re.match('opencv',model):
         models_true_refcam0 = ( mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel"),
                         mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel"),
@@ -344,11 +339,6 @@ ARGUMENTS
         nps.glue(indices_frame_camera,
                  indices_frame_camera[:,(1,)],
                  axis=-1)
-    if not fixedframes:
-        # cam0 is at the reference
-        indices_frame_camintrinsics_camextrinsics[:,2] -= 1
-
-
 
     # I now reoptimize the perfect-observations problem. Without regularization,
     # this is a no-op: I'm already at the optimum. With regularization, this will
@@ -356,8 +346,7 @@ ARGUMENTS
     # noise-induced motions off this optimization optimum
     optimization_inputs_baseline = \
         dict( intrinsics                                = copy.deepcopy(intrinsics_true),
-              rt_cam_ref                                = copy.deepcopy(extrinsics_rt_fromcam0_true if fixedframes \
-                                                                        else extrinsics_rt_fromcam0_true[1:,:]),
+              rt_cam_ref                                = copy.deepcopy(extrinsics_rt_fromcam0_true[1:,:]),
               rt_ref_frame                              = copy.deepcopy(rt_cam0_board_true),
               points                                    = None,
               observations_board                        = observations_board_true,
@@ -369,7 +358,8 @@ ARGUMENTS
               imagersizes                               = imagersizes,
               calibration_object_spacing                = object_spacing,
               verbose                                   = False,
-              do_optimize_frames                        = do_optimize_frames,
+              # I add this later, in _apply_moving_ref()
+              do_optimize_frames                        = False,
               do_optimize_intrinsics_core               = False if model =='splined' else True,
               do_optimize_intrinsics_distortions        = True,
               do_optimize_extrinsics                    = True,
@@ -402,8 +392,9 @@ ARGUMENTS
 
 
     _apply_moving_ref(optimization_inputs_baseline,
-                      moving_cameras = moving_cameras,
-                      ref_frame0     = ref_frame0)
+                      moving_cameras     = moving_cameras,
+                      ref_frame0         = ref_frame0,
+                      do_optimize_frames = do_optimize_frames)
     if points:
         _calibration_boards_to_points(optimization_inputs_baseline)
         points_true = copy.deepcopy(optimization_inputs_baseline['points'])
@@ -423,19 +414,29 @@ ARGUMENTS
                  models_true_refcam0,                      \
                  points_true )
 
+
 def _apply_moving_ref(optimization_inputs,
                       *,
                       moving_cameras,
-                      ref_frame0):
+                      ref_frame0,
+                      do_optimize_frames):
     r'''See the docstring for test-projection-uncertainty.py for a description
     of all the cases'''
 
-    if not moving_cameras and \
-       not ref_frame0:
+    if not moving_cameras and not ref_frame0:
+        if do_optimize_frames:
+            # This is the baseline case. The data is already set up like this.
+            return
 
-        # This is the baseline case. The data is already set up like this.
+        # Frames are fixed. This is the old "fixedframes" mode. I allow cam0 to
+        # move
+        optimization_inputs['indices_frame_camintrinsics_camextrinsics'][:,2] += 1
+        optimization_inputs['rt_cam_ref'] = nps.glue( np.zeros((6,), dtype=float),
+                                                      optimization_inputs['rt_cam_ref'],
+                                                      axis = -2 )
+        optimization_inputs['do_optimize_extrinsics'] = True
+        optimization_inputs['do_optimize_frames'    ] = do_optimize_frames
         return
-
 
     idxf,idxci,idxce   = optimization_inputs['indices_frame_camintrinsics_camextrinsics'].T
     Ncameras           = len(optimization_inputs['intrinsics'])
@@ -444,21 +445,19 @@ def _apply_moving_ref(optimization_inputs,
     if moving_cameras and \
        ref_frame0:
 
+        if Ncameras > 1:
+            raise Exception("Scenario (moving-camera, ref-at-frame0) cannot work with multiple cameras: camera-rig implementation is required")
+        if do_optimize_frames:
+            raise Exception("Scenario (moving-camera, ref-at-frame0) requires !do_optimize_frames")
 
         optimization_inputs['indices_frame_camintrinsics_camextrinsics'] = \
             np.ascontiguousarray(nps.transpose( nps.cat( idxce+1,
                                                          idxci,
                                                          idxf ) ))
-        if np.all(idxce == 0) and \
-           np.all(idxf == np.arange(len(idxf))) and \
-           optimization_inputs['do_optimize_extrinsics'] and \
-           not optimization_inputs['do_optimize_frames']:
-            optimization_inputs['indices_frame_camintrinsics_camextrinsics'][:,0] -= 1
-
         optimization_inputs['rt_cam_ref'            ] = np.array(rt_cam0_board_true)
-        optimization_inputs['rt_ref_frame'          ] = np.zeros((1,6), dtype=float)
+        optimization_inputs['rt_ref_frame'          ] = np.zeros((6,), dtype=float)
         optimization_inputs['do_optimize_extrinsics'] = True
-        optimization_inputs['do_optimize_frames'    ] = False
+        optimization_inputs['do_optimize_frames'    ] = do_optimize_frames
         return
 
 
@@ -466,21 +465,19 @@ def _apply_moving_ref(optimization_inputs,
        not ref_frame0:
 
         if Ncameras > 1:
-            raise Exception("Scenario (moving-camera, stationary-frame, ref-at-cam0) cannot work with multiple cameras: camera-rig implementation is required")
+            raise Exception("Scenario (moving-camera, ref-at-cam0) cannot work with multiple cameras: camera-rig implementation is required")
 
         optimization_inputs['indices_frame_camintrinsics_camextrinsics'] = \
-            np.ascontiguousarray(nps.transpose( nps.cat( idxce+1,
+            np.ascontiguousarray(nps.transpose( nps.cat( idxce+1, # all 0: I have one board, and it can move
                                                          idxci,
                                                          idxf-1 )))
-
         rt_cam_cam0 = \
             mrcal.compose_rt(rt_cam0_board_true[1:,:],
                              mrcal.invert_rt(rt_cam0_board_true[0,:]))
-
         optimization_inputs['rt_cam_ref'            ] = rt_cam_cam0
         optimization_inputs['rt_ref_frame'          ] = rt_cam0_board_true[(0,),:]
         optimization_inputs['do_optimize_extrinsics'] = True
-        optimization_inputs['do_optimize_frames'    ] = True
+        optimization_inputs['do_optimize_frames'    ] = do_optimize_frames
         return
 
 
