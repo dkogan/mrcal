@@ -2701,7 +2701,7 @@ The rt_refperturbed_ref formulation:
         for icam in range(Nrtrr_slices):
             if is_rpr or is_rrp:
                 rt_rr = rt_ref_refperturbed
-                icam  = None
+                icam  = -1
             else:
                 rt_rr = rt_cam_camperturbed[...,icam,:]
 
