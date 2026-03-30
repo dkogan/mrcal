@@ -460,7 +460,7 @@ frames_points_true =          \
                          calobject_warp_true,
                          testdir,
                          range_to_boards    = args.range_to_boards,
-                         report_vanilla_and_requested = True
+                         report_vanilla_and_requested = True,
                          points             = args.points,
                          moving_cameras     = args.moving == 'camera',
                          ref_frame0         = args.ref    == 'frame0',

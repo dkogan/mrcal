@@ -337,7 +337,7 @@ ARGUMENTS
     # shape (Nframes*Ncameras, 3)
     indices_frame_camintrinsics_camextrinsics = \
         nps.glue(indices_frame_camera,
-                 indices_frame_camera[:,(1,)],
+                 indices_frame_camera[:,(1,)] - 1,
                  axis=-1)
 
     # I now reoptimize the perfect-observations problem. Without regularization,
@@ -359,7 +359,7 @@ ARGUMENTS
               calibration_object_spacing                = object_spacing,
               verbose                                   = False,
               # I add this later, in _apply_moving_ref()
-              do_optimize_frames                        = False,
+              do_optimize_frames                        = True,
               do_optimize_intrinsics_core               = False if model =='splined' else True,
               do_optimize_intrinsics_distortions        = True,
               do_optimize_extrinsics                    = True,
