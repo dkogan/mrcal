@@ -397,7 +397,11 @@ ARGUMENTS
                       do_optimize_frames = do_optimize_frames)
     if points:
         _calibration_boards_to_points(optimization_inputs_baseline)
-        points_true = copy.deepcopy(optimization_inputs_baseline['points'])
+        points_true = np.array(optimization_inputs_baseline['points'])
+        rt_ref_board_true = None
+    else:
+        rt_ref_board_true = np.array(optimization_inputs_baseline['rt_ref_frame'])
+    rt_cam_ref_true = np.array(optimization_inputs_baseline['rt_cam_ref'])
 
     mrcal.optimize(**optimization_inputs_baseline)
 
@@ -405,11 +409,13 @@ ARGUMENTS
     if not points:
         return ( *optimization_inputs_list,                \
                  models_true_refcam0,                      \
-                 rt_cam0_board_true )
+                 rt_cam_ref_true,                          \
+                 rt_ref_board_true )
 
     else:
         return ( *optimization_inputs_list,                \
                  models_true_refcam0,                      \
+                 rt_cam_ref_true,                          \
                  points_true )
 
 

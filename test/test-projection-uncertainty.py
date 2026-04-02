@@ -414,7 +414,7 @@ else:
 
 calobject_warp_true     = np.array((0.002, -0.005))
 
-rt_cam_ref_true = \
+rt_cam_cam0_mounted_true = \
     np.array(((0,    0,    0,      0,   0,   0),
               (0.08, 0.2,  0.02,   1.,  0.9, 0.1),
               (0.01, 0.07, 0.2,    2.1, 0.4, 0.2),
@@ -423,9 +423,9 @@ rt_cam_ref_true = \
 if args.points:
     # Needed for the unity_cam01 regularization. I reset the nominal distance to
     # 1.0
-    rt_cam_ref_true[:,3:] /= nps.mag(rt_cam_ref_true[1,3:])
+    rt_cam_cam0_mounted_true[:,3:] /= nps.mag(rt_cam_cam0_mounted_true[1,3:])
 
-rt_cam_ref_true = rt_cam_ref_true[:args.Ncameras]
+rt_cam_cam0_mounted_true = rt_cam_cam0_mounted_true[:args.Ncameras]
 
 
 if args.observations_left_right_with_gap:
@@ -446,9 +446,10 @@ if args.compare_baseline_against_mrcal_2_4:
 #
 # The "vanilla" baseline is with --moving board --ref cam0
 optimization_inputs_vanilla_baseline, \
-optimization_inputs_baseline, \
-models_true,                  \
-frames_points_true =          \
+optimization_inputs_baseline,         \
+models_vanilla_true,                  \
+rt_cam_ref_true,                      \
+frames_points_true =                  \
     calibration_baseline(args.model,
                          args.Ncameras,
                          args.Nframes,
@@ -456,7 +457,7 @@ frames_points_true =          \
                          object_width_n,
                          object_height_n,
                          object_spacing,
-                         rt_cam_ref_true,
+                         rt_cam_cam0_mounted_true,
                          calobject_warp_true,
                          testdir,
                          range_to_boards    = args.range_to_boards,
@@ -470,7 +471,7 @@ frames_points_true =          \
 lensmodel       = optimization_inputs_baseline['lensmodel']
 imagersizes     = optimization_inputs_baseline['imagersizes']
 intrinsics_true = nps.cat( *[m.intrinsics()[1] \
-                             for m in models_true] )
+                             for m in models_vanilla_true] )
 
 models_baseline = \
     [ mrcal.cameramodel( optimization_inputs = optimization_inputs_baseline,
@@ -546,7 +547,7 @@ if args.compare_baseline_against_mrcal_2_4:
        args.ref                        == 'cam0'      and \
        not args.points:
         # assuming these are at the correct, nominal values:
-        # rt_cam_ref_true
+        # rt_cam_cam0_mounted_true
         # calobject_warp_true
 
         if args.Ncameras == 1:
@@ -616,7 +617,8 @@ if args.compare_baseline_against_mrcal_2_4:
 
 
 if not args.points:
-    frames_true = frames_points_true
+    # shape (Nframes,6)
+    rt_ref_board_true = frames_points_true
 
     indices_frame_camintrinsics_camextrinsics = optimization_inputs_baseline['indices_frame_camintrinsics_camextrinsics']
     observations_board_true                   = optimization_inputs_baseline['observations_board']
@@ -635,7 +637,7 @@ else:
     Npoints                                   = len(optimization_inputs_baseline['points'])
 
     indices_frame_camintrinsics_camextrinsics = None
-    frames_true                               = None
+    rt_ref_board_true                         = None
     observations_board_true                   = None
 
 
@@ -717,8 +719,8 @@ if args.make_documentation_plots is not None:
                      tuplesize=-2,
                      _with='dots',
                      square=1,
-                     _xrange=(0, models_true[0].imagersize()[0]-1),
-                     _yrange=(models_true[0].imagersize()[1]-1, 0),
+                     _xrange=(0, models_vanilla_true[0].imagersize()[0]-1),
+                     _yrange=(models_vanilla_true[0].imagersize()[1]-1, 0),
                      multiplot = 'layout 2,2',
                      **processoptions_output)
             if extension == 'pdf':
@@ -735,32 +737,40 @@ if args.make_documentation_plots is not None:
                  tuplesize=-2,
                  _with='dots',
                  square=1,
-                 _xrange=(0, models_true[0].imagersize()[0]-1),
-                 _yrange=(models_true[0].imagersize()[1]-1, 0),
+                 _xrange=(0, models_vanilla_true[0].imagersize()[0]-1),
+                 _yrange=(models_vanilla_true[0].imagersize()[1]-1, 0),
                  multiplot = 'layout 2,2',
                  **processoptions_output)
 
 
 # These are at the no-noise-but-with-regularization optimum
-intrinsics_baseline         = optimization_inputs_baseline['intrinsics']
-frames_baseline             = optimization_inputs_baseline['rt_ref_frame']
-points_baseline             = optimization_inputs_baseline['points']
-calobject_warp_baseline     = optimization_inputs_baseline['calobject_warp']
+intrinsics_baseline     = optimization_inputs_baseline['intrinsics']
+rt_ref_frame_baseline   = optimization_inputs_baseline['rt_ref_frame']
+points_baseline         = optimization_inputs_baseline['points']
+calobject_warp_baseline = optimization_inputs_baseline['calobject_warp']
 
-extrinsics_baseline_mounted = optimization_inputs_baseline['rt_cam_ref']
 if (optimization_inputs_baseline.get('indices_frame_camintrinsics_camextrinsics') is not None and \
     np.any(optimization_inputs_baseline['indices_frame_camintrinsics_camextrinsics'][:,2] < 0)) or \
    (optimization_inputs_baseline.get('indices_point_camintrinsics_camextrinsics') is not None and \
     np.any(optimization_inputs_baseline['indices_point_camintrinsics_camextrinsics'][:,2] < 0)):
-    extrinsics_baseline_mounted = nps.glue( mrcal.identity_rt(),
-                                            extrinsics_baseline_mounted,
+
+    rt_cam_ref_baseline_mounted = nps.glue( mrcal.identity_rt(),
+                                            optimization_inputs_baseline['rt_cam_ref'],
                                             axis = -2)
+    rt_cam_ref_true_mounted     = nps.glue( mrcal.identity_rt(),
+                                            rt_cam_ref_true,
+                                            axis = -2)
+else:
+    rt_cam_ref_baseline_mounted = optimization_inputs_baseline['rt_cam_ref']
+    rt_cam_ref_true_mounted     = rt_cam_ref_true
+
+
 
 
 if args.write_models:
     for i in range(args.Ncameras):
         filename = f"/tmp/models-true-camera{i}.cameramodel"
-        models_true    [i].write(filename)
+        models_vanilla_true[i].write(filename)
         print(f"Wrote '{filename}'")
 
         filename = f"/tmp/models-baseline-camera{i}.cameramodel"
@@ -2835,15 +2845,15 @@ for distance in args.distances:
                             1e5 if distance is None else distance,
 
                             intrinsics_baseline,
-                            extrinsics_baseline_mounted,
-                            frames_baseline,
+                            rt_cam_ref_baseline_mounted,
+                            rt_ref_frame_baseline,
                             points_baseline,
                             calobject_warp_baseline,
                             optimization_inputs_baseline,
 
                             intrinsics_true,
-                            rt_cam_ref_true,
-                            frames_true if not args.points else points_true,
+                            rt_cam_ref_true_mounted,
+                            rt_ref_board_true if not args.points else points_true,
                             np.zeros((0,3), dtype=float),
                             calobject_warp_true,
                             # q_noise_board_sampled not available here: We
@@ -3064,8 +3074,8 @@ def check_uncertainties_at(q0_baseline, distance):
                             distance,
 
                             intrinsics_baseline,
-                            extrinsics_baseline_mounted,
-                            frames_baseline,
+                            rt_cam_ref_baseline_mounted,
+                            rt_ref_frame_baseline,
                             points_baseline,
                             calobject_warp_baseline,
                             optimization_inputs_baseline,

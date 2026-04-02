@@ -39,8 +39,7 @@ rt_cam_ref_true = \
               (-0.1, 0.08, 0.08,   3.4, 0.2, 0.1), ))
 
 optimization_inputs_baseline, \
-models_true,                  \
-frames_true =                 \
+models_true = \
     calibration_baseline(model,
                          Ncameras,
                          Nframes,
@@ -51,7 +50,7 @@ frames_true =                 \
                          rt_cam_ref_true,
                          calobject_warp_true,
                          fixedframes,
-                         testdir)
+                         testdir)[:2]
 
 models_baseline = \
     [ mrcal.cameramodel( optimization_inputs = optimization_inputs_baseline,

@@ -132,8 +132,7 @@ rt_cam_ref_true[:,4:] = np.random.randn(Ncameras,2) * 0.1
 rt_cam_ref_true[0] *= 0
 
 optimization_inputs_baseline, \
-models_true,                  \
-frames_true =                 \
+models_true =                 \
     calibration_baseline(args.model,
                          Ncameras,
                          args.Nframes,
@@ -145,7 +144,7 @@ frames_true =                 \
                          calobject_warp_true,
                          fixedframes,
                          testdir,
-                         cull_left_of_center = args.cull_left_of_center)
+                         cull_left_of_center = args.cull_left_of_center)[:2]
 
 models_baseline = \
     [ mrcal.cameramodel( optimization_inputs = optimization_inputs_baseline,

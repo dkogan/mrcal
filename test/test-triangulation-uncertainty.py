@@ -343,6 +343,7 @@ cache_file = f"/tmp/test-triangulation-uncertainty--{cache_id}.pickle"
 if args.cache is None or args.cache == 'write':
     optimization_inputs_baseline, \
     models_true,                  \
+    _,              \
     frames_true =                 \
         calibration_baseline(args.model,
                              args.Ncameras,
