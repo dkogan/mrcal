@@ -192,9 +192,9 @@ ARGUMENTS
 
     if re.match('opencv',model):
         models_true_refcam0 = ( mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel"),
-                        mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel"),
-                        mrcal.cameramodel(f"{testdir}/data/cam1.opencv8.cameramodel"),
-                        mrcal.cameramodel(f"{testdir}/data/cam1.opencv8.cameramodel") )
+                                mrcal.cameramodel(f"{testdir}/data/cam0.opencv8.cameramodel"),
+                                mrcal.cameramodel(f"{testdir}/data/cam1.opencv8.cameramodel"),
+                                mrcal.cameramodel(f"{testdir}/data/cam1.opencv8.cameramodel") )
 
         if model == 'opencv4':
             # I have opencv8 models_true_refcam0, but I truncate to opencv4 models_true_refcam0
@@ -202,15 +202,15 @@ ARGUMENTS
                 m.intrinsics( intrinsics = ('LENSMODEL_OPENCV4', m.intrinsics()[1][:8]))
     elif model == 'splined':
         models_true_refcam0 = ( mrcal.cameramodel(f"{testdir}/data/cam0.splined.cameramodel"),
-                        mrcal.cameramodel(f"{testdir}/data/cam0.splined.cameramodel"),
-                        mrcal.cameramodel(f"{testdir}/data/cam1.splined.cameramodel"),
-                        mrcal.cameramodel(f"{testdir}/data/cam1.splined.cameramodel") )
+                                mrcal.cameramodel(f"{testdir}/data/cam0.splined.cameramodel"),
+                                mrcal.cameramodel(f"{testdir}/data/cam1.splined.cameramodel"),
+                                mrcal.cameramodel(f"{testdir}/data/cam1.splined.cameramodel") )
     else:
         raise Exception("Unknown lens being tested")
 
     models_true_refcam0 = models_true_refcam0[:Ncameras]
-    lensmodel   = models_true_refcam0[0].intrinsics()[0]
-    Nintrinsics = mrcal.lensmodel_num_params(lensmodel)
+    lensmodel           = models_true_refcam0[0].intrinsics()[0]
+    Nintrinsics         = mrcal.lensmodel_num_params(lensmodel)
 
     for i in range(Ncameras):
         models_true_refcam0[i].rt_cam_ref(extrinsics_rt_fromcam0_true[i])
@@ -218,7 +218,7 @@ ARGUMENTS
     imagersizes = nps.cat( *[m.imagersize() for m in models_true_refcam0] )
 
     # These are perfect
-    intrinsics_true = nps.cat( *[m.intrinsics()[1]         for m in models_true_refcam0] )
+    intrinsics_true = nps.cat( *[m.intrinsics()[1] for m in models_true_refcam0] )
     x_center = -(Ncameras-1)/2.
 
 
@@ -235,23 +235,23 @@ ARGUMENTS
 
         return \
             mrcal.synthesize_board_observations(models_true_refcam0,
-                                                object_width_n                  = object_width_n,
-                                                object_height_n                 = object_height_n,
-                                                object_spacing                  = object_spacing,
-                                                calobject_warp                  = calobject_warp_true,
-                                                rt_ref_boardcenter              = np.array((0.,
-                                                                                            0.,
-                                                                                            0.,
-                                                                                            x_center + x_offset,
-                                                                                            0,
-                                                                                            z)),
+                                                object_width_n  = object_width_n,
+                                                object_height_n = object_height_n,
+                                                object_spacing  = object_spacing,
+                                                calobject_warp  = calobject_warp_true,
+                                                Nframes         = Nframes,
+                                                rt_ref_boardcenter = np.array((0.,
+                                                                               0.,
+                                                                               0.,
+                                                                               x_center + x_offset,
+                                                                               0,
+                                                                               z)),
                                                 rt_ref_boardcenter__noiseradius = np.array((np.pi/180.*30.,
                                                                                             np.pi/180.*30.,
                                                                                             np.pi/180.*20.,
                                                                                             x_noiseradius,
                                                                                             y_noiseradius,
                                                                                             z_noiseradius)),
-                                                Nframes                         = Nframes,
                                                 **kwargs)
 
 
@@ -400,8 +400,6 @@ ARGUMENTS
         points_true = copy.deepcopy(optimization_inputs_baseline['points'])
 
     mrcal.optimize(**optimization_inputs_baseline)
-
-
 
 
     if not points:
