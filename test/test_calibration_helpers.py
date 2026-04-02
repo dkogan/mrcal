@@ -128,7 +128,7 @@ def calibration_baseline(model, Ncameras, Nframes, extra_observation_at,
                          # Camera poses in respect to the first camera. Thus
                          # rt_cam_ref_true[0] = zeros(6). This is
                          # checked
-                         extrinsics_rt_fromcam0_true,
+                         rt_cam_cam0_true,
                          calobject_warp_true,
                          testdir,
                          *,
@@ -187,7 +187,7 @@ ARGUMENTS
     '''
 
 
-    if nps.norm2(extrinsics_rt_fromcam0_true[0]) > 0:
+    if nps.norm2(rt_cam_cam0_true[0]) > 0:
         raise Exception("A non-identity cam0 transform was given. This is not supported")
 
     if re.match('opencv',model):
@@ -213,7 +213,7 @@ ARGUMENTS
     Nintrinsics         = mrcal.lensmodel_num_params(lensmodel)
 
     for i in range(Ncameras):
-        models_true_refcam0[i].rt_cam_ref(extrinsics_rt_fromcam0_true[i])
+        models_true_refcam0[i].rt_cam_ref(rt_cam_cam0_true[i])
 
     imagersizes = nps.cat( *[m.imagersize() for m in models_true_refcam0] )
 
@@ -346,7 +346,7 @@ ARGUMENTS
     # noise-induced motions off this optimization optimum
     optimization_inputs_baseline = \
         dict( intrinsics                                = copy.deepcopy(intrinsics_true),
-              rt_cam_ref                                = copy.deepcopy(extrinsics_rt_fromcam0_true[1:,:]),
+              rt_cam_ref                                = copy.deepcopy(rt_cam_cam0_true[1:,:]),
               rt_ref_frame                              = copy.deepcopy(rt_cam0_board_true),
               points                                    = None,
               observations_board                        = observations_board_true,
