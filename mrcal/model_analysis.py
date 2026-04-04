@@ -1010,8 +1010,9 @@ def _dq_db__projection_uncertainty( # shape (...,3)
     # shape (..., Ncameras_extrinsics, 3)
     if not atinfinity:
         p_ref = \
-            mrcal.transform_point_rt( mrcal.invert_rt(rt_cam_ref),
-                                      nps.dummy(p_cam,-2) )
+            mrcal.transform_point_rt( rt_cam_ref,
+                                      nps.dummy(p_cam,-2),
+                                      inverted = True)
     else:
         p_ref = \
             mrcal.rotate_point_r( -rt_cam_ref[...,:3],
@@ -1083,9 +1084,10 @@ def _dq_db__projection_uncertainty( # shape (...,3)
             if not atinfinity:
                 # shape (Nframes,Ncameras_extrinsics,3)
                 p_frames = mrcal.transform_point_rt( # shape (Nframes,Ncameras_extrinsics=1,6)
-                                                     nps.dummy(mrcal.invert_rt(rt_ref_frame), -2),
+                                                     nps.dummy(rt_ref_frame, -2),
                                                      # shape (..., Nframes=1, Ncameras_extrinsics, 3)
-                                                     nps.dummy(p_ref,-3) )
+                                                     nps.dummy(p_ref,-3),
+                                                     inverted = True)
 
                 # shape (...,Nframes,Ncameras_extrinsics,3,6)
                 _, \
@@ -1304,14 +1306,10 @@ else:                    we return an array of shape (...)
     rt_ref_frame = get_input('rt_ref_frame')
     istate_frames0  = mrcal.state_index_frames(0, **optimization_inputs)
 
-    if method == 'cross-reprojection-rrp-Jfp':
-        icam_intrinsics_for_cross_reprojection = -1
-    else:
-        icam_intrinsics_for_cross_reprojection = icam_intrinsics
-
     if re.match('cross-reprojection', method):
         Kunpacked_cross_reprojection = \
-            mrcal.drt_cross_reprojection__dbpacked(icam_intrinsics = icam_intrinsics_for_cross_reprojection,
+            mrcal.drt_cross_reprojection__dbpacked(icam_intrinsics = \
+                                                   icam_intrinsics if method != 'cross-reprojection-rrp-Jfp' else -1,
                                                    **optimization_inputs)
         # The value was packed in the denominator. So I call pack() to unpack it
         mrcal.pack_state(Kunpacked_cross_reprojection, **optimization_inputs)
@@ -1320,7 +1318,7 @@ else:                    we return an array of shape (...)
         if optimization_inputs.get('do_optimize_frames'):
             if get_input('observations_point')              is not None or \
                get_input('observations_point_triangulated') is not None:
-                raise Exception("We have point observations that we are optimizing; only cross-reprojection uncertainty can work here")
+                raise Exception(f"We have point observations that we are optimizing; only cross-reprojection uncertainty can work here. Have {method=}")
             if rt_ref_frame is None:
                 raise Exception("Some rt_ref_frame must exist for the no-cross-reprojection uncertainty computation, but we don't have any")
 
