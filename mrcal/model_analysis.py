@@ -1272,20 +1272,6 @@ else:                    we return an array of shape (...)
 
     '''
 
-    # The math implemented here is documented in
-    #
-    #   https://mrcal.secretsauce.net/uncertainty.html
-
-    # Non-None if this:
-    # - exists
-    # - isn't None
-    # - has non-zero elements
-    def get_input(what):
-        x = optimization_inputs.get(what)
-        if x is not None and x.size > 0: return x
-        else:                            return None
-
-
 
     known_methods = set(('mean-pcam',
                          'cross-reprojection-rrp-Jfp',
@@ -1297,72 +1283,6 @@ else:                    we return an array of shape (...)
     # which calibration-time camera we're looking at
     icam_intrinsics = model.icam_intrinsics()
 
-    optimization_inputs = model.optimization_inputs()
-    if optimization_inputs is None:
-        raise Exception("optimization_inputs are unavailable in this model. Uncertainty cannot be computed")
-
-    # These may or may not be optimized. The istate_... variables are None if
-    # the particular quantity isn't up for optimization
-    rt_ref_frame = get_input('rt_ref_frame')
-    istate_frames0  = mrcal.state_index_frames(0, **optimization_inputs)
-
-    if re.match('cross-reprojection', method):
-        Kunpacked_cross_reprojection = \
-            mrcal.drt_cross_reprojection__dbpacked(icam_intrinsics = \
-                                                   icam_intrinsics if method != 'cross-reprojection-rrp-Jfp' else -1,
-                                                   **optimization_inputs)
-        # The value was packed in the denominator. So I call pack() to unpack it
-        mrcal.pack_state(Kunpacked_cross_reprojection, **optimization_inputs)
-    else:
-        Kunpacked_cross_reprojection = None
-        if optimization_inputs.get('do_optimize_frames'):
-            if get_input('observations_point')              is not None or \
-               get_input('observations_point_triangulated') is not None:
-                raise Exception(f"We have point observations that we are optimizing; only cross-reprojection uncertainty can work here. Have {method=}")
-            if rt_ref_frame is None:
-                raise Exception("Some rt_ref_frame must exist for the no-cross-reprojection uncertainty computation, but we don't have any")
-
-
-    # Now the extrinsics. I look at all the ones that correspond with the
-    # specific camera I care about. If the camera is stationary, this will
-    # produce exactly one set of extrinsics. If the camera is moving, we may get
-    # more than one. At this time I limit to myself to a consecutive block of
-    # extrinsics vectors. Once this all works I can relax that requirement
-    ifcice = optimization_inputs['indices_frame_camintrinsics_camextrinsics']
-    if ifcice is None: ifcice = np.zeros((0,3),dtype=np.int32)
-    ipcice = optimization_inputs['indices_point_camintrinsics_camextrinsics']
-    if ipcice is None: ipcice = np.zeros((0,3),dtype=np.int32)
-    icice = nps.glue(ifcice[:,1:], ipcice[:,1:], axis=-2)
-
-    icam_extrinsics = np.unique( icice[icice[:,0] == icam_intrinsics, 1] ) # sorted
-    if icam_extrinsics.size == 0:
-        raise Exception(f"No extrinsics corresponding to {icam_intrinsics=}. I don't know what to do")
-    if icam_extrinsics.size > 1:
-        d = np.unique(np.diff(icam_extrinsics))
-        if not (d.size == 1 and d[0] == 1):
-            raise Exception("At this point I'm only supporting consecutive block of extrinsics for a given icam_intrinsics")
-    if icam_extrinsics[0] < 0:
-        if icam_extrinsics.size == 1:
-            # Stationary camera, at the reference
-            rt_cam_ref = mrcal.identity_rt()
-            slice_extrinsics_state = None
-
-
-        else:
-            # Moving camera. One of the poses is at the reference. This requires
-            # more typing. I'll do this later
-            raise Exception("Have moving camera, some poses are at the reference. This isn't supported yet")
-    else:
-        # I'm guaranteed to get rt_cam_ref with the right number of extrinsics
-        # (all the ones that correspond to this icam_intrinsics). And I know
-        # they're a contiguous block in my optimization vector starting with
-        # istate_extrinsics0
-        rt_cam_ref = get_input('rt_cam_ref')[icam_extrinsics,:]
-        istate_extrinsics0 = mrcal.state_index_extrinsics(icam_extrinsics[0],
-                                                          **optimization_inputs)
-        Ncameras_extrinsics = rt_cam_ref.shape[0]
-        slice_extrinsics_state = slice(istate_extrinsics0,
-                                       istate_extrinsics0 + Ncameras_extrinsics*6)
 
     # The intrinsics,extrinsics,frames,points MUST come from the solve when
     # evaluating the uncertainties. The user is allowed to update the extrinsics
@@ -1370,9 +1290,12 @@ else:                    we return an array of shape (...)
     # uncertainty computation. Updating the intrinsics invalidates the
     # uncertainty stuff so I COULD grab those from the model. But for good
     # hygiene I get them from the solve as well
-
+    optimization_inputs = model.optimization_inputs()
+    if optimization_inputs is None:
+        raise Exception("optimization_inputs are unavailable in this model. Uncertainty cannot be computed")
     lensmodel       = optimization_inputs['lensmodel']
     intrinsics_data = optimization_inputs['intrinsics'][icam_intrinsics]
+
     istate_intrinsics0        = mrcal.state_index_intrinsics(icam_intrinsics, **optimization_inputs)
     Nstates_intrinsics        = mrcal.num_intrinsics_optimization_params(**optimization_inputs)
     if istate_intrinsics0 is not None:
@@ -1421,6 +1344,13 @@ else:                    we return an array of shape (...)
         # -> dpcam*/dr_cam_cam* = skew(pcam)
         #    dpcam*/dt_cam_cam* = -I
 
+        Kunpacked_cross_reprojection = \
+            mrcal.drt_cross_reprojection__dbpacked(icam_intrinsics = icam_intrinsics,
+                                                   **optimization_inputs)
+        # The value was packed in the denominator. So I call pack() to unpack it
+        mrcal.pack_state(Kunpacked_cross_reprojection, **optimization_inputs)
+
+
         ### The output array. This function fills this in, and returns it
         # shape (..., 2,Nstate)
         dq_db = np.zeros(p_cam.shape[:-1] + (2,Nstate), dtype=float)
@@ -1434,8 +1364,6 @@ else:                    we return an array of shape (...)
         if slice_intrinsics_state is not None:
             dq_db[         ...,slice_intrinsics_state] = \
             dq_dintrinsics[...,slice_intrinsics_arg]
-
-
 
         dpcamp__dr_cam_camp = mrcal.skew_symmetric(p_cam)
 
@@ -1451,23 +1379,105 @@ else:                    we return an array of shape (...)
         if not atinfinity:
             dq_db -= nps.matmult(dq_dpcam, Kunpacked_cross_reprojection[3:,:])
 
+        return \
+            _propagate_calibration_uncertainty(what,
+                                               dF_dbunpacked              = dq_db,
+                                               observed_pixel_uncertainty = observed_pixel_uncertainty,
+                                               optimization_inputs        = optimization_inputs)
+
+
+    # The math implemented here is documented in
+    #
+    #   https://mrcal.secretsauce.net/uncertainty.html
+
+    # Non-None if this:
+    # - exists
+    # - isn't None
+    # - has non-zero elements
+    def get_input(what):
+        x = optimization_inputs.get(what)
+        if x is not None and x.size > 0: return x
+        else:                            return None
+
+
+    # These may or may not be optimized. The istate_... variables are None if
+    # the particular quantity isn't up for optimization
+    rt_ref_frame = get_input('rt_ref_frame')
+    istate_frames0  = mrcal.state_index_frames(0, **optimization_inputs)
+
+    if re.match('cross-reprojection', method):
+        Kunpacked_cross_reprojection = \
+            mrcal.drt_cross_reprojection__dbpacked(icam_intrinsics = -1,
+                                                   **optimization_inputs)
+        # The value was packed in the denominator. So I call pack() to unpack it
+        mrcal.pack_state(Kunpacked_cross_reprojection, **optimization_inputs)
+    else:
+        Kunpacked_cross_reprojection = None
+        if optimization_inputs.get('do_optimize_frames'):
+            if get_input('observations_point')              is not None or \
+               get_input('observations_point_triangulated') is not None:
+                raise Exception(f"We have point observations that we are optimizing; only cross-reprojection uncertainty can work here. Have {method=}")
+            if rt_ref_frame is None and points is None:
+                raise Exception("Some frames or points must exist for the no-cross-reprojection uncertainty computation, but we don't have any")
+
+
+    # Now the extrinsics. I look at all the ones that correspond with the
+    # specific camera I care about. If the camera is stationary, this will
+    # produce exactly one set of extrinsics. If the camera is moving, we may get
+    # more than one. At this time I limit to myself to a consecutive block of
+    # extrinsics vectors. Once this all works I can relax that requirement
+    ifcice = optimization_inputs['indices_frame_camintrinsics_camextrinsics']
+    if ifcice is None: ifcice = np.zeros((0,3),dtype=np.int32)
+    ipcice = optimization_inputs['indices_point_camintrinsics_camextrinsics']
+    if ipcice is None: ipcice = np.zeros((0,3),dtype=np.int32)
+    icice = nps.glue(ifcice[:,1:], ipcice[:,1:], axis=-2)
+
+    icam_extrinsics = np.unique( icice[icice[:,0] == icam_intrinsics, 1] ) # sorted
+    if icam_extrinsics.size == 0:
+        raise Exception(f"No extrinsics corresponding to {icam_intrinsics=}. I don't know what to do")
+    if icam_extrinsics.size > 1:
+        d = np.unique(np.diff(icam_extrinsics))
+        if not (d.size == 1 and d[0] == 1):
+            raise Exception("At this point I'm only supporting consecutive block of extrinsics for a given icam_intrinsics")
+    if icam_extrinsics[0] < 0:
+        if icam_extrinsics.size == 1:
+            # Stationary camera, at the reference
+            rt_cam_ref = mrcal.identity_rt()
+            slice_extrinsics_state = None
+
+
+        else:
+            # Moving camera. One of the poses is at the reference. This requires
+            # more typing. I'll do this later
+            raise Exception("Have moving camera, some poses are at the reference. This isn't supported yet")
 
     else:
+        # I'm guaranteed to get rt_cam_ref with the right number of extrinsics
+        # (all the ones that correspond to this icam_intrinsics). And I know
+        # they're a contiguous block in my optimization vector starting with
+        # istate_extrinsics0
+        rt_cam_ref = get_input('rt_cam_ref')[icam_extrinsics,:]
+        istate_extrinsics0 = mrcal.state_index_extrinsics(icam_extrinsics[0],
+                                                          **optimization_inputs)
+        Ncameras_extrinsics = rt_cam_ref.shape[0]
+        slice_extrinsics_state = slice(istate_extrinsics0,
+                                       istate_extrinsics0 + Ncameras_extrinsics*6)
 
-        # shape (..., 2, Nstate)
-        dq_db = \
-            _dq_db__projection_uncertainty( p_cam,
-                                            lensmodel, intrinsics_data,
-                                            rt_cam_ref,
-                                            rt_ref_frame,
-                                            Nstate,
-                                            slice_intrinsics_state,
-                                            slice_intrinsics_arg,
-                                            slice_extrinsics_state,
-                                            istate_frames0,
-                                            atinfinity = atinfinity,
-                                            method     = method,
-                                            Kunpacked_cross_reprojection = Kunpacked_cross_reprojection)
+
+    # shape (..., 2, Nstate)
+    dq_db = \
+        _dq_db__projection_uncertainty( p_cam,
+                                        lensmodel, intrinsics_data,
+                                        rt_cam_ref,
+                                        rt_ref_frame,
+                                        Nstate,
+                                        slice_intrinsics_state,
+                                        slice_intrinsics_arg,
+                                        slice_extrinsics_state,
+                                        istate_frames0,
+                                        atinfinity = atinfinity,
+                                        method     = method,
+                                        Kunpacked_cross_reprojection = Kunpacked_cross_reprojection)
 
     return \
         _propagate_calibration_uncertainty(what,
