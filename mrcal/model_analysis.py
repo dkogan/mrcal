@@ -946,6 +946,9 @@ def _dq_db__projection_uncertainty( # shape (...,3)
                                     atinfinity):
     r'''Helper for projection_uncertainty()
 
+    This is used for the older uncertainty methods, and NOT used for
+    cross-reprojection-ccp
+
     See docs for _propagate_calibration_uncertainty() and
     projection_uncertainty()
 
@@ -984,6 +987,7 @@ def _dq_db__projection_uncertainty( # shape (...,3)
       dq/db[extrinsics_j]    = dq_dpcam/Ncam_frame sum(dpcam__drt_camj_ref)
       dq/db[frames_i]        = dq_dpcam/Ncam_frame sum(dpcam__dpref_i dpref__drt_ref_framei )
       dq/db[intrinsics_this] = dq_dintrinsics
+
     '''
 
     # rt_cam_ref and rt_ref_frame contain poses. These are
