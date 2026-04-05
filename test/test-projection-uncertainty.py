@@ -2984,6 +2984,8 @@ for icam in (0,3):
         # Ncameras=1, which is impossible with unity_cam01 regularizaton
         if not args.points:
             m_vanilla = mrcal.cameramodel(optimization_inputs = optimization_inputs_vanilla_baseline,
+                                          # The moving-camera scenarios all have
+                                          # just one camera, and I select it here
                                           icam_intrinsics     = 0,
                                           # Put the camera at the reference. There isn't
                                           # a single "right" set of extrinsics
