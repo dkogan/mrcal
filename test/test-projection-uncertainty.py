@@ -1162,7 +1162,7 @@ The logic here is described thoroughly in
         raise Exception("reproject_perturbed__cross_reprojection implementation expects the frames to be optimized")
 
     if nps.norm2(baseline_rt_cam_ref[0]) > 1e-12:
-        raise Exception("I'm assuming a stations-camera calibration problem reference at cam0")
+        raise Exception("I'm assuming a stationary-camera calibration problem reference at cam0")
 
     if query_optimization_inputs is None:
         return None
