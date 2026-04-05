@@ -475,7 +475,8 @@ intrinsics_true = nps.cat( *[m.intrinsics()[1] \
 
 models_baseline = \
     [ mrcal.cameramodel( optimization_inputs = optimization_inputs_baseline,
-                         icam_intrinsics     = i) \
+                         icam_intrinsics     = i,
+                         icam_extrinsics     = i if args.ref == 'frame0' else i-1) \
       for i in range(args.Ncameras) ]
 
 
