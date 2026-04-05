@@ -339,21 +339,20 @@ plot
         _calobject_warp  = optimization_inputs['calobject_warp']
 
         icam_intrinsics = m.icam_intrinsics()
+        icam_extrinsics = m.icam_extrinsics()
 
         if show_calobjects == 'thiscamera':
             indices_frame_camintrinsics_camextrinsics = \
                 optimization_inputs['indices_frame_camintrinsics_camextrinsics']
             mask_observations = \
-                indices_frame_camintrinsics_camextrinsics[:,1] == icam_intrinsics
+                (indices_frame_camintrinsics_camextrinsics[:,1] == icam_intrinsics) * \
+                (indices_frame_camintrinsics_camextrinsics[:,2] == icam_extrinsics)
             idx_frames = indices_frame_camintrinsics_camextrinsics[mask_observations,0]
             _rt_ref_frame = _rt_ref_frame[idx_frames]
 
         # The current rt_ref_frame uses the calibration-time ref, NOT
         # the current ref. I transform. rt_ref_frame = T_rcal_f
         # I want T_rnow_rcal T_rcal_f
-        icam_extrinsics = \
-            mrcal.corresponding_icam_extrinsics(icam_intrinsics,
-                                                **optimization_inputs)
         if icam_extrinsics >= 0:
             _rt_ref_frame = \
                 mrcal.compose_rt( mrcal.rt_from_Rt(Rt_ref_cam_all[i_model_with_optimization_inputs]),
@@ -404,32 +403,26 @@ plot
         _points = optimization_inputs['points']
 
         icam_intrinsics = m.icam_intrinsics()
+        icam_extrinsics = m.icam_extrinsics()
 
         if show_points == 'thiscamera':
             indices_point_camintrinsics_camextrinsics = \
                 optimization_inputs['indices_point_camintrinsics_camextrinsics']
             mask_observations = \
-                indices_point_camintrinsics_camextrinsics[:,1] == icam_intrinsics
+                (indices_point_camintrinsics_camextrinsics[:,1] == icam_intrinsics) * \
+                (indices_point_camintrinsics_camextrinsics[:,2] == icam_extrinsics)
             idx_points = indices_point_camintrinsics_camextrinsics[mask_observations,0]
             _points = _points[idx_points]
 
         # The current points uses the calibration-time ref, NOT
         # the current ref. I transform.
-        icam_extrinsics = \
-            mrcal.corresponding_icam_extrinsics(icam_intrinsics,
-                                                **optimization_inputs)
-
         if icam_extrinsics >= 0:
             _points = \
                 mrcal.transform_point_rt( optimization_inputs['rt_cam_ref'][icam_extrinsics],
                                           _points )
-            _points = \
-                mrcal.transform_point_Rt( Rt_ref_cam_all[i_model_with_optimization_inputs],
-                                          _points )
-        else:
-            _points = \
-                mrcal.transform_point_Rt( Rt_ref_cam_all[i_model_with_optimization_inputs],
-                                          _points )
+        _points = \
+            mrcal.transform_point_Rt( Rt_ref_cam_all[i_model_with_optimization_inputs],
+                                      _points )
         # All good. Done
         return \
             nps.atleast_dims(_points, -2)
