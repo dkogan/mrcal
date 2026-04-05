@@ -2908,10 +2908,9 @@ for icam in (0,3):
         model_moved.write(f'{workdir}/out.cameramodel')
         model_read = mrcal.cameramodel(f'{workdir}/out.cameramodel')
 
-        icam_intrinsics_read = model_read.icam_intrinsics()
-        icam_extrinsics_read = mrcal.corresponding_icam_extrinsics(icam_intrinsics_read,
-                                                                   **model_read.optimization_inputs())
-        testutils.confirm_equal(icam if not (args.ref=='cam0' and not args.no_optimize_frames) else icam-1,
+        icam_extrinsics_read = model_read.icam_extrinsics()
+
+        testutils.confirm_equal(icam if args.ref == 'frame0' else icam-1,
                                 icam_extrinsics_read,
                                 msg = f"corresponding icam_extrinsics reported correctly for camera {icam}")
 
