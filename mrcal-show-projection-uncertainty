@@ -103,6 +103,14 @@ def parse_args():
                         action='store_true',
                         default=False,
                         help='''If given, I overlay the valid-intrinsics region onto the plot''')
+    parser.add_argument('--observed-pixel-uncertainty',
+                        type=float,
+                        help='''If given, the uncertainty of the pixel
+                        observations being propagated through the solve and
+                        projection. If omitted, this input uncertainty is
+                        inferred from the residuals at the optimum. This should
+                        be omitted during normal use, and is here just for
+                        testing''')
     parser.add_argument('--cbmax',
                         type=float,
                         default=3,
@@ -220,6 +228,7 @@ else:
                                              hardcopy                = args.hardcopy,
                                              terminal                = args.terminal,
                                              cbmax                   = args.cbmax,
+                                             observed_pixel_uncertainty = args.observed_pixel_uncertainty,
                                              **plotkwargs_extra)
 
 if args.hardcopy is None:
