@@ -770,10 +770,6 @@ else:
 
 if args.write_models:
     for i in range(args.Ncameras):
-        filename = f"/tmp/models-true-camera{i}.cameramodel"
-        models_vanilla_true[i].write(filename)
-        print(f"Wrote '{filename}'")
-
         filename = f"/tmp/models-baseline-camera{i}.cameramodel"
         models_baseline[i].write(filename)
         print(f"Wrote '{filename}'")
