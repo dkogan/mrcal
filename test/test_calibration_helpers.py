@@ -376,11 +376,8 @@ ARGUMENTS
     #                         object_spacing  = object_spacing)
     # sys.exit()
 
-
     if report_vanilla_and_requested:
         optimization_inputs_vanilla_baseline = copy.deepcopy(optimization_inputs_baseline)
-        if points:
-            _calibration_boards_to_points(optimization_inputs_vanilla_baseline)
         mrcal.optimize(**optimization_inputs_vanilla_baseline)
 
         optimization_inputs_list = \

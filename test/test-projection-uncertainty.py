@@ -2979,37 +2979,42 @@ for icam in (0,3):
                                 worstcase = True,
                                 msg = f"x is consistent between (--moving board --ref cam0) and the current case: (--moving {args.moving} --ref {args.ref})")
 
-        m_vanilla = mrcal.cameramodel(optimization_inputs = optimization_inputs_vanilla_baseline,
-                                      icam_intrinsics     = 0,
-                                      # Put the camera at the reference. There isn't
-                                      # a single "right" set of extrinsics
-                                      icam_extrinsics     = -1)
 
-        Var_dq_vanilla = \
-            mrcal.projection_uncertainty( p_cam_baseline * 1.0,
-                                          model = m_vanilla,
-                                          atinfinity = False,
-                                          method     = method,
-                                          observed_pixel_uncertainty = args.observed_pixel_uncertainty )
-        testutils.confirm_equal(Var_dq_vanilla,
-                                Var_dq_ref,
-                                eps = 0.001,
-                                worstcase = True,
-                                relative  = True,
-                                msg = f"var(dq) (at 1m) is consistent between (--moving board --ref cam0) and the current case: (--moving {args.moving} --ref {args.ref})")
+        # This path doesn't work with points because moving-cameras requires
+        # Ncameras=1, which is impossible with unity_cam01 regularizaton
+        if not args.points:
+            m_vanilla = mrcal.cameramodel(optimization_inputs = optimization_inputs_vanilla_baseline,
+                                          icam_intrinsics     = 0,
+                                          # Put the camera at the reference. There isn't
+                                          # a single "right" set of extrinsics
+                                          icam_extrinsics     = -1)
 
-        Var_dq_inf_vanilla = \
-            mrcal.projection_uncertainty( p_cam_baseline * 1.0,
-                                          model = m_vanilla,
-                                          atinfinity = True,
-                                          method     = method,
-                                          observed_pixel_uncertainty = args.observed_pixel_uncertainty )
-        testutils.confirm_equal(Var_dq_inf_vanilla,
-                                Var_dq_inf_ref,
-                                eps = 0.001,
-                                worstcase = True,
-                                relative  = True,
-                                msg = f"var(dq) (infinity) is consistent between (--moving board --ref cam0) and the current case: (--moving {args.moving} --ref {args.ref})")
+            Var_dq_vanilla = \
+                mrcal.projection_uncertainty( p_cam_baseline * 1.0,
+                                              model = m_vanilla,
+                                              atinfinity = False,
+                                              method     = method,
+                                              observed_pixel_uncertainty = args.observed_pixel_uncertainty )
+            testutils.confirm_equal(Var_dq_vanilla,
+                                    Var_dq_ref,
+                                    eps = 0.001,
+                                    worstcase = True,
+                                    relative  = True,
+                                    msg = f"var(dq) (at 1m) is consistent between (--moving board --ref cam0) and the current case: (--moving {args.moving} --ref {args.ref})")
+
+            Var_dq_inf_vanilla = \
+                mrcal.projection_uncertainty( p_cam_baseline * 1.0,
+                                              model = m_vanilla,
+                                              atinfinity = True,
+                                              method     = method,
+                                              observed_pixel_uncertainty = args.observed_pixel_uncertainty )
+
+            testutils.confirm_equal(Var_dq_inf_vanilla,
+                                    Var_dq_inf_ref,
+                                    eps = 0.001,
+                                    worstcase = True,
+                                    relative  = True,
+                                    msg = f"var(dq) (infinity) is consistent between (--moving board --ref cam0) and the current case: (--moving {args.moving} --ref {args.ref})")
 
 
 
