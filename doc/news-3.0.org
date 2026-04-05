@@ -17,6 +17,9 @@ faster uncertainty computation:
   cecab50a CHOLMOD_factorization.solve_xt_JtJ_bt() can solve other problems
   9393ef79 Much faster uncertainty computation
 
+mrcal.cameramodel() can take icam_extrinsics. To support creating and managing
+a model object built from moving cameras
+
 
 * Migration notes 2.4 -> 3.0
 

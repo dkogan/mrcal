@@ -62,7 +62,9 @@ def _validateExtrinsics(e):
 def _validateIntrinsics(imagersize,
                         i,
                         optimization_inputs = None,
-                        icam_intrinsics     = None):
+                        icam_intrinsics     = None,
+                        icam_extrinsics     = None):
+
     r'''Raises an exception if given components of the intrinsics is invalid'''
 
     # need two integers in the imager size
@@ -116,6 +118,9 @@ def _validateIntrinsics(imagersize,
             raise Exception(f"icam_intrinsics not an int. This must be an int >= 0")
         if icam_intrinsics < 0:
             raise Exception(f"icam_intrinsics < 0. This must be an int >= 0")
+    else:
+        if icam_intrinsics is not None or icam_extrinsics is not None:
+            raise Exception("icam_intrinsics and icam_extrinsics make sense ONLY together with optimization_inputs")
 
 
 def _validateValidIntrinsicsRegion(valid_intrinsics_region):
@@ -529,6 +534,8 @@ A sample valid .cameramodel file:
 
         if self._icam_intrinsics is not None:
             f.write(("    'icam_intrinsics': {:d},\n").format(self._icam_intrinsics))
+        if self._icam_extrinsics is not None:
+            f.write(("    'icam_extrinsics': {:d},\n").format(self._icam_extrinsics))
         f.write("\n")
 
         if self._optimization_inputs_string is not None:
@@ -660,9 +667,21 @@ A sample valid .cameramodel file:
             if model['icam_intrinsics'] < 0:
                 raise CameramodelParseException("'icam_intrinsics' is given, but it's <0. Must be >= 0")
             self._icam_intrinsics = model['icam_intrinsics']
+
+            if 'icam_extrinsics' in model:
+                if not isinstance(model['icam_extrinsics'], int):
+                    raise CameramodelParseException("'icam_extrinsics' is given, but it's not an int")
+                self._icam_extrinsics = model['icam_extrinsics']
+            else:
+                self._icam_extrinsics = None
         else:
-            self._optimization_inputs_string          = None
-            self._icam_intrinsics = None
+            if 'icam_intrinsics' in model or \
+               'icam_extrinsics' in model:
+                raise CameramodelParseException("'optimization_inputs' is NOT given, but icam_intrinsics or icam_extrinsics ARE given")
+
+            self._optimization_inputs_string = None
+            self._icam_intrinsics            = None
+            self._icam_extrinsics            = None
 
     def __init__(self,
 
@@ -768,22 +787,24 @@ ARGUMENTS
 - extrinsics_rt_fromref: legacy alias for rt_cam_ref
 
 - optimization_inputs: a dict of arguments to mrcal.optimize() at the optimum.
-  These contain all the information needed to populate the camera model (and
-  more!). If given, 'icam_intrinsics' is also required. This may be given only
-  as a keyword argument.
+  These contain all the information needed to populate the camera model, and
+  everything needed to recompute this model. If 'optimization_inputs' is given,
+  'icam_intrinsics' is also required, to identify the camera in the solve. If we
+  have moving cameras in the solve, then 'icam_extrinsics' is also required.
+  This may be given only as a keyword argument.
 
 - icam_intrinsics: integer identifying this camera in the solve defined by
-  'optimization_inputs'. If given, 'optimization_inputs' is required. This may
-  be given only as a keyword argument.
+  'optimization_inputs'. Required if 'optimization_inputs' is given. This may be
+  given only as a keyword argument.
 
 - icam_extrinsics: optional integer identifying this camera in the solve defined
-  by 'optimization_inputs'. If given, 'optimization_inputs' is required. This
-  may be given only as a keyword argument. If icam_extrinsics<0 we set the
-  extrinsics to the identify transformation. If icam_extrinsics>=0 we look up
-  the extrinsics in the optimization_inputs. If omitted, we call
-  corresponding_icam_extrinsics() to find the unique pose of this camera; this
-  works ONLY if we have a stationary-camera scenario. If we DO have such a
-  scenario, omitting icam_extrinsics is recommended
+  by 'optimization_inputs'. Used only if 'optimization_inputs' is given. If
+  icam_extrinsics<0 we set the extrinsics to the identify transformation. If
+  icam_extrinsics>=0 we look up the extrinsics in the optimization_inputs. If
+  omitted, we call corresponding_icam_extrinsics() to find the unique pose of
+  this camera; this works ONLY if we have a stationary-camera scenario, so
+  icam_extrinsics must be given if we have moving cameras. This may be given
+  only as a keyword argument.
 
 - valid_intrinsics_region': numpy array of shape (N,2). Defines a closed contour
   in the imager pixel space. Points inside this contour are assumed to have
@@ -860,6 +881,10 @@ ARGUMENTS
                     self._icam_intrinsics = int(file_or_model._icam_intrinsics)
                 else:
                     self._icam_intrinsics = None
+                if file_or_model._icam_extrinsics is not None:
+                    self._icam_extrinsics = int(file_or_model._icam_extrinsics)
+                else:
+                    self._icam_extrinsics = None
                 return
 
 
@@ -1231,27 +1256,22 @@ general function is used to find the data. The args are:
         elif Nargs['optimization_inputs']:
             if Nargs['file_or_model'] + \
                Nargs['discrete']:
-                raise Exception("optimization_inputs specified, so none of the other inputs should be")
+                raise Exception("optimization_inputs or icam_intrinsics or icam_extrinsics specified, so none of the other inputs should be")
 
             # Not looking at Nargs['optimization_inputs'] here because
             # icam_extrinsics is optional. so ==2 may or may not be valid
-            if optimization_inputs is None or \
-               icam_intrinsics is None:
-                raise Exception("optimization_input given. Must have gotten 'optimization_input' AND 'icam_intrinsics'")
-
+            if optimization_inputs is None:
+                raise Exception("icam_intrinsics or icam_extrinsics are given, so optimization_input MUST be given")
             self.intrinsics( ( optimization_inputs['lensmodel'],
                                optimization_inputs['intrinsics'][icam_intrinsics] ),
                              imagersize = optimization_inputs['imagersizes'][icam_intrinsics],
                              optimization_inputs = optimization_inputs,
-                             icam_intrinsics     = icam_intrinsics)
-
-            if icam_extrinsics is None:
-                icam_extrinsics = mrcal.corresponding_icam_extrinsics(icam_intrinsics,
-                                                                      **optimization_inputs)
-            if icam_extrinsics < 0:
+                             icam_intrinsics     = icam_intrinsics,
+                             icam_extrinsics     = icam_extrinsics)
+            if self._icam_extrinsics < 0:
                 self.rt_cam_ref(mrcal.identity_rt())
             else:
-                self.rt_cam_ref(optimization_inputs['rt_cam_ref'][icam_extrinsics])
+                self.rt_cam_ref(optimization_inputs['rt_cam_ref'][self._icam_extrinsics])
 
         else:
             raise Exception("At least one source of initialization data must have been given. Need a filename or a cameramodel object or discrete arrays or optimization_inputs")
@@ -1455,7 +1475,8 @@ projection_matrix:
                    *,
                    imagersize          = None,
                    optimization_inputs = None,
-                   icam_intrinsics     = None):
+                   icam_intrinsics     = None,
+                   icam_extrinsics     = None):
         r'''Get or set the intrinsics in this model
 
 SYNOPSIS
@@ -1498,9 +1519,10 @@ the arguments.
   - (optionally) the imagersize
   - (optionally) optimization_inputs
   - (optionally) icam_intrinsics
+  - (optionally) icam_extrinsics
 
-  Changing any of these 4 parameters automatically invalidates the others, and
-  it only makes sense to set them in unison.
+  Changing any of these parameters automatically invalidates the others, and it
+  only makes sense to set them in unison.
 
 The getters return a copy of the data, and the setters make a copy of the input:
 so it's impossible for the caller or callee to modify each other's data.
@@ -1523,6 +1545,11 @@ ARGUMENTS
 
 - icam_intrinsics: optional integer identifying this camera in the solve defined
   by 'optimization_inputs'. May be omitted if 'optimization_inputs' is omitted
+
+- icam_extrinsics: optional integer identifying this camera in the solve defined
+  by 'optimization_inputs'. If the cameras are stationary, this can be inferred
+  from icam_intrinsics, and thus icam_extrinsics may be omitted in that case.
+  May also be omitted if 'optimization_inputs' is omitted
 
 RETURNED VALUE
 
@@ -1551,7 +1578,8 @@ tuple where
         _validateIntrinsics(imagersize,
                             intrinsics,
                             optimization_inputs,
-                            icam_intrinsics)
+                            icam_intrinsics,
+                            icam_extrinsics)
 
         self._imagersize = np.array(imagersize, dtype=np.int32)
         self._intrinsics = (str(intrinsics[0]),
@@ -1561,9 +1589,19 @@ tuple where
             self._optimization_inputs_string = \
                 _serialize_optimization_inputs(optimization_inputs)
             self._icam_intrinsics = icam_intrinsics
+
+            if icam_extrinsics is None:
+                try:
+                    icam_extrinsics = \
+                        mrcal.corresponding_icam_extrinsics(icam_intrinsics,
+                                                            **optimization_inputs)
+                except Exception as e:
+                    raise Exception(f"optimization_inputs given, but icam_extrinsics not given. Inferring icam_extrinsics failed; are the cameras moving? Error: {e}")
+            self._icam_extrinsics = icam_extrinsics
         else:
             self._optimization_inputs_string = None
             self._icam_intrinsics            = None
+            self._icam_extrinsics            = None
 
         # New intrinsics. Previous valid-intrinsics region is no longer
         # meaningful
@@ -1932,24 +1970,20 @@ None
 
     def _extrinsics_moved_since_calibration(self):
         optimization_inputs = self.optimization_inputs()
-        icam_extrinsics = \
-            mrcal.corresponding_icam_extrinsics(self.icam_intrinsics(),
-                                                **optimization_inputs)
-
         rt_cam_ref = self.rt_cam_ref()
 
-        if icam_extrinsics < 0:
+        if self._icam_extrinsics < 0:
             # extrinsics WERE at the reference. So I should have an identity
             # transform
             return np.max(np.abs(rt_cam_ref)) > 0.0
 
         d = rt_cam_ref - \
-            optimization_inputs['rt_cam_ref'][icam_extrinsics]
+            optimization_inputs['rt_cam_ref'][self._icam_extrinsics]
         return np.max(np.abs(d)) > 1e-6
 
 
     def icam_intrinsics(self):
-        r'''Get the camera index indentifying this camera at optimization time
+        r'''Get the intrinsics camera index identifying this camera at optimization time
 
 SYNOPSIS
 
@@ -1959,16 +1993,9 @@ SYNOPSIS
 
     icam_intrinsics = m.icam_intrinsics()
 
-    icam_extrinsics = \
-        mrcal.corresponding_icam_extrinsics(icam_intrinsics,
-                                            **optimization_inputs)
-
-    if icam_extrinsics >= 0:
-        rt_cam_ref_at_calibration_time = \
-            optimization_inputs['rt_cam_ref'][icam_extrinsics]
-    else:
-        rt_cam_ref_at_calibration_time = \
-            mrcal.identity_rt()
+    q = mrcal.project(p,
+                      ( optimization_inputs['lensmodel'],
+                        optimization_inputs['intrinsics'][icam_intrinsics] ))
 
 This function retrieves the integer identifying this camera in the solve defined
 by 'optimization_inputs'. When the optimization happened, we may have been
@@ -1991,6 +2018,54 @@ The icam_intrinsics integer, or None if one isn't stored in this model.
 
         '''
 
-        if self._icam_intrinsics is None:
-            return None
         return self._icam_intrinsics
+
+
+    def icam_extrinsics(self):
+        r'''Get the extrinsics camera index identifying this camera at optimization time
+
+SYNOPSIS
+
+    m = mrcal.cameramodel('xxx.cameramodel')
+
+    optimization_inputs = m.optimization_inputs()
+
+    icam_extrinsics = m.icam_extrinsics()
+
+    if icam_extrinsics >= 0:
+        rt_cam_ref_at_calibration_time = \
+            optimization_inputs['rt_cam_ref'][icam_extrinsics]
+    else:
+        rt_cam_ref_at_calibration_time = \
+            mrcal.identity_rt()
+
+This function retrieves the integer identifying this camera in the solve defined
+by 'optimization_inputs'. When the optimization happened, we may have been
+calibrating multiple cameras at the same time, and only one of those cameras is
+described by this 'cameramodel' object. The 'icam_extrinsics' index returned by
+this function specifies where this camera was at optimization time.
+
+If we have stationary cameras, this can be inferred:
+
+  icam_extrinsics = \
+      mrcal.corresponding_icam_extrinsics(icam_intrinsics,
+                                          **optimization_inputs)
+
+But with moving cameras this is impossible: may different icam_extrinsics exist
+for each icam_intrinsics.
+
+This function is NOT a setter; use intrinsics() to set everything together. This
+isn't a part of the intrinsics per se, but modifying any part of these things
+invalidates the optimization inputs, so it makes sense to set them all together
+
+ARGUMENTS
+
+None
+
+RETURNED VALUE
+
+The icam_extrinsics integer, or None if one isn't stored in this model.
+
+        '''
+
+        return self._icam_extrinsics
