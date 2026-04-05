@@ -459,7 +459,7 @@ def _apply_moving_ref(optimization_inputs,
                                                          idxci,
                                                          idxf ) ))
         optimization_inputs['rt_cam_ref'            ] = np.array(rt_cam0_board_true)
-        optimization_inputs['rt_ref_frame'          ] = np.zeros((6,), dtype=float)
+        optimization_inputs['rt_ref_frame'          ] = np.zeros((1,6,), dtype=float)
         optimization_inputs['do_optimize_extrinsics'] = True
         optimization_inputs['do_optimize_frames'    ] = do_optimize_frames
         return
