@@ -534,7 +534,7 @@ test/test-projection-uncertainty.py \
 '''
 if args.compare_baseline_against_mrcal_2_4:
 
-    if                                                    \
+    if not ( \
        args.model                      == 'opencv4'   and \
        args.Nframes                    == 50          and \
        args.extra_observation_at is None              and \
@@ -546,73 +546,74 @@ if args.compare_baseline_against_mrcal_2_4:
        args.observed_pixel_uncertainty == 1.5         and \
        args.moving                     == 'board'     and \
        args.ref                        == 'cam0'      and \
-       not args.points:
-        # assuming these are at the correct, nominal values:
-        # rt_cam_cam0_mounted_true
-        # calobject_warp_true
+       not args.points ):
 
-        if args.Ncameras == 1:
-            # The values reported by mrcal 2.4
-            Var_dq_ref     = np.array([[[389.84692117, 166.10448933],
-                                        [166.10448933, 250.77439795]]])
-            Var_dq_inf_ref = np.array([[[30.06831569, 14.20492251],
-                                        [14.20492251, 16.75554809]]])
-        elif args.Ncameras == 4:
-
-            Var_dq_ref     = np.array(([[22.65023795,  7.20500655],
-                                        [ 7.20500655, 17.29990464]],
-                                       [[37.51131869,  9.30598142],
-                                        [ 9.30598142, 17.77739599]],
-                                       [[28.8054302 , 10.66808841],
-                                        [10.66808841, 20.76171949]],
-                                       [[36.16253686, 16.06114737],
-                                        [16.06114737, 26.95796495]]))
-            Var_dq_inf_ref = np.array(([[1.19879461, 0.45313079],
-                                        [0.45313079, 0.91451931]],
-                                       [[1.90196461, 0.53617757],
-                                        [0.53617757, 0.76472281]],
-                                       [[1.65878182, 0.64492073],
-                                        [0.64492073, 0.92189559]],
-                                       [[2.64985186, 1.16716666],
-                                        [1.16716666, 1.30752352]]))
-        else:
-            raise Exception(f"Given --compare-baseline-against-mrcal-2.4, but an unknown scenario requested: {args.Ncameras=}")
-
-        for icam in range(args.Ncameras):
-
-            model = models_baseline[icam]
-
-            # At 1.0m out
-            p_cam_baseline = mrcal.unproject( q0_baseline, *model.intrinsics(),
-                                              normalize = True)
-
-            Var_dq = \
-                mrcal.projection_uncertainty( p_cam_baseline * 1.0,
-                                              model = model,
-                                              atinfinity = False,
-                                              method     = 'mean-pcam',
-                                              observed_pixel_uncertainty = args.observed_pixel_uncertainty)
-            Var_dq_inf = \
-                mrcal.projection_uncertainty( p_cam_baseline * 1.0,
-                                              model = model,
-                                              atinfinity = True,
-                                              method     = 'mean-pcam',
-                                              observed_pixel_uncertainty = args.observed_pixel_uncertainty )
-
-            testutils.confirm_equal(Var_dq, Var_dq_ref[icam],
-                                    eps = 1e-6,
-                                    worstcase = True,
-                                    msg = f"var(dq) for camera {icam}/{args.Ncameras} matches the legacy implementation in mrcal 2.4")
-            testutils.confirm_equal(Var_dq_inf, Var_dq_inf_ref[icam],
-                                    eps = 1e-6,
-                                    worstcase = True,
-                                    msg = f"var(dq) at infinity for camera {icam}/{args.Ncameras} matches the legacy implementation in mrcal 2.4")
-
-        testutils.finish()
-        sys.exit()
-
-    else:
         raise Exception("Given --compare-baseline-against-mrcal-2.4, but an unknown scenario requested")
+
+    # assuming these are at the correct, nominal values:
+    # rt_cam_cam0_mounted_true
+    # calobject_warp_true
+
+    if args.Ncameras == 1:
+        # The values reported by mrcal 2.4
+        Var_dq_ref     = np.array([[[389.84692117, 166.10448933],
+                                    [166.10448933, 250.77439795]]])
+        Var_dq_inf_ref = np.array([[[30.06831569, 14.20492251],
+                                    [14.20492251, 16.75554809]]])
+    elif args.Ncameras == 4:
+
+        Var_dq_ref     = np.array(([[22.65023795,  7.20500655],
+                                    [ 7.20500655, 17.29990464]],
+                                   [[37.51131869,  9.30598142],
+                                    [ 9.30598142, 17.77739599]],
+                                   [[28.8054302 , 10.66808841],
+                                    [10.66808841, 20.76171949]],
+                                   [[36.16253686, 16.06114737],
+                                    [16.06114737, 26.95796495]]))
+        Var_dq_inf_ref = np.array(([[1.19879461, 0.45313079],
+                                    [0.45313079, 0.91451931]],
+                                   [[1.90196461, 0.53617757],
+                                    [0.53617757, 0.76472281]],
+                                   [[1.65878182, 0.64492073],
+                                    [0.64492073, 0.92189559]],
+                                   [[2.64985186, 1.16716666],
+                                    [1.16716666, 1.30752352]]))
+    else:
+        raise Exception(f"Given --compare-baseline-against-mrcal-2.4, but an unknown scenario requested: {args.Ncameras=}")
+
+    for icam in range(args.Ncameras):
+
+        model = models_baseline[icam]
+
+        # At 1.0m out
+        p_cam_baseline = mrcal.unproject( q0_baseline, *model.intrinsics(),
+                                          normalize = True)
+
+        Var_dq = \
+            mrcal.projection_uncertainty( p_cam_baseline * 1.0,
+                                          model = model,
+                                          atinfinity = False,
+                                          method     = 'mean-pcam',
+                                          observed_pixel_uncertainty = args.observed_pixel_uncertainty)
+        Var_dq_inf = \
+            mrcal.projection_uncertainty( p_cam_baseline * 1.0,
+                                          model = model,
+                                          atinfinity = True,
+                                          method     = 'mean-pcam',
+                                          observed_pixel_uncertainty = args.observed_pixel_uncertainty )
+
+        testutils.confirm_equal(Var_dq, Var_dq_ref[icam],
+                                eps = 1e-6,
+                                worstcase = True,
+                                msg = f"var(dq) for camera {icam}/{args.Ncameras} matches the legacy implementation in mrcal 2.4")
+        testutils.confirm_equal(Var_dq_inf, Var_dq_inf_ref[icam],
+                                eps = 1e-6,
+                                worstcase = True,
+                                msg = f"var(dq) at infinity for camera {icam}/{args.Ncameras} matches the legacy implementation in mrcal 2.4")
+
+    testutils.finish()
+    sys.exit()
+
 
 
 
