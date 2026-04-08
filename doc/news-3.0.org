@@ -20,6 +20,16 @@ faster uncertainty computation:
 mrcal.cameramodel() can take icam_extrinsics. To support creating and managing
 a model object built from moving cameras
 
+mrcal.show_geometry() and mrcal-show-geometry have icam_extrinsics_fromsolve and
+--icam-extrinsics-from-solve. This is useful for visualizing moving cameras. If
+given, instead of showing one set of camera axes per model given on the
+commandline, we instead take the ONE model from the commandline, and use the
+extrinsics in its optimization_inputs. The extrinsics we use are given in
+--icam-extrinsics-from-solve as a ,-separated list of integers A and/or A-B
+ranges. A value of -1 means "identity", useful to show cameras at the
+optimization reference. A special value of "all" means "show ALL of the
+extrinsics". This option is useful for moving-camera solves
+
 
 * Migration notes 2.4 -> 3.0
 

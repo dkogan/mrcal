@@ -88,6 +88,18 @@ def parse_args():
                         displays the calibration objects observed ONLY by the
                         FIRST camera at calibration time. Exclusive with
                         --show-points''')
+    parser.add_argument('--icam-extrinsics-from-solve',
+                        type=str,
+                        help=r'''If given, instead of showing one set of camera
+                        axes per model given on the commandline, we instead take
+                        the ONE model from the commandline, and use the
+                        extrinsics in its optimization_inputs. The extrinsics we
+                        use are given in --icam-extrinsics-from-solve as a
+                        ,-separated list of integers A and/or A-B ranges. A
+                        value of -1 means "identity", useful to show cameras at
+                        the optimization reference. A special value of "all"
+                        means "show ALL of the extrinsics". This option is
+                        useful for moving-camera solves''')
 
     parser.add_argument('--transforms',
                         type=str,
@@ -112,7 +124,42 @@ def parse_args():
                         nargs= '+',
                         help='''Camera models to visualize. Any N cameras can be given''')
 
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    if args.icam_extrinsics_from_solve is not None:
+
+        if len(args.models) > 1:
+            print("--icam-extrinsics-from-solve is given, so exactly ONE model should be given on the commandline",
+                  file=sys.stderr)
+            sys.exit(1)
+
+        if args.icam_extrinsics_from_solve != 'all':
+            # copy from mrcal-show-residuals-board-observation
+            def list_ints_from_range_string(s):
+                try:
+                    i = int(s)
+                    return [i]
+                except Exception as e:
+                    pass
+
+                m = re.match("^ *(-?[0-9]+)-([0-9]+) *$", s)
+                if m is None:
+                    print(f"--icam-extrinsics-from-solve should be a list of integers and/or A-B ranges or 'all'. Invalid icam_extrinsics given: '{s}'",
+                          file=sys.stderr)
+                    sys.exit(1)
+                try:
+                    i0 = int(m.group(1))
+                    i1 = int(m.group(2))
+                except Exception as e:
+                    print(f"--icam-extrinsics-from-solve should be a list of integers and/or A-B ranges or 'all'. Invalid icam_extrinsics given: '{s}'",
+                          file=sys.stderr)
+                    sys.exit(1)
+                return range(i0,i1+1)
+
+            args.icam_extrinsics_from_solve = \
+                [i for r in args.icam_extrinsics_from_solve.split(',') for i in list_ints_from_range_string(r)]
+
+    return args
 
 args = parse_args()
 
@@ -184,7 +231,8 @@ elif args.show_points_thiscamera:     show_points     = 'thiscamera'
 else:                                 show_points     = False
 
 plot = mrcal.show_geometry(models,
-                           cameranames         = args.models,
+                           cameranames         = None if args.icam_extrinsics_from_solve is not None else args.models,
+                           icam_extrinsics_fromsolve = args.icam_extrinsics_from_solve,
                            cameras_Rt_plot_ref = cameras_Rt_plot_ref,
                            show_calobjects     = show_calobjects,
                            show_points         = show_points,

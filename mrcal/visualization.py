@@ -24,6 +24,7 @@ import mrcal
 
 def show_geometry(models_or_rt_cam_ref,
                   *,
+                  icam_extrinsics_fromsolve   = None,
                   cameranames                 = None,
                   cameras_Rt_plot_ref         = None,
                   rt_ref_frame                = None,
@@ -94,6 +95,15 @@ This function is the core of the mrcal-show-geometry tool.
 
 All arguments except models_or_rt_cam_ref are optional.
 
+By default we use the camera geometry given in models_or_rt_cam_ref. A different
+mode is activated by passing icam_extrinsics_fromsolve; if given, we demand that
+len(models_or_rt_cam_ref)==1 and that models_or_rt_cam_ref[0] is a model with
+optimization_inputs. We then replace models_or_rt_cam_ref with the
+optimization-time transform for each element of icam_extrinsics_fromsolve. If
+icam_extrinsics_fromsolve is a string 'all', we display ALL the available poses.
+This is very useful for visualizing multiple camera poses in a solve with moving
+cameras.
+
 Extra **kwargs are passed directly to gnuplotlib to control the plot.
 
 ARGUMENTS
@@ -103,6 +113,13 @@ ARGUMENTS
   mrcal.cameramodel objects are given here and rt_ref_frame (or points) are
   omitted, we get the rt_ref_frame (or points) from the first model that
   provides optimization_inputs().
+
+- icam_extrinsics_fromsolve: an optional iterable of integers, indexing
+  optimization_inputs['rt_cam_ref']. If given, we replace models_or_rt_cam_ref
+  with corresponding poses in the optimization_inputs. icam_extrinsics_fromsolve
+  should be an iterable OR a string 'all' to display all the poses. If given,
+  then models_or_rt_cam_ref MUST contain just a single element, and it must be a
+  model with optimization_inputs.
 
 - cameranames: optional array of strings of labels for the cameras. If omitted,
   we use generic labels. If given, the array must have the same length as
@@ -196,15 +213,65 @@ plot
 
     import gnuplotlib as gp
 
+
+    def is_model_with_inputs(m):
+        return \
+            isinstance(m, mrcal.cameramodel) and \
+            m.optimization_inputs() is not None
+
+
+
+    if icam_extrinsics_fromsolve is not None:
+
+        if not (len(models_or_rt_cam_ref) == 1 and \
+                is_model_with_inputs(models_or_rt_cam_ref[0])):
+            raise Exception("icam_extrinsics_fromsolve requires len(models_or_rt_cam_ref)==1 and models_or_rt_cam_ref[0] should be a cameramodel with optimization_inputs")
+
+        optimization_inputs = models_or_rt_cam_ref[0].optimization_inputs()
+        icam_intrinsics     = models_or_rt_cam_ref[0].icam_intrinsics()
+
+        if isinstance(icam_extrinsics_fromsolve,str):
+            if icam_extrinsics_fromsolve != 'all':
+                raise Exception("icam_extrinsics_fromsolve must be an iterable of integers or 'all'")
+
+            any_cams_at_reference = \
+                (optimization_inputs.get('indices_frame_camintrinsics_camextrinsics') is not None and \
+                 np.any(optimization_inputs['indices_frame_camintrinsics_camextrinsics'][:,2] < 0)) or \
+                (optimization_inputs.get('indices_point_camintrinsics_camextrinsics') is not None and \
+                 np.any(optimization_inputs['indices_point_camintrinsics_camextrinsics'][:,2] < 0))
+
+            icam_extrinsics0 = -1 if any_cams_at_reference else 0
+            icam_extrinsics1 = len(optimization_inputs['rt_cam_ref'])
+            icam_extrinsics_fromsolve = range(icam_extrinsics0,icam_extrinsics1)
+
+        if not hasattr(icam_extrinsics_fromsolve, '__iter__'):
+            icam_extrinsics_fromsolve = (icam_extrinsics_fromsolve,)
+
+        def rt_cam_ref_at(i):
+            if i < 0: return np.zeros((6,), dtype=float)
+            return optimization_inputs['rt_cam_ref'][i]
+        models_or_rt_cam_ref = \
+            [ mrcal.cameramodel(optimization_inputs = optimization_inputs,
+                                icam_intrinsics     = icam_intrinsics,
+                                icam_extrinsics     = icam_extrinsics) \
+              if i == 0 else rt_cam_ref_at(icam_extrinsics) \
+              for (i,icam_extrinsics) in enumerate(icam_extrinsics_fromsolve) ]
+
+        if cameranames is None:
+            cameranames = [ f"icam_extrinsics={i}" for i in icam_extrinsics_fromsolve ]
+
+    Ncameras = len(models_or_rt_cam_ref)
+
+    if cameranames is not None and \
+       len(cameranames) != Ncameras:
+        raise Exception(f"cameranames is given, so it MUST have the same length as {Ncameras=}; have {len(cameranames)=}")
+
     # First one with optimization_inputs. If we're not given frames and/or
     # points, we get them from the optimization inputs in this model
     i_model_with_optimization_inputs = \
         next((i for i in range(len(models_or_rt_cam_ref)) \
-              if isinstance(models_or_rt_cam_ref[i], mrcal.cameramodel) and \
-                  models_or_rt_cam_ref[i].optimization_inputs() is not None),
+              if is_model_with_inputs(models_or_rt_cam_ref[i])),
              None)
-
-    Ncameras = len(models_or_rt_cam_ref)
 
     if cameras_Rt_plot_ref is not None:
         # have cameras_Rt_plot_ref. It can be
