@@ -266,14 +266,16 @@ future
         # the old name (so that old mrcal can read these files). And a poisoned
         # string must be unpoisoned
 
-        v_to = d.get(name_to, None)
+        def is_empty(x):
+            return isinstance(x,str) and x==''
+        v_to = d.get(name_to, '')
         if isinstance(d.get(name_from),str) and d.get(name_from).startswith('ERROR:'):
             d[name_from] = d[name_to]
 
-        v_from = d.get(name_from, None)
+        v_from = d.get(name_from, '')
 
-        if v_from is not None:
-            if v_to is None:
+        if not is_empty(v_from):
+            if is_empty(v_to):
                 # only the old name is set; already done
                 pass
             else:
@@ -284,10 +286,10 @@ future
                     raise Exception(f"optimization_inputs has both keys '{name_from}' and '{name_to}', but they're not the same; {d[name_from]=} and {d[name_to]=}. Giving up")
                 del d[name_to]
         else:
-            if v_to is not None:
+            if not is_empty(v_to):
                 d[name_from] = d[name_to]
 
-            # Delete the new name. It might have value of "None", but I don't want it at all
+            # Delete the new name. It might have value of "''", but I don't want it at all
             try:    del d[name_to]
             except: pass
 
