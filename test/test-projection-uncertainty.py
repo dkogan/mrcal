@@ -832,6 +832,13 @@ def reproject_perturbed__common(q, distance,
     is looking at Ncameras separate uncertainty computations at once
 
     '''
+
+    if not (args.moving == 'board' and args.ref == 'cam0'):
+        raise Exception("This is implemented only in the vanilla moving-board-stationary-cameras case. Making this generic might be possible, but isn't useful-enough to think about")
+
+    fixedframes = args.no_optimize_frames
+
+
     if baseline_rt_ref_frame is None and not fixedframes:
         raise Exception("Not implemented in this path")
 
@@ -884,7 +891,7 @@ def reproject_perturbed__common(q, distance,
         #   meanq
         #   bestq
         if fixedframes:
-            raise Exception("meanq,bestq not implemented if fixedframes. MAYBE is possible, but not useful-enough to think about")
+            raise Exception("meanq,bestq implemented ONLY in the most vanilla case. Making this generic might be possible, but isn't useful-enough to think about")
 
         # shape (..., Nframes, Ncameras, 3)
         p_cam_query_allframes = \
