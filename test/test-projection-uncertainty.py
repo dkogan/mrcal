@@ -770,9 +770,12 @@ else:
 
 
 if args.write_models:
-    for i in range(args.Ncameras):
-        filename = f"/tmp/models-baseline-camera{i}.cameramodel"
-        models_baseline[i].write(filename)
+    for i,m in enumerate(models_baseline):
+        if i == 10:
+            print("Wrote 10 models. Not writing the rest")
+            break
+        filename = f"/tmp/models-baseline-camera{i:05d}.cameramodel"
+        m.write(filename)
         print(f"Wrote '{filename}'")
 
     if not args.do_sample:
