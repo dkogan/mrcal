@@ -473,12 +473,19 @@ imagersizes     = optimization_inputs_baseline['imagersizes']
 intrinsics_true = nps.cat( *[m.intrinsics()[1] \
                              for m in models_vanilla_true] )
 
-models_baseline = \
-    [ mrcal.cameramodel( optimization_inputs = optimization_inputs_baseline,
-                         icam_intrinsics     = i,
-                         icam_extrinsics     = i if args.ref == 'frame0' else i-1) \
-      for i in range(args.Ncameras) ]
-
+if args.moving == 'board':
+    models_baseline = \
+        [ mrcal.cameramodel( optimization_inputs = optimization_inputs_baseline,
+                             icam_intrinsics     = i) \
+          for i in range(args.Ncameras) ]
+else:
+    # --moving camera works only with ONE camera here
+    # We will have this one camera in Nframes poses
+    models_baseline = \
+        [ mrcal.cameramodel( optimization_inputs = optimization_inputs_baseline,
+                             icam_intrinsics     = 0,
+                             icam_extrinsics     = i if args.ref == 'frame0' else i-1) \
+          for i in range(args.Nframes) ]
 
 # I evaluate the projection uncertainty of this vector. In each camera. I'd like
 # it to be center-ish, but not AT the center. So I look at 1/3 (w,h). I want
@@ -3055,12 +3062,23 @@ if not args.do_sample:
                           args.observed_pixel_uncertainty)
 
 if args.write_models:
-    for i in range(args.Ncameras):
+    for i in range(len(models_baseline)):
+        if i == 10:
+            print("Wrote 10 models. Not writing the rest")
+            break
 
-        model = mrcal.cameramodel(optimization_inputs = optimization_inputs_sampled[0],
-                                  icam_intrinsics     = i)
+        if args.moving == 'board':
+            m =  mrcal.cameramodel( optimization_inputs = optimization_inputs_sampled[0],
+                                    icam_intrinsics     = i)
+        else:
+            # --moving camera works only with ONE camera here
+            # We will have this one camera in Nframes poses
+            m = mrcal.cameramodel( optimization_inputs = optimization_inputs_sampled[0],
+                                   icam_intrinsics     = 0,
+                                   icam_extrinsics     = i if args.ref == 'frame0' else i-1)
+
         filename = f"/tmp/models-noisesample0-camera{i}.cameramodel"
-        model.write(filename)
+        m.write(filename)
         print(f"Wrote '{filename}'")
     sys.exit()
 
