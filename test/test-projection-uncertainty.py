@@ -2754,13 +2754,17 @@ The rt_refperturbed_ref formulation:
                                    nps.matmult(Kpacked_inv_JtJ,
                                                nps.transpose(Jt_W_qref) ) )
 
-                testutils.confirm_equal(rt_rr_predicted_from_samples,
-                                        rt_rr,
-                                        relative    = True,
-                                        reldiff_eps = 1e-6,
+                testutils.confirm_equal(rt_rr_predicted_from_samples[...,:3],
+                                        rt_rr[...,:3],
+                                        eps         = 1e-4,
+                                        worstcase   = True,
+                                        msg = "Linearized rt_rr computations match: r")
+                testutils.confirm_equal(rt_rr_predicted_from_samples[...,3:],
+                                        rt_rr[...,3:],
                                         eps         = 1e-3,
                                         worstcase   = True,
-                                        msg = "Linearized rt_rr computations match exactly")
+                                        msg = "Linearized rt_rr computations match: t")
+
 
             # Now let's compute and compare the linearized Var(rt_rr). If we
             # have multiple samples, we can do that
