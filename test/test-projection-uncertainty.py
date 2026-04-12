@@ -785,7 +785,7 @@ def reproject_perturbed__common(q, distance,
                                 # shape (Ncameras, Nintrinsics)
                                 baseline_intrinsics,
                                 # shape (Ncameras, 6)
-                                baseline_rt_cam_ref,
+                                baseline_rt_cam_ref_mounted,
                                 # shape (Nframes, 6)
                                 baseline_rt_ref_frame,
                                 # shape (Npoints, 3)
@@ -798,7 +798,7 @@ def reproject_perturbed__common(q, distance,
                                 # shape (..., Ncameras, Nintrinsics)
                                 query_intrinsics,
                                 # shape (..., Ncameras, 6)
-                                query_rt_cam_ref,
+                                query_rt_cam_ref_mounted,
                                 # shape (..., Nframes, 6)
                                 query_rt_ref_frame,
                                 # shape (Npoints, 3)
@@ -840,7 +840,7 @@ def reproject_perturbed__common(q, distance,
 
     # shape (Ncameras, 3)
     p_ref_baseline = \
-        mrcal.transform_point_rt( mrcal.invert_rt(baseline_rt_cam_ref),
+        mrcal.transform_point_rt( mrcal.invert_rt(baseline_rt_cam_ref_mounted),
                                   p_cam_baseline )
 
     if fixedframes:
@@ -864,11 +864,11 @@ def reproject_perturbed__common(q, distance,
         if fixedframes:
             # shape (..., Ncameras, 3)
             p_cam_query = \
-                mrcal.transform_point_rt(query_rt_cam_ref, p_ref_query)
+                mrcal.transform_point_rt(query_rt_cam_ref_mounted, p_ref_query)
         else:
             # shape (..., Nframes, Ncameras, 3)
             p_cam_query_allframes = \
-                mrcal.transform_point_rt(nps.dummy(query_rt_cam_ref,-3), p_ref_query_allframes)
+                mrcal.transform_point_rt(nps.dummy(query_rt_cam_ref_mounted,-3), p_ref_query_allframes)
 
             # shape (..., Ncameras, 3)
             p_cam_query = np.mean( p_cam_query_allframes, axis = -3)
@@ -887,7 +887,7 @@ def reproject_perturbed__common(q, distance,
 
         # shape (..., Nframes, Ncameras, 3)
         p_cam_query_allframes = \
-            mrcal.transform_point_rt(nps.dummy(query_rt_cam_ref,-3), p_ref_query_allframes)
+            mrcal.transform_point_rt(nps.dummy(query_rt_cam_ref_mounted,-3), p_ref_query_allframes)
 
         # shape (..., Nframes, Ncameras, 2)
         q_reprojected = mrcal.project(p_cam_query_allframes,
@@ -925,7 +925,7 @@ def reproject_perturbed__fit_boards_ref(q, distance,
                                         # shape (Ncameras, Nintrinsics)
                                         baseline_intrinsics,
                                         # shape (Ncameras, 6)
-                                        baseline_rt_cam_ref,
+                                        baseline_rt_cam_ref_mounted,
                                         # shape (Nframes, 6)
                                         baseline_rt_ref_frame,
                                         # shape (Npoints, 3)
@@ -938,7 +938,7 @@ def reproject_perturbed__fit_boards_ref(q, distance,
                                         # shape (..., Ncameras, Nintrinsics)
                                         query_intrinsics,
                                         # shape (..., Ncameras, 6)
-                                        query_rt_cam_ref,
+                                        query_rt_cam_ref_mounted,
                                         # shape (..., Nframes, 6)
                                         query_rt_ref_frame,
                                         # shape (Npoints, 3)
@@ -1011,7 +1011,7 @@ def reproject_perturbed__fit_boards_ref(q, distance,
 
     # shape (Ncameras, 3). In the ref coord system
     p_ref_baseline = \
-        mrcal.transform_point_rt( mrcal.invert_rt(baseline_rt_cam_ref),
+        mrcal.transform_point_rt( mrcal.invert_rt(baseline_rt_cam_ref_mounted),
                                   p_cam_baseline )
 
     # shape (Nsamples,Ncameras,3)
@@ -1021,7 +1021,7 @@ def reproject_perturbed__fit_boards_ref(q, distance,
 
     # shape (..., Ncameras, 3)
     p_cam_query = \
-        mrcal.transform_point_rt(query_rt_cam_ref, p_ref_query)
+        mrcal.transform_point_rt(query_rt_cam_ref_mounted, p_ref_query)
 
     # shape (..., Ncameras, 2)
     q1 = mrcal.project(p_cam_query, lensmodel, query_intrinsics)
@@ -1057,7 +1057,7 @@ def reproject_perturbed__diff(q, distance,
                               # shape (Ncameras, Nintrinsics)
                               baseline_intrinsics,
                               # shape (Ncameras, 6)
-                              baseline_rt_cam_ref,
+                              baseline_rt_cam_ref_mounted,
                               # shape (Nframes, 6)
                               baseline_rt_ref_frame,
                               # shape (Npoints, 3)
@@ -1070,7 +1070,7 @@ def reproject_perturbed__diff(q, distance,
                               # shape (..., Ncameras, Nintrinsics)
                               query_intrinsics,
                               # shape (..., Ncameras, 6)
-                              query_rt_cam_ref,
+                              query_rt_cam_ref_mounted,
                               # shape (..., Nframes, 6)
                               query_rt_ref_frame,
                               # shape (Npoints, 3)
@@ -1126,7 +1126,7 @@ def reproject_perturbed__cross_reprojection(q, distance,
                                             # shape (Ncameras, Nintrinsics)
                                             baseline_intrinsics,
                                             # shape (Ncameras, 6)
-                                            baseline_rt_cam_ref,
+                                            baseline_rt_cam_ref_mounted,
                                             # shape (Nframes, 6)
                                             baseline_rt_ref_frame,
                                             # shape (Npoints, 3)
@@ -1139,7 +1139,7 @@ def reproject_perturbed__cross_reprojection(q, distance,
                                             # shape (..., Ncameras, Nintrinsics)
                                             query_intrinsics,
                                             # shape (..., Ncameras, 6)
-                                            query_rt_cam_ref,
+                                            query_rt_cam_ref_mounted,
                                             # shape (..., Nframes, 6)
                                             query_rt_ref_frame,
                                             # shape (Npoints, 3)
@@ -1165,7 +1165,7 @@ The logic here is described thoroughly in
   https://mrcal.secretsauce.net/uncertainty-cross-reprojection.html
     '''
 
-    if nps.norm2(baseline_rt_cam_ref[0]) > 1e-12:
+    if nps.norm2(baseline_rt_cam_ref_mounted[0]) > 1e-12:
         raise Exception("I'm assuming a stationary-camera calibration problem reference at cam0")
 
     mode = re.match('cross-reprojection-(.+)', args.reproject_perturbed).group(1)
@@ -2154,14 +2154,14 @@ The rt_refperturbed_ref formulation:
                     if what == 'board':
                         # shape (Nmeas_observations_all/2,Nh,Nw,2)
                         qq = \
-                            mrcal.project(mrcal.transform_point_rt(nps.dummy(baseline_rt_cam_ref[ idx_camextrinsics[what] +1, :], -2,-2),
+                            mrcal.project(mrcal.transform_point_rt(nps.dummy(baseline_rt_cam_ref_mounted[ idx_camextrinsics[what] +1, :], -2,-2),
                                                                    pref[what]),
                                           baseline_optimization_inputs['lensmodel'],
                                           nps.dummy(baseline_intrinsics[ idx_camintrinsics[what], :], -2,-2))
                     elif what == 'point':
                         # shape (Nmeas_observations_all/2,2)
                         qq = \
-                            mrcal.project(mrcal.transform_point_rt(baseline_rt_cam_ref[ idx_camextrinsics[what] +1, :],
+                            mrcal.project(mrcal.transform_point_rt(baseline_rt_cam_ref_mounted[ idx_camextrinsics[what] +1, :],
                                                                    pref[what]),
                                           baseline_optimization_inputs['lensmodel'],
                                           baseline_intrinsics[ idx_camintrinsics[what], :])
@@ -2213,13 +2213,13 @@ The rt_refperturbed_ref formulation:
                 if direction == 'rt_ref_refperturbed':
                     if have_state['board']:
                         pcam['board'], dpcam_drt_nominal_perturbed['board'] = \
-                            transform_point_rt3_withgrad_drt1(nps.dummy(baseline_rt_cam_ref[ idx_camextrinsics['board'] +1, :], -2,-2),
+                            transform_point_rt3_withgrad_drt1(nps.dummy(baseline_rt_cam_ref_mounted[ idx_camextrinsics['board'] +1, :], -2,-2),
                                                               mrcal.identity_rt(),
                                                               nps.dummy(query_rt_ref_frame   [ ..., idx_frame, :], -2,-2),
                                                               nps.mv(query_calibration_object,-4,-5))
                     if have_state['point']:
                         pcam['point'], dpcam_drt_nominal_perturbed['point'] = \
-                            transform_point_rt3_withgrad_drt1(baseline_rt_cam_ref[ idx_camextrinsics['point'] +1, :],
+                            transform_point_rt3_withgrad_drt1(baseline_rt_cam_ref_mounted[ idx_camextrinsics['point'] +1, :],
                                                               mrcal.identity_rt(),
                                                               mrcal.identity_rt(),
                                                               query_point[...,idx_points,:])
@@ -2230,13 +2230,13 @@ The rt_refperturbed_ref formulation:
                 if direction == 'rt_refperturbed_ref':
                     if have_state['board']:
                         pcam['board'], dpcam_drt_nominal_perturbed['board'] = \
-                            transform_point_rt3_withgrad_drt1(nps.dummy(query_rt_cam_ref[ ..., idx_camextrinsics['board'] +1, :], -2,-2),
+                            transform_point_rt3_withgrad_drt1(nps.dummy(query_rt_cam_ref_mounted[ ..., idx_camextrinsics['board'] +1, :], -2,-2),
                                                               mrcal.identity_rt(),
                                                               nps.dummy(baseline_rt_ref_frame[ ..., idx_frame, :], -2,-2),
                                                               baseline_calibration_object)
                     if have_state['point']:
                         pcam['point'], dpcam_drt_nominal_perturbed['point'] = \
-                            transform_point_rt3_withgrad_drt1(query_rt_cam_ref[ ..., idx_camextrinsics['point'] +1, :],
+                            transform_point_rt3_withgrad_drt1(query_rt_cam_ref_mounted[ ..., idx_camextrinsics['point'] +1, :],
                                                               mrcal.identity_rt(),
                                                               mrcal.identity_rt(),
                                                               baseline_point[...,idx_points,:])
@@ -2248,13 +2248,13 @@ The rt_refperturbed_ref formulation:
                     if have_state['board']:
                         pcam['board'], dpcam_drt_nominal_perturbed['board'] = \
                             transform_point_rt3_withgrad_drt0(mrcal.identity_rt(),
-                                                              nps.dummy(query_rt_cam_ref[ ..., idx_camextrinsics['board'] +1, :], -2,-2),
+                                                              nps.dummy(query_rt_cam_ref_mounted[ ..., idx_camextrinsics['board'] +1, :], -2,-2),
                                                               nps.dummy(query_rt_ref_frame   [ ..., idx_frame, :], -2,-2),
                                                               nps.mv(query_calibration_object,-4,-5))
                     if have_state['point']:
                         pcam['point'], dpcam_drt_nominal_perturbed['point'] = \
                             transform_point_rt3_withgrad_drt0(mrcal.identity_rt(),
-                                                              query_rt_cam_ref[ ..., idx_camextrinsics['point'] +1, :],
+                                                              query_rt_cam_ref_mounted[ ..., idx_camextrinsics['point'] +1, :],
                                                               mrcal.identity_rt(),
                                                               query_point[...,idx_points,:])
                     dxcross_Jcross[direction][method] = get_cross_operating_point(pcam,
@@ -2265,13 +2265,13 @@ The rt_refperturbed_ref formulation:
                     if have_state['board']:
                         pcam['board'], dpcam_drt_nominal_perturbed['board'] = \
                             transform_point_rt3_withgrad_drt0(mrcal.identity_rt(),
-                                                              nps.dummy(baseline_rt_cam_ref[ idx_camextrinsics['board'] +1, :], -2,-2),
+                                                              nps.dummy(baseline_rt_cam_ref_mounted[ idx_camextrinsics['board'] +1, :], -2,-2),
                                                               nps.dummy(baseline_rt_ref_frame[ ..., idx_frame, :], -2,-2),
                                                               baseline_calibration_object)
                     if have_state['point']:
                         pcam['point'], dpcam_drt_nominal_perturbed['point'] = \
                             transform_point_rt3_withgrad_drt0(mrcal.identity_rt(),
-                                                              baseline_rt_cam_ref[ idx_camextrinsics['point'] +1, :],
+                                                              baseline_rt_cam_ref_mounted[ idx_camextrinsics['point'] +1, :],
                                                               mrcal.identity_rt(),
                                                               baseline_point[...,idx_points,:])
                     dxcross_Jcross[direction][method] = get_cross_operating_point(pcam,
@@ -2292,7 +2292,7 @@ The rt_refperturbed_ref formulation:
                         # shape (..., Nmeas_observations_all,Nh,Nw,3),
                         #       (..., Nmeas_observations_all,Nh,Nw,3,6)
                         pcam['board'], _, dpcam_dpref = \
-                            mrcal.transform_point_rt(nps.dummy(baseline_rt_cam_ref[ idx_camextrinsics['board'] +1, :], -2,-2),
+                            mrcal.transform_point_rt(nps.dummy(baseline_rt_cam_ref_mounted[ idx_camextrinsics['board'] +1, :], -2,-2),
                                                      prefperturbed,
                                                      get_gradients = True)
                         dpcam_drt_nominal_perturbed['board'] = \
@@ -2306,7 +2306,7 @@ The rt_refperturbed_ref formulation:
                         # shape (..., Nmeas_observations_all,3),
                         #       (..., Nmeas_observations_all,3,6)
                         pcam['point'], _, dpcam_dpref = \
-                            mrcal.transform_point_rt(baseline_rt_cam_ref[ idx_camextrinsics['point'] +1, :],
+                            mrcal.transform_point_rt(baseline_rt_cam_ref_mounted[ idx_camextrinsics['point'] +1, :],
                                                      prefperturbed,
                                                      get_gradients = True)
                         dpcam_drt_nominal_perturbed['point'] = \
@@ -2323,7 +2323,7 @@ The rt_refperturbed_ref formulation:
                         # shape (..., Nmeas_observations_all,Nh,Nw,3),
                         #       (..., Nmeas_observations_all,Nh,Nw,3,6)
                         pcam['board'], _, dpcamperturbed_dprefperturbed = \
-                            mrcal.transform_point_rt(nps.dummy(query_rt_cam_ref[ ..., idx_camextrinsics['board'] +1, :], -2,-2),
+                            mrcal.transform_point_rt(nps.dummy(query_rt_cam_ref_mounted[ ..., idx_camextrinsics['board'] +1, :], -2,-2),
                                                      pref['board'],
                                                      get_gradients = True)
                         dpcam_drt_nominal_perturbed['board'] = \
@@ -2336,7 +2336,7 @@ The rt_refperturbed_ref formulation:
                         # shape (..., Nmeas_observations_all,3),
                         #       (..., Nmeas_observations_all,3,6)
                         pcam['point'], _, dpcamperturbed_dprefperturbed = \
-                            mrcal.transform_point_rt(query_rt_cam_ref[ ..., idx_camextrinsics['point'] +1, :],
+                            mrcal.transform_point_rt(query_rt_cam_ref_mounted[ ..., idx_camextrinsics['point'] +1, :],
                                                      pref['point'],
                                                      get_gradients = True)
                         dpcam_drt_nominal_perturbed['point'] = \
@@ -2358,7 +2358,7 @@ The rt_refperturbed_ref formulation:
                         # shape (..., Nmeas_observations_all,Nh,Nw,3),
                         #       (..., Nmeas_observations_all,Nh,Nw,3,6)
                         pcam['board'] = \
-                            mrcal.transform_point_rt(nps.dummy(query_rt_cam_ref[ ..., idx_camextrinsics['board'] +1, :], -2,-2),
+                            mrcal.transform_point_rt(nps.dummy(query_rt_cam_ref_mounted[ ..., idx_camextrinsics['board'] +1, :], -2,-2),
                                                      prefperturbed)
                         dpcam_drt_nominal_perturbed['board'] = transform_point_identity_gradient(pcam['board'])
 
@@ -2369,7 +2369,7 @@ The rt_refperturbed_ref formulation:
                         # shape (..., Nmeas_observations_all,3),
                         #       (..., Nmeas_observations_all,3,6)
                         pcam['point'] = \
-                            mrcal.transform_point_rt(query_rt_cam_ref[ ..., idx_camextrinsics['point'] +1, :],
+                            mrcal.transform_point_rt(query_rt_cam_ref_mounted[ ..., idx_camextrinsics['point'] +1, :],
                                                      prefperturbed)
                         dpcam_drt_nominal_perturbed['point'] = transform_point_identity_gradient(pcam['point'])
 
@@ -2382,14 +2382,14 @@ The rt_refperturbed_ref formulation:
                     if have_state['board']:
                         # shape (..., Nmeas_observations_all,Nh,Nw,3),
                         pcam['board'] = \
-                            mrcal.transform_point_rt(nps.dummy(baseline_rt_cam_ref[ idx_camextrinsics['board'] +1, :], -2,-2),
+                            mrcal.transform_point_rt(nps.dummy(baseline_rt_cam_ref_mounted[ idx_camextrinsics['board'] +1, :], -2,-2),
                                                      pref['board'])
                         dpcam_drt_nominal_perturbed['board'] = transform_point_identity_gradient(pcam['board'])
 
                     if have_state['point']:
                         # shape (..., Nmeas_observations_all,3),
                         pcam['point'] = \
-                            mrcal.transform_point_rt(baseline_rt_cam_ref[ idx_camextrinsics['point'] +1, :],
+                            mrcal.transform_point_rt(baseline_rt_cam_ref_mounted[ idx_camextrinsics['point'] +1, :],
                                                      pref['point'])
                         dpcam_drt_nominal_perturbed['point'] = transform_point_identity_gradient(pcam['point'])
 
@@ -2605,7 +2605,7 @@ The rt_refperturbed_ref formulation:
                 if what == 'board':
                     # shape (..., Nmeas_observations_all,Nh,Nw,3)
                     pcam = \
-                        mrcal.transform_point_rt(mrcal.compose_rt(nps.dummy(baseline_rt_cam_ref[ idx_camextrinsics['board'] +1, :], -2,-2),
+                        mrcal.transform_point_rt(mrcal.compose_rt(nps.dummy(baseline_rt_cam_ref_mounted[ idx_camextrinsics['board'] +1, :], -2,-2),
                                                                   nps.mv(rt_nominal_perturbed, -2,-5),
                                                                   nps.dummy(query_rt_ref_frame   [ ..., idx_frame, :], -2,-2)),
                                                  nps.mv(query_calibration_object,-4,-5))
@@ -2617,7 +2617,7 @@ The rt_refperturbed_ref formulation:
                 elif what == 'point':
                     # shape (..., Nmeas_observations_all,3)
                     pcam = \
-                        mrcal.transform_point_rt(mrcal.compose_rt(baseline_rt_cam_ref[ idx_camextrinsics['point'] +1, :],
+                        mrcal.transform_point_rt(mrcal.compose_rt(baseline_rt_cam_ref_mounted[ idx_camextrinsics['point'] +1, :],
                                                                   nps.mv(rt_nominal_perturbed,-2,-3)),
                                                  query_point[...,idx_points,:])
 
@@ -2666,7 +2666,7 @@ The rt_refperturbed_ref formulation:
 
                         what = 'point'
                         pcam = \
-                            mrcal.transform_point_rt(mrcal.compose_rt(baseline_rt_cam_ref[ idx_camextrinsics['point'] +1, :],
+                            mrcal.transform_point_rt(mrcal.compose_rt(baseline_rt_cam_ref_mounted[ idx_camextrinsics['point'] +1, :],
                                                                       rt_nominal_perturbed),
                                                      query_point[...,idx_points,:])
                         q_cross = \
@@ -2809,7 +2809,7 @@ The rt_refperturbed_ref formulation:
                                          normalize = True) * distance
         # shape (Ncameras, 3)
         p_ref_baseline = \
-            mrcal.transform_point_rt( baseline_rt_cam_ref,
+            mrcal.transform_point_rt( baseline_rt_cam_ref_mounted,
                                       p_cam_baseline,
                                       inverted = True)
         # shape (...,Ncameras, 3)
@@ -2820,7 +2820,7 @@ The rt_refperturbed_ref formulation:
 
         # shape (..., Ncameras, 3)
         p_cam_query = \
-            mrcal.transform_point_rt(query_rt_cam_ref, p_ref_query)
+            mrcal.transform_point_rt(query_rt_cam_ref_mounted, p_ref_query)
 
     else:
         # ccp or cpc
