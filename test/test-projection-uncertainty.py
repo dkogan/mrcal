@@ -325,11 +325,6 @@ args = parse_args()
 if args.Ncameras <= 0 or args.Ncameras > 4:
     print(f"Ncameras must be in [0,4], but got {args.Ncameras}. Giving up", file=sys.stderr)
     sys.exit(1)
-if args.points and not \
-   ( re.match('cross-reprojection', args.reproject_perturbed) or fixedframes ):
-    print("--points is currently implemented ONLY with --reproject-perturbed cross-reprojection-... or --fixed frames",
-          file = sys.stderr)
-    sys.exit(1)
 
 
 
@@ -397,10 +392,9 @@ for k in pointscale.keys():
 # I want the RNG to be deterministic
 np.random.seed(0)
 
-############# Set up my world, and compute all the perfect positions, pixel
-############# observations of everything
-object_spacing          = 0.1
-
+# Set up my world, and compute all the perfect positions, pixel
+# observations of everything
+object_spacing = 0.1
 # Use smaller board if we're doing a points solve with cross-reprojection. I
 # tend to run out of memory in those cases. Those tests are thorough, and this
 # isn't representative of what happens when actually running the algorithms
@@ -589,7 +583,6 @@ if args.compare_baseline_against_mrcal_2_4:
         raise Exception(f"Given --compare-baseline-against-mrcal-2.4, but an unknown scenario requested: {args.Ncameras=}")
 
     for icam in range(args.Ncameras):
-
         model = models_baseline[icam]
 
         # At 1.0m out
@@ -1174,15 +1167,8 @@ The logic here is described thoroughly in
   https://mrcal.secretsauce.net/uncertainty-cross-reprojection.html
     '''
 
-
-    if not baseline_optimization_inputs['do_optimize_frames']:
-        raise Exception("reproject_perturbed__cross_reprojection implementation expects the frames to be optimized")
-
     if nps.norm2(baseline_rt_cam_ref[0]) > 1e-12:
         raise Exception("I'm assuming a stationary-camera calibration problem reference at cam0")
-
-    if query_optimization_inputs is None:
-        return None
 
     mode = re.match('cross-reprojection-(.+)', args.reproject_perturbed).group(1)
     is_rrp = re.search('rrp', mode)
@@ -2870,8 +2856,8 @@ for distance in args.distances:
 
                             intrinsics_true,
                             rt_cam_ref_true_mounted,
-                            rt_ref_frame_true if not args.points else points_true,
-                            np.zeros((0,3), dtype=float),
+                            rt_ref_frame_true,
+                            points_true,
                             calobject_warp_true,
                             # q_noise_board_sampled not available here: We
                             # haven't sampled any noise yet. Subsequent calls to
@@ -2900,19 +2886,18 @@ for distance in args.distances:
                                 worstcase = True,
                                 msg = f"Regularization bias small-enough for camera {icam} at distance={'infinity' if distance is None else distance}")
 
-for icam in (0, min(args.Ncameras,3)):
-
-    p_cam_baseline = mrcal.unproject( q0_baseline, *models_baseline[icam].intrinsics(),
+for icam,m in enumerate(models_baseline):
+    p_cam_baseline = mrcal.unproject( q0_baseline, *m.intrinsics(),
                                       normalize = True)
     Var_dq_ref = \
         mrcal.projection_uncertainty( p_cam_baseline * 1.0,
-                                      model = models_baseline[icam],
+                                      model = m,
                                       atinfinity = False,
                                       method     = method,
                                       observed_pixel_uncertainty = args.observed_pixel_uncertainty)
     Var_dq_inf_ref = \
         mrcal.projection_uncertainty( p_cam_baseline * 1.0,
-                                      model = models_baseline[icam],
+                                      model = m,
                                       atinfinity = True,
                                       method     = method,
                                       observed_pixel_uncertainty = args.observed_pixel_uncertainty )
@@ -2920,14 +2905,15 @@ for icam in (0, min(args.Ncameras,3)):
     # I move the extrinsics of a model, write it to disk, and make sure the same
     # uncertainties come back
     if True:
-        model_moved = mrcal.cameramodel(models_baseline[icam])
+        model_moved = mrcal.cameramodel(m)
         model_moved.rt_cam_ref([1., 2., 3., 4., 5., 6.])
         model_moved.write(f'{workdir}/out.cameramodel')
         model_read = mrcal.cameramodel(f'{workdir}/out.cameramodel')
 
         icam_extrinsics_read = model_read.icam_extrinsics()
 
-        testutils.confirm_equal(icam if args.ref == 'frame0' else icam-1,
+        testutils.confirm_equal(icam if args.ref == 'frame0' or args.no_optimize_frames \
+                                else icam-1,
                                 icam_extrinsics_read,
                                 msg = f"corresponding icam_extrinsics reported correctly for camera {icam}")
 
@@ -2961,7 +2947,7 @@ for icam in (0, min(args.Ncameras,3)):
     if True:
         Var_dq_inf_far_ref = \
             mrcal.projection_uncertainty( p_cam_baseline * 100.0,
-                                          model = models_baseline[icam],
+                                          model = m,
                                           atinfinity = True,
                                           method     = method,
                                           observed_pixel_uncertainty = args.observed_pixel_uncertainty )
@@ -3135,9 +3121,9 @@ def check_uncertainties_at(q0_baseline, distance):
             p_cam_baseline[icam],
             atinfinity = atinfinity,
             method     = method,
-            model      = models_baseline[icam],
+            model      = m,
             observed_pixel_uncertainty = args.observed_pixel_uncertainty) \
-                   for icam in range(args.Ncameras) ])
+                   for icam,m in enumerate(models_baseline) ])
 
     # q_sampled should be evenly distributed around q0_baseline. I can make eps
     # as tight as I want by increasing Nsamples
@@ -3272,9 +3258,8 @@ if args.make_documentation_plots is not None:
                  **processoptions_output)
 
 
-
     data_tuples_plot_options = \
-        [ mrcal.show_projection_uncertainty( models_baseline[icam],
+        [ mrcal.show_projection_uncertainty( m,
                                              method                = method,
                                              observed_pixel_uncertainty = args.observed_pixel_uncertainty,
                                              observations          = 'dots',
@@ -3282,7 +3267,7 @@ if args.make_documentation_plots is not None:
                                              contour_increment     = -0.4,
                                              contour_labels_styles = '',
                                              return_plot_args      = True) \
-          for icam in range(args.Ncameras) ]
+          for icam,m in enumerate(models_baseline) ]
     plot_options = data_tuples_plot_options[0][1]
     del plot_options['title']
     gp.add_plot_option(plot_options, 'unset', 'key')
@@ -3296,7 +3281,7 @@ if args.make_documentation_plots is not None:
                             [(q0_baseline[0], q0_baseline[1], 0, \
                               dict(tuplesize = 3,
                                    _with =f'points pt 3 lw 2 lc "red" ps {2*pointscale[extension]} nocontour'))] \
-                            for icam in range(args.Ncameras) ]
+                            for icam in range(len(models_baseline)) ]
 
             # look through all the plots
             #   look through all the data tuples in each plot
@@ -3337,7 +3322,7 @@ if args.make_documentation_plots is not None:
                         [(q0_baseline[0], q0_baseline[1], 0, \
                           dict(tuplesize = 3,
                                _with =f'points pt 3 lw 2 lc "red" ps {2*pointscale[""]} nocontour'))] \
-                        for icam in range(args.Ncameras) ]
+                        for icam in range(len(models_baseline)) ]
         processoptions_output = dict(wait = True)
         if '_set' in processoptions_output:
             gp.add_plot_option(plot_options, 'set', processoptions_output['_set'])
