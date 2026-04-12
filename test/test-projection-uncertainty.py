@@ -627,26 +627,21 @@ if args.compare_baseline_against_mrcal_2_4:
 
 if not args.points:
     # shape (Nframes,6)
-    rt_ref_board_true = frames_points_true
-
+    rt_ref_frame_true                         = frames_points_true
     indices_frame_camintrinsics_camextrinsics = optimization_inputs_baseline['indices_frame_camintrinsics_camextrinsics']
     observations_board_true                   = optimization_inputs_baseline['observations_board']
-    args.Nframes                              = len(optimization_inputs_baseline['rt_ref_frame'])
 
     indices_point_camintrinsics_camextrinsics = None
     points_true                               = None
     observations_point_true                   = None
-    Npoints                                   = None
 
 else:
-    points_true = frames_points_true
-
+    points_true                               = frames_points_true
     indices_point_camintrinsics_camextrinsics = optimization_inputs_baseline['indices_point_camintrinsics_camextrinsics']
     observations_point_true                   = optimization_inputs_baseline['observations_point']
-    Npoints                                   = len(optimization_inputs_baseline['points'])
 
     indices_frame_camintrinsics_camextrinsics = None
-    rt_ref_board_true                         = None
+    rt_ref_frame_true                         = None
     observations_board_true                   = None
 
 
@@ -758,10 +753,10 @@ rt_ref_frame_baseline   = optimization_inputs_baseline['rt_ref_frame']
 points_baseline         = optimization_inputs_baseline['points']
 calobject_warp_baseline = optimization_inputs_baseline['calobject_warp']
 
-if (optimization_inputs_baseline.get('indices_frame_camintrinsics_camextrinsics') is not None and \
-    np.any(optimization_inputs_baseline['indices_frame_camintrinsics_camextrinsics'][:,2] < 0)) or \
-   (optimization_inputs_baseline.get('indices_point_camintrinsics_camextrinsics') is not None and \
-    np.any(optimization_inputs_baseline['indices_point_camintrinsics_camextrinsics'][:,2] < 0)):
+if (indices_frame_camintrinsics_camextrinsics is not None and \
+    np.any(indices_frame_camintrinsics_camextrinsics[:,2] < 0)) or \
+   (indices_point_camintrinsics_camextrinsics is not None and \
+    np.any(indices_point_camintrinsics_camextrinsics[:,2] < 0)):
 
     rt_cam_ref_baseline_mounted = nps.glue( mrcal.identity_rt(),
                                             optimization_inputs_baseline['rt_cam_ref'],
@@ -2855,6 +2850,9 @@ if re.match('mean-pcam|cross-reprojection', args.reproject_perturbed):
 else:
     method = 'mean-pcam'
 
+# Evaluate the regularization bias. I treat the "true" solve as a perturbation
+# off the baseline. The baseline solve is a no-noise solve WITH regularization,
+# so all of its values will be a bit shifted
 q0_true = dict()
 for distance in args.distances:
 
@@ -2872,7 +2870,7 @@ for distance in args.distances:
 
                             intrinsics_true,
                             rt_cam_ref_true_mounted,
-                            rt_ref_board_true if not args.points else points_true,
+                            rt_ref_frame_true if not args.points else points_true,
                             np.zeros((0,3), dtype=float),
                             calobject_warp_true,
                             # q_noise_board_sampled not available here: We
@@ -2902,10 +2900,7 @@ for distance in args.distances:
                                 worstcase = True,
                                 msg = f"Regularization bias small-enough for camera {icam} at distance={'infinity' if distance is None else distance}")
 
-for icam in (0,3):
-
-    if icam >= args.Ncameras:
-        break
+for icam in (0, min(args.Ncameras,3)):
 
     p_cam_baseline = mrcal.unproject( q0_baseline, *models_baseline[icam].intrinsics(),
                                       normalize = True)
@@ -3049,8 +3044,8 @@ if not args.do_sample:
 
 
 ( intrinsics_sampled,         \
-  extrinsics_sampled_mounted, \
-  frames_sampled,             \
+  rt_cam_ref_sampled_mounted, \
+  rt_ref_frame_sampled,             \
   points_sampled,             \
   calobject_warp_sampled,     \
   q_noise_board_sampled,      \
@@ -3117,10 +3112,11 @@ def check_uncertainties_at(q0_baseline, distance):
                             optimization_inputs_baseline,
 
                             intrinsics_sampled,
-                            extrinsics_sampled_mounted,
-                            frames_sampled,
+                            rt_cam_ref_sampled_mounted,
+                            rt_ref_frame_sampled,
                             points_sampled,
                             calobject_warp_sampled,
+
                             optimization_inputs_sampled,
                             b_sampled_unpacked,
                             q_noise_board_sampled,
