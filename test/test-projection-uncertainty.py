@@ -2910,6 +2910,8 @@ for distance in args.distances:
                                 msg = f"Regularization bias small-enough for camera {icam} at distance={'infinity' if distance is None else distance}")
 
 for icam,m in enumerate(models_baseline):
+    if icam >= 6: break # run at most this many times. Makes --moving cameras reasonable
+
     p_cam_baseline = mrcal.unproject( q0_baseline, *m.intrinsics(),
                                       normalize = True)
     Var_dq_ref = \
