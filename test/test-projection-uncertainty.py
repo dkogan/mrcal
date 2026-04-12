@@ -814,6 +814,7 @@ def reproject_perturbed__common(q, distance,
                                 query_points,
                                 # shape (..., 2)
                                 query_calobject_warp,
+
                                 # shape (...)
                                 query_optimization_inputs,
                                 # shape (..., Nstate)
@@ -953,6 +954,7 @@ def reproject_perturbed__fit_boards_ref(q, distance,
                                         query_points,
                                         # shape (..., 2)
                                         query_calobject_warp,
+
                                         # shape (...)
                                         query_optimization_inputs,
                                         # shape (..., Nstate)
@@ -1084,6 +1086,7 @@ def reproject_perturbed__diff(q, distance,
                               query_points,
                               # shape (..., 2)
                               query_calobject_warp,
+
                               # shape (...)
                               query_optimization_inputs,
                               # shape (..., Nstate)
@@ -1152,6 +1155,7 @@ def reproject_perturbed__cross_reprojection(q, distance,
                                             query_point,
                                             # shape (..., 2)
                                             query_calobject_warp,
+
                                             # shape (...)
                                             query_optimization_inputs,
                                             # shape (..., Nstate)
