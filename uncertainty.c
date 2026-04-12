@@ -971,13 +971,6 @@ bool _mrcal_drt_cross_reprojection__dbpacked(// output
         return false;
     }
 
-    if(state_index_frames0 < 0 &&
-       state_index_points0 < 0)
-    {
-        MSG("Neither board poses nor points are being optimized. Cannot compute uncertainty if we're not optimizing any observations");
-        return false;
-    }
-
 #define INIT_ARRAY(Kpacked, N)                                          \
     init_stride_2D(Kpacked, 6, N);                                      \
     const int Kpacked ## _stride0_elems = Kpacked ## _stride0 / sizeof(double); \
@@ -1166,16 +1159,6 @@ bool _mrcal_drt_cross_reprojection__dbpacked(// output
             if(ival_frames >= 0 && ival_points >= 0)
             {
                 MSG("ERROR: both points and frames exist in this measuremnet. This is not supported");
-                return false;
-            }
-            if(ival_frames < 0 && ival_calobject_warp >= 0)
-            {
-                MSG("ERROR: this measurement has no frames but DOES use a calobject_warp. That makes no sense");
-                return false;
-            }
-            if(ival_frames<0 && ival_points<0)
-            {
-                MSG("ERROR: neither frames nor points are used in this measurement; do I support that?");
                 return false;
             }
         }
