@@ -269,15 +269,11 @@ def parse_args():
                                  'bestq',
                                  'fit-boards-ref',
                                  'diff',
-                                 'cross-reprojection-rrp-empirical',
                                  'cross-reprojection-rrp-Jfp',
                                  'cross-reprojection-rrp-Je',
-                                 'cross-reprojection-rpr-empirical',
                                  'cross-reprojection-rpr-Jfp',
                                  'cross-reprojection-rpr-Je',
-                                 'cross-reprojection-ccp-empirical',
                                  'cross-reprojection-ccp',
-                                 'cross-reprojection-cpc-empirical',
                                  'cross-reprojection-cpc'),
                         required = True,
                         help='''Which reproject-after-perturbation method to
@@ -1151,6 +1147,8 @@ def reproject_perturbed__cross_reprojection(q, distance,
                                             # shape (..., 2)
                                             query_calobject_warp,
 
+
+                                            # SOME paths in this function require these to be non-NULL
                                             # shape (...)
                                             query_optimization_inputs,
                                             # shape (..., Nstate)
@@ -1214,6 +1212,7 @@ The logic here is described thoroughly in
         istate_extrinsics0 is not None
     # Not done yet. Will add to every_observation_has_extrinsics further down
 
+    Nsamples_shape = query_intrinsics.shape[:-2]
 
 
 
@@ -1223,7 +1222,6 @@ The logic here is described thoroughly in
 
 
     baseline_observations = dict()
-    query_observations    = dict()
     weight                = dict()
     imeas0_observations   = dict()
     Nmeas_observations    = dict()
@@ -1257,7 +1255,6 @@ The logic here is described thoroughly in
     for what in have_state.keys():
         if have_state[what]:
             baseline_observations[what] = baseline_optimization_inputs[f'observations_{what}']
-            query_observations   [what] = np.array([oi[f'observations_{what}'] for oi in query_optimization_inputs])
 
             # looking only at the baseline; query has the same weights
             weight[what] = baseline_observations[what][...,2]
@@ -1290,18 +1287,6 @@ The logic here is described thoroughly in
     if re.search('Je$', mode) and not every_observation_has_extrinsics:
         raise Exception(f"User asked for '{args.reproject_perturbed}', but Je is not available: not every observation has an extrinsics vector")
 
-    # shape (Nsamples,Nmeas_observations_all)
-    W_delta_qref = np.zeros((args.Nsamples, Nmeas_observations_all), dtype=float)
-    if have_state['board']:
-        W_delta_qref[..., imeas0_observations['board']:imeas0_observations['board']+Nmeas_observations['board']] = \
-            np.array( nps.clump(query_q_noise_board, n = -(query_q_noise_board.ndim-1)) )
-    if have_state['point']:
-        W_delta_qref[..., imeas0_observations['point']:imeas0_observations['point']+Nmeas_observations['point']] = \
-            np.array( nps.clump( query_q_noise_point,
-                                n = -(query_q_noise_point.ndim-1)) )
-    # Not done yet. W_delta_qref stores delta_qref at this point. About to
-    # multiply by W
-
     J_observations = J_packed_baseline[imeas0_observations_all:imeas0_observations_all+Nmeas_observations_all,:]
 
 
@@ -1321,33 +1306,60 @@ The logic here is described thoroughly in
         raise Exception("unexpected jacobian layout")
     icam_intrinsics_in_jrow = istate0_per_row // Nstate_intrinsics_per_camera
 
+    # I assume that ALL or NONE of these are None:
+    # - query_optimization_inputs
+    # - query_b_unpacked
+    # - query_q_noise_board
+    # - query_q_noise_point
+    if query_optimization_inputs is not None:
+        query_observations = dict()
+        # shape (Nsamples,Nmeas_observations_all)
+        W_delta_qref = np.zeros(Nsamples_shape + (Nmeas_observations_all,), dtype=float)
+        if have_state['board']:
+            W_delta_qref[..., imeas0_observations['board']:imeas0_observations['board']+Nmeas_observations['board']] = \
+                np.array( nps.clump(query_q_noise_board, n = -(query_q_noise_board.ndim-1)) )
+        if have_state['point']:
+            W_delta_qref[..., imeas0_observations['point']:imeas0_observations['point']+Nmeas_observations['point']] = \
+                np.array( nps.clump( query_q_noise_point,
+                                    n = -(query_q_noise_point.ndim-1)) )
+        # Not done yet. W_delta_qref stores delta_qref at this point. About to
+        # multiply by W
+        for what in have_state.keys():
+            if have_state[what]:
 
-    for what in have_state.keys():
-        if have_state[what]:
+                Nmeas_per_point = 2
 
-            Nmeas_per_point = 2
+                # shape (Nsamples,Nmeas_observations_what/2, 2)
+                W_delta_qref_xy_what = \
+                    np.reshape(W_delta_qref[...,
+                                            imeas0_observations[what]:imeas0_observations[what]+Nmeas_observations[what]],
+                               (len(W_delta_qref),
+                                Nmeas_observations[what]//Nmeas_per_point,Nmeas_per_point))
+                if not np.shares_memory(W_delta_qref_xy_what,W_delta_qref): raise Exception("clump() made new array. This is a bug")
+                # W_delta_qref <- W * delta_qref
+                W_delta_qref_xy_what *= nps.transpose(weight[what].ravel())
+                # mask out outliers
+                W_delta_qref_xy_what[:,weight[what].ravel() <= 0, :] = 0
 
-            # shape (Nsamples,Nmeas_observations_what/2, 2)
-            W_delta_qref_xy_what = \
-                np.reshape(W_delta_qref[...,
-                                        imeas0_observations[what]:imeas0_observations[what]+Nmeas_observations[what]],
-                           (len(W_delta_qref),
-                            Nmeas_observations[what]//Nmeas_per_point,Nmeas_per_point))
-            if not np.shares_memory(W_delta_qref_xy_what,W_delta_qref): raise Exception("clump() made new array. This is a bug")
-            # W_delta_qref <- W * delta_qref
-            W_delta_qref_xy_what *= nps.transpose(weight[what].ravel())
-            # mask out outliers
-            W_delta_qref_xy_what[:,weight[what].ravel() <= 0, :] = 0
+                query_observations   [what] = np.array([oi[f'observations_{what}'] for oi in query_optimization_inputs])
 
-    # shape (Nsamples, Nstate)
-    Jt_W_qref = np.zeros( W_delta_qref.shape[:1] + J_observations.shape[-1:],
-                          dtype=float)
 
-    mrcal._mrcal_npsp._Jt_x(J_observations.indptr,
-                            J_observations.indices,
-                            J_observations.data,
-                            W_delta_qref,
-                            out = Jt_W_qref)
+        # shape (Nsamples, Nstate)
+        Jt_W_qref = np.zeros( W_delta_qref.shape[:1] + J_observations.shape[-1:],
+                              dtype=float)
+
+        mrcal._mrcal_npsp._Jt_x(J_observations.indptr,
+                                J_observations.indices,
+                                J_observations.data,
+                                W_delta_qref,
+                                out = Jt_W_qref)
+    else:
+        query_observations   = None
+        W_delta_qref         = None
+        W_delta_qref_xy_what = None
+        Jt_W_qref            = None
+
+
 
     def get_rt_nominal_perturbed():
 
@@ -1477,8 +1489,13 @@ The logic here is described thoroughly in
 This function computes the operating point after explicitly evaluating qref
 noise, and reoptimizing'''
 
-            x_cross0 = np.zeros((args.Nsamples,Nmeas_observations_all  ), dtype=float)
-            J_cross  = np.zeros((args.Nsamples,Nmeas_observations_all,6), dtype=float)
+            if query_observations is None and \
+               ( direction == 'rt_refperturbed_ref' or
+                 direction == 'rt_camperturbed_cam' ):
+                raise Exception(f"{direction=} requires query_observations is not None")
+
+            x_cross0 = np.zeros(Nsamples_shape + (Nmeas_observations_all, ), dtype=float)
+            J_cross  = np.zeros(Nsamples_shape + (Nmeas_observations_all,6), dtype=float)
 
             for what in have_state.keys():
                 if not have_state[what]: continue
@@ -2373,7 +2390,8 @@ The rt_refperturbed_ref formulation:
                                                   direction = direction)
         del pcam, dpcam_drt_nominal_perturbed
 
-        if 1:
+        # Linearization requires this extra data
+        if query_optimization_inputs is not None:
             method = 'linearization'
 
             b = np.ones( (Nstate,), dtype=float)
@@ -2394,7 +2412,7 @@ The rt_refperturbed_ref formulation:
             # a (Ndirections,3) array indexed as
             # (*directions),(xcross, Jcross_extrinsics, Jcross_frames).
             # cross-reprojection-ccp and -cpc only have a single Jcross, so they report (..., Jcross, None)
-            directions__xcross__Jcross_e__Jcross_fp = np.empty( (args.Nsamples,2,3), dtype=object)
+            directions__xcross__Jcross_e__Jcross_fp = np.empty( Nsamples_shape + (2,3), dtype=object)
             get_cross_operating_point__linearization( W_delta_qref,
                                                       Jt_W_qref,
                                                       query_b_unpacked, # only for plotting and checking
@@ -2526,23 +2544,13 @@ The rt_refperturbed_ref formulation:
                                  np.ravel(dxcross_Jcross[direction]['linearization'][1][0,:1000,3:])),
                          wait = True)
 
-        # Done. Let's pick one of the estimates to return to the outside. The
-        # "mode" tells us which one
+        # Done. Let's pick one of the estimates to return to the outside.
+        method = 'compose-grad'
         if   is_rrp: direction = 'rt_ref_refperturbed'
         elif is_rpr: direction = 'rt_refperturbed_ref'
         elif is_ccp: direction = 'rt_cam_camperturbed'
         elif is_cpc: direction = 'rt_camperturbed_cam'
         else: raise
-
-        if   re.search('empirical$', mode):
-            method = 'compose-grad'
-        else:
-            Jmode = re.search('(Jfp|Je)$', mode)
-            if Jmode is not None:
-                method = f'linearization-{Jmode.group(1)}'
-            else:
-                method = f'linearization'
-
         dx_cross0,J_cross = dxcross_Jcross[direction][method]
 
         if is_rpr or is_rrp:
@@ -2579,7 +2587,7 @@ The rt_refperturbed_ref formulation:
                          / (N_sum_of_squares_baseline/2) )
 
             Nmeas_cross                     = 0
-            err_sum_of_squares_cross_solved = np.zeros((args.Nsamples), dtype=float)
+            err_sum_of_squares_cross_solved = np.zeros(Nsamples_shape, dtype=float)
 
             for what in have_state.keys():
                 if not have_state[what]:
@@ -2729,53 +2737,55 @@ The rt_refperturbed_ref formulation:
 
             Kpacked_inv_JtJ = factorization.solve_xt_JtJ_bt(Kpacked)
 
-            # Given the noisy samples I can compute the linearization using the API,
-            # which should match our linearization here exactly
-            #
-            # shape (Nsamples,6)
-            rt_rr_predicted_from_samples = \
-                nps.transpose( \
-                               nps.matmult(Kpacked_inv_JtJ,
-                                           nps.transpose(Jt_W_qref) ) )
+            if Jt_W_qref is not None:
+                # Given the noisy samples I can compute the linearization using the API,
+                # which should match our linearization here exactly
+                #
+                # shape (Nsamples,6)
+                rt_rr_predicted_from_samples = \
+                    nps.transpose( \
+                                   nps.matmult(Kpacked_inv_JtJ,
+                                               nps.transpose(Jt_W_qref) ) )
 
-            testutils.confirm_equal(rt_rr_predicted_from_samples,
-                                    rt_rr,
-                                    relative    = True,
-                                    reldiff_eps = 1e-6,
-                                    eps         = 1e-3,
-                                    worstcase   = True,
-                                    msg = "Linearized rt_rr computations match exactly")
+                testutils.confirm_equal(rt_rr_predicted_from_samples,
+                                        rt_rr,
+                                        relative    = True,
+                                        reldiff_eps = 1e-6,
+                                        eps         = 1e-3,
+                                        worstcase   = True,
+                                        msg = "Linearized rt_rr computations match exactly")
 
-            # Now let's compute and compare the linearized Var(rt_rr)
+            # Now let's compute and compare the linearized Var(rt_rr). If we
+            # have multiple samples, we can do that
+            if rt_rr.size//6 > 1:
+                var_predicted__rt_rr = \
+                    mrcal._mrcal_npsp._A_Jt_J_At(Kpacked_inv_JtJ, J_observations.indptr, J_observations.indices, J_observations.data,
+                                                 Nleading_rows_J = J_observations.shape[0]) * \
+                    args.observed_pixel_uncertainty*args.observed_pixel_uncertainty
 
-            var_predicted__rt_rr = \
-                mrcal._mrcal_npsp._A_Jt_J_At(Kpacked_inv_JtJ, J_observations.indptr, J_observations.indices, J_observations.data,
-                                             Nleading_rows_J = J_observations.shape[0]) * \
-                args.observed_pixel_uncertainty*args.observed_pixel_uncertainty
+                rt_rr__mean0 = rt_rr - np.mean(rt_rr, axis=-2)
+                var_empirical__rt_rr = np.mean(nps.outer(rt_rr__mean0,rt_rr__mean0), axis=0)
 
-            rt_rr__mean0 = rt_rr - np.mean(rt_rr, axis=-2)
-            var_empirical__rt_rr = np.mean(nps.outer(rt_rr__mean0,rt_rr__mean0), axis=0)
+                if 0:
+                    # I do this more or less below in the confirm_covariances_equal()
+                    l0,v0 = mrcal.sorted_eig(var_empirical__rt_rr)
+                    l1,v1 = mrcal.sorted_eig(var_predicted__rt_rr)
 
-            if 0:
-                # I do this more or less below in the confirm_covariances_equal()
-                l0,v0 = mrcal.sorted_eig(var_empirical__rt_rr)
-                l1,v1 = mrcal.sorted_eig(var_predicted__rt_rr)
+                    import gnuplotlib as gp
 
-                import gnuplotlib as gp
+                    # Eigenvalues should match-ish
+                    gp.plot(nps.cat(l0,l1), wait=True)
 
-                # Eigenvalues should match-ish
-                gp.plot(nps.cat(l0,l1), wait=True)
+                    # eigenvectors of each mode should deviate by a small number of
+                    # degrees
+                    print(np.arccos(np.abs(np.diag(nps.matmult(v0.T,v1))))*180./np.pi)
 
-                # eigenvectors of each mode should deviate by a small number of
-                # degrees
-                print(np.arccos(np.abs(np.diag(nps.matmult(v0.T,v1))))*180./np.pi)
-
-            testutils.confirm_covariances_equal(
-                var_empirical__rt_rr,
-                var_predicted__rt_rr,
-                what='Var(rt_rr)',
-                eps_eigenvalues      = 0.1,
-                eps_eigenvectors_deg = 10.0)
+                testutils.confirm_covariances_equal(
+                    var_empirical__rt_rr,
+                    var_predicted__rt_rr,
+                    what='Var(rt_rr)',
+                    eps_eigenvalues      = 0.1,
+                    eps_eigenvectors_deg = 10.0)
 
 
 
