@@ -826,7 +826,7 @@ def reproject_perturbed__common(q, distance,
     '''
 
     if not (args.moving == 'board' and args.ref == 'cam0'):
-        raise Exception("This is implemented only in the vanilla moving-board-stationary-cameras case. Making this generic might be possible, but isn't useful-enough to think about")
+        raise Exception("Non-vanilla scenarios not implemented for mean-pcam uncertainty. Mean-pcam is obsolete, and fixing it isn't a good use of time")
 
     fixedframes = args.no_optimize_frames
 
