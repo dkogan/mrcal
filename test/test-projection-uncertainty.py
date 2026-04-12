@@ -2183,17 +2183,19 @@ The rt_refperturbed_ref formulation:
 
             err_rms_baseline = np.sqrt( nps.norm2(err_sum_of_squares_baseline) / (N_sum_of_squares_baseline/2))
 
-        if is_rrp or is_rpr:
-            directions = ('rt_ref_refperturbed','rt_refperturbed_ref')
+        if   is_rrp: directions = ('rt_ref_refperturbed',)
+        elif is_ccp: directions = ('rt_cam_camperturbed',)
         else:
-            directions = ('rt_cam_camperturbed',
-                          # This isn't implemented yet.
-                          # get_cross_operating_point() expects the inputs to
-                          # have shape (Nsamples,...), but here the inputs are
-                          # identical for each sample.
-                          #
-                          # 'rt_camperturbed_cam',
-                          )
+            # This isn't implemented yet. get_cross_operating_point() expects
+            # the inputs to have shape (Nsamples,...), but here the inputs are
+            # identical for each sample.
+            #
+            # Also, these directions need query_optimization_inputs and the
+            # others (last 4 args to reproject_perturbed__cross_reprojection()
+            # must be non-None). Some calls to this function have these as None,
+            # though
+            raise Exception('rt_refperturbed_ref and rt_camperturbed_cam not supported yet')
+
 
         dxcross_Jcross = dict()
         for direction in directions:
