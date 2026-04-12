@@ -1300,11 +1300,18 @@ The logic here is described thoroughly in
     else:
         mask_jrow_has_extrinsics = None
 
-    Nstate_intrinsics_per_camera = Nstates_intrinsics // args.Ncameras
-    istate0_per_row = J_observations.indices[ J_observations.indptr[:-1] ]
-    if len(istate0_per_row) != Nmeas_observations_all:
-        raise Exception("unexpected jacobian layout")
-    icam_intrinsics_in_jrow = istate0_per_row // Nstate_intrinsics_per_camera
+    if Nstates_intrinsics > 0:
+        Nstate_intrinsics_per_camera = Nstates_intrinsics // baseline_intrinsics.shape[-2]
+        # Get the first state index used in each measurement. I'm assuming the
+        # intrinsics state has the lowest indices AND I just checked that
+        # intrinsics are being optimized, so this is an intrinsics state
+        istate0_per_row = J_observations.indices[ J_observations.indptr[:-1] ]
+        if len(istate0_per_row) != Nmeas_observations_all:
+            raise Exception("unexpected jacobian layout")
+        icam_intrinsics_in_jrow = istate0_per_row // Nstate_intrinsics_per_camera
+    else:
+        raise Exception("I don't think this test works if the intrinsics are fixed; please fix")
+        icam_intrinsics_in_jrow = None
 
     # I assume that ALL or NONE of these are None:
     # - query_optimization_inputs
@@ -2076,20 +2083,20 @@ The rt_refperturbed_ref formulation:
 
                     Jpacked_efpcw = J_observations.toarray()
                     Jpacked_efpcw[:,~state_mask_efpcw] = 0
-                    for icam in range(args.Ncameras):
+                    for icam_intrinsics in range(args.Ncameras):
                         Kpacked_ref_efpcw = \
-                            -np.linalg.lstsq(J_cross * nps.dummy(icam == icam_intrinsics_in_jrow,
+                            -np.linalg.lstsq(J_cross * nps.dummy(icam_intrinsics == icam_intrinsics_in_jrow,
                                                                  axis = -1),
                                              Jpacked_efpcw,
                                              rcond = None)[0]
                         Kpacked = mrcal.drt_cross_reprojection__dbpacked(**optimization_inputs_baseline,
-                                                                         icam_intrinsics = icam)
+                                                                         icam_intrinsics = icam_intrinsics)
 
                         testutils.confirm_equal(Kpacked_ref_efpcw,
                                                 Kpacked,
                                                 eps       = 1e-12,
                                                 worstcase = True,
-                                                msg = f"drt_cross_reprojection__dbpacked(icam_intrinsics={icam}) (ccp) does the right thing")
+                                                msg = f"drt_cross_reprojection__dbpacked({icam_intrinsics=}) (ccp) does the right thing")
 
                     del Jpacked_efpcw # I'm running out of memory. Let's free stuff when we can
 
@@ -2560,9 +2567,9 @@ The rt_refperturbed_ref formulation:
         else:
             # shape (...., Ncameras, 6)
             rt_nominal_perturbed = np.zeros(dx_cross0.shape[:-1] + (args.Ncameras,6,), dtype=float)
-            for icam in range(args.Ncameras):
-                rt_nominal_perturbed[...,icam,:] = \
-                    -lstsq(J_cross * nps.dummy(icam == icam_intrinsics_in_jrow, axis = -1),
+            for icam_intrinsics in range(args.Ncameras):
+                rt_nominal_perturbed[...,icam_intrinsics,:] = \
+                    -lstsq(J_cross * nps.dummy(icam_intrinsics == icam_intrinsics_in_jrow, axis = -1),
                            dx_cross0)
 
         del dxcross_Jcross
