@@ -961,6 +961,13 @@ def reproject_perturbed__fit_boards_ref(q, distance,
 
     '''
 
+    if not (args.moving == 'board' and args.ref == 'cam0'):
+        raise Exception("Non-vanilla scenarios not implemented here. This path is obsolete, and no-longer tested")
+    fixedframes = args.no_optimize_frames
+    if fixedframes:
+        raise Exception("Non-vanilla scenarios not implemented here. This path is obsolete, and no-longer tested")
+
+
     calobject_height,calobject_width = baseline_optimization_inputs['observations_board'].shape[1:3]
 
     # shape (Nsamples, Nh, Nw, 3)
@@ -1090,6 +1097,14 @@ def reproject_perturbed__diff(q, distance,
     r'''Reproject by using the "diff" method to compute a rotation
 
     '''
+
+
+    if not (args.moving == 'board' and args.ref == 'cam0'):
+        raise Exception("Non-vanilla scenarios not implemented here. This path is obsolete, and no-longer tested")
+    fixedframes = args.no_optimize_frames
+    if fixedframes:
+        raise Exception("Non-vanilla scenarios not implemented here. This path is obsolete, and no-longer tested")
+
 
     # shape (Ncameras, 3)
     p_cam_baseline = mrcal.unproject(q, lensmodel, baseline_intrinsics,
