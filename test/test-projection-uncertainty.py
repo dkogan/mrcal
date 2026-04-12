@@ -2222,7 +2222,7 @@ The rt_refperturbed_ref formulation:
                             transform_point_rt3_withgrad_drt1(baseline_rt_cam_ref[ idx_camextrinsics['point'] +1, :],
                                                               mrcal.identity_rt(),
                                                               mrcal.identity_rt(),
-                                                              query_point[:,idx_points])
+                                                              query_point[...,idx_points,:])
                     dxcross_Jcross[direction][method] = get_cross_operating_point(pcam,
                                                                                   dpcam_drt_nominal_perturbed,
                                                                                   direction = direction)
@@ -2239,7 +2239,7 @@ The rt_refperturbed_ref formulation:
                             transform_point_rt3_withgrad_drt1(query_rt_cam_ref[ ..., idx_camextrinsics['point'] +1, :],
                                                               mrcal.identity_rt(),
                                                               mrcal.identity_rt(),
-                                                              baseline_point[idx_points])
+                                                              baseline_point[...,idx_points,:])
                     dxcross_Jcross[direction][method] = get_cross_operating_point(pcam,
                                                                                   dpcam_drt_nominal_perturbed,
                                                                                   direction = direction)
@@ -2256,7 +2256,7 @@ The rt_refperturbed_ref formulation:
                             transform_point_rt3_withgrad_drt0(mrcal.identity_rt(),
                                                               query_rt_cam_ref[ ..., idx_camextrinsics['point'] +1, :],
                                                               mrcal.identity_rt(),
-                                                              query_point[:,idx_points])
+                                                              query_point[...,idx_points,:])
                     dxcross_Jcross[direction][method] = get_cross_operating_point(pcam,
                                                                                   dpcam_drt_nominal_perturbed,
                                                                                   direction = direction)
@@ -2273,7 +2273,7 @@ The rt_refperturbed_ref formulation:
                             transform_point_rt3_withgrad_drt0(mrcal.identity_rt(),
                                                               baseline_rt_cam_ref[ idx_camextrinsics['point'] +1, :],
                                                               mrcal.identity_rt(),
-                                                              baseline_point[idx_points])
+                                                              baseline_point[...,idx_points,:])
                     dxcross_Jcross[direction][method] = get_cross_operating_point(pcam,
                                                                                   dpcam_drt_nominal_perturbed,
                                                                                   direction = direction)
@@ -2300,7 +2300,7 @@ The rt_refperturbed_ref formulation:
 
                     if have_state['point']:
                         # shape (..., Nmeas_observations_all,3),
-                        prefperturbed = query_point[:,idx_points]
+                        prefperturbed = query_point[...,idx_points,:]
 
                         dpref_drt_ref_refperturbed = transform_point_identity_gradient(prefperturbed)
                         # shape (..., Nmeas_observations_all,3),
@@ -2364,7 +2364,7 @@ The rt_refperturbed_ref formulation:
 
                     if have_state['point']:
                         # shape (..., Nmeas_observations_all,3),
-                        prefperturbed = query_point[:,idx_points]
+                        prefperturbed = query_point[...,idx_points,:]
 
                         # shape (..., Nmeas_observations_all,3),
                         #       (..., Nmeas_observations_all,3,6)
@@ -2619,7 +2619,7 @@ The rt_refperturbed_ref formulation:
                     pcam = \
                         mrcal.transform_point_rt(mrcal.compose_rt(baseline_rt_cam_ref[ idx_camextrinsics['point'] +1, :],
                                                                   nps.mv(rt_nominal_perturbed,-2,-3)),
-                                                 query_point[:,idx_points])
+                                                 query_point[...,idx_points,:])
 
                     # shape (..., Nmeas_observations_all,2)
                     q_cross = \
@@ -2668,7 +2668,7 @@ The rt_refperturbed_ref formulation:
                         pcam = \
                             mrcal.transform_point_rt(mrcal.compose_rt(baseline_rt_cam_ref[ idx_camextrinsics['point'] +1, :],
                                                                       rt_nominal_perturbed),
-                                                     query_point[0,idx_points])
+                                                     query_point[...,idx_points,:])
                         q_cross = \
                             mrcal.project(pcam,
                                           baseline_optimization_inputs['lensmodel'],
