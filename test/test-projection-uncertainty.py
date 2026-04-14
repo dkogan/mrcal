@@ -2422,10 +2422,10 @@ The rt_refperturbed_ref formulation:
             else:
                 scale_extrinsics = None
             if istate_frame0 is not None: scale_frames = b[istate_frame0 :istate_frame0 +6]
-            else:                   scale_frames = None
+            else:                         scale_frames = None
 
             if istate_point0 is not None: scale_points = b[istate_point0 :istate_point0 +3]
-            else:                   scale_points = None
+            else:                         scale_points = None
 
             del b
 
