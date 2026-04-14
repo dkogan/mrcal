@@ -2899,15 +2899,10 @@ for distance in args.distances:
                             # q_noise_board_sampled available
                             None,None,None, None)
 
-    if q0_true_here is not None:
-        q0_true[distance] = q0_true_here
-    else:
-        # Couldn't compute. Probably because we needed
-        # q_noise_board_sampled
-        q0_true = None
-        break
+    q0_true[distance] = q0_true_here
 
-    # I check the bias for cameras 0,1. Cameras 2,3 have q0 outside of the
+    # I check the bias for cameras 0,1. In the vanilla
+    # moving-board-stationary-camera case, cameras 2,3 have q0 outside of the
     # chessboard region, or right on its edge, so regularization DOES affect
     # projections there: it's the only contributor to the projection behavior in
     # that area
@@ -3150,15 +3145,22 @@ def check_uncertainties_at(q0_baseline, distance):
     Var_dq_observed = np.mean( nps.outer(q_sampled-q_sampled_mean,
                                          q_sampled-q_sampled_mean), axis=-4 )
 
+    def model_from_icam(icam):
+        if args.moving == 'board':
+            return models_baseline[icam]
+        # Moving camera. I have Ncameras==0 and any of the models will work for
+        # the uncertainty computation
+        return models_baseline[0]
+
     # shape (Ncameras, 2,2)
     Var_dq_predicted = \
         nps.cat(*[ mrcal.projection_uncertainty( \
             p_cam_baseline[icam],
             atinfinity = atinfinity,
             method     = method,
-            model      = m,
+            model      = model_from_icam(icam),
             observed_pixel_uncertainty = args.observed_pixel_uncertainty) \
-                   for icam,m in enumerate(models_baseline) ])
+                   for icam in range(args.Ncameras) ])
 
     # q_sampled should be evenly distributed around q0_baseline. I can make eps
     # as tight as I want by increasing Nsamples
