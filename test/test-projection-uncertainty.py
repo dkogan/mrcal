@@ -377,6 +377,11 @@ def multiplot_layout():
     if args.Ncameras == 4: return 'layout 2,2'
     return f'layout 1,{args.Ncameras}'
 
+def postprocess_plot(f):
+    if f.endswith('.pdf'):
+        os.system(f"pdfcrop {f} {workdir}/out.pdf && mv {workdir}/out.pdf {f}")
+
+
 if args.make_documentation_plots:
 
     print(f"Will write documentation plots to {args.make_documentation_plots}-xxxx.pdf and .svg")
@@ -657,9 +662,7 @@ if args.make_documentation_plots is not None:
                                 title='',
                                 axis_scale = 1.0,
                                 **processoptions_output)
-            if extension == 'pdf':
-                os.system(f"pdfcrop {processoptions_output['hardcopy']}")
-
+            postprocess_plot(processoptions_output['hardcopy'])
     else:
         processoptions_output = dict(wait = True)
 
@@ -719,9 +722,7 @@ if args.make_documentation_plots is not None:
                      _yrange=(models_vanilla_true[0].imagersize()[1]-1, 0),
                      multiplot = multiplot_layout(),
                      **processoptions_output)
-            if extension == 'pdf':
-                os.system(f"pdfcrop {processoptions_output['hardcopy']}")
-
+            postprocess_plot(processoptions_output['hardcopy'])
     else:
         extension = ''
 
@@ -3291,8 +3292,7 @@ if args.make_documentation_plots is not None:
                      **plot_options,
                      multiplot = multiplot_layout(),
                      **processoptions_output)
-            if extension == 'pdf':
-                os.system(f"pdfcrop {processoptions_output['hardcopy']}")
+            postprocess_plot(processoptions_output['hardcopy'])
     else:
         processoptions_output = dict(wait = True)
         gp.plot( *data_tuples,
@@ -3357,8 +3357,7 @@ if args.make_documentation_plots is not None:
                          **plot_options,
                          multiplot = multiplot_layout(),
                          **processoptions_output)
-                if extension == 'pdf':
-                    os.system(f"pdfcrop {processoptions_output['hardcopy']}")
+                postprocess_plot(processoptions_output['hardcopy'])
 
     else:
         data_tuples = [ data_tuples_plot_options[icam][0] + \
