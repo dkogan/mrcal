@@ -680,7 +680,7 @@ if args.make_documentation_plots is not None:
     # shape (Npoints,2) or None
     def observed_points(icam):
         if indices_point_camintrinsics_camextrinsics is not None:
-            return observations_point_true[indices_point_camintrinsics_camextrinsics[:,1]==icam, ..., :2]
+            return (observations_point_true[indices_point_camintrinsics_camextrinsics[:,1]==icam, ..., :2],)
         return None
 
     # plot tuples to display the observed_boards and/or observed_points,
@@ -1218,7 +1218,9 @@ The logic here is described thoroughly in
     slice_state_intrinsics        = slice(istate_intrinsics0,        istate_intrinsics0           + Nstates_intrinsics       )
 
     if istate_calobject_warp0 is not None:
-        slice_state_calobject_warp    = slice(istate_calobject_warp0,    istate_calobject_warp0       + Nstates_calobject_warp   )
+        slice_state_calobject_warp = slice(istate_calobject_warp0,    istate_calobject_warp0       + Nstates_calobject_warp   )
+    else:
+        slice_state_calobject_warp = None
 
     every_observation_has_extrinsics =                                  \
         baseline_optimization_inputs['do_optimize_extrinsics']      and \
