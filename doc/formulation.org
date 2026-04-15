@@ -551,7 +551,7 @@ are valid for any given solve. For the [[file:tour-initial-calibration.org::#spl
 $ analyses/validate-input-noise.py ../doc/data/figueroa-overpass-looking-S/splined.cameramodel
 
 Noise ratios measured/actual. Should be ~ 1.0
-  observed, by looking at the distribution of residulas: 0.981
+  observed, by looking at the distribution of residuals: 0.981
   predicted, by correcting the above by sqrt(1-Nstates/Nmeasurements_observed): 1.012
 #+end_example
 

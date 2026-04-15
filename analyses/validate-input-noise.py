@@ -15,7 +15,7 @@ SYNOPSIS
   $ validate-input-noise.py [01].cameramodel
 
   Noise ratios measured/actual. Should be ~ 1.0
-    observed, by looking at the distribution of residulas: 0.998
+    observed, by looking at the distribution of residuals: 0.998
     predicted, by correcting the above by sqrt(1-Nstates/Nmeasurements_observed): 1.000
 
 
@@ -86,5 +86,5 @@ for model in models:
     noise_predicted_ratio = noise_observed_ratio/f
 
     print("Noise ratios measured/actual. Should be ~ 1.0")
-    print(f"  observed, by looking at the distribution of residulas: {noise_observed_ratio:.3f}")
+    print(f"  observed, by looking at the distribution of residuals: {noise_observed_ratio:.3f}")
     print(f"  predicted, by correcting the above by sqrt(1-Nstates/Nmeasurements_observed): {noise_predicted_ratio:.3f}")
