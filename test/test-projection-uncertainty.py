@@ -2084,7 +2084,7 @@ The rt_refperturbed_ref formulation:
 
                 # ccp uses J_cross_e for each measurement that has extrinsics
                 # and J_cross_fp for all the others. I combine them
-                J_cross = J_cross_e
+                J_cross = np.array(J_cross_e)
                 J_cross[~mask_jrow_has_extrinsics,:] = J_cross_fp[~mask_jrow_has_extrinsics,:]
 
                 # check the first 5 samples
