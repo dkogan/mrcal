@@ -373,6 +373,10 @@ def shorter_terminal(t):
     if m is None: return t
     return m.group(1) + m.group(2) + str(float(m.group(3))*0.8) + m.group(4)
 
+def multiplot_layout():
+    if args.Ncameras == 4: return 'layout 2,2'
+    return f'layout 1,{args.Ncameras}'
+
 if args.make_documentation_plots:
 
     print(f"Will write documentation plots to {args.make_documentation_plots}-xxxx.pdf and .svg")
@@ -707,14 +711,13 @@ if args.make_documentation_plots is not None:
                                          hardcopy = f'{args.make_documentation_plots}--simulated-observations.{extension}')
 
             gp.add_plot_option(processoptions_output, 'set',   ('xtics 1000', 'ytics 1000'))
-
             gp.plot( *obs_cam,
                      tuplesize=-2,
                      _with='dots',
                      square=1,
                      _xrange=(0, models_vanilla_true[0].imagersize()[0]-1),
                      _yrange=(models_vanilla_true[0].imagersize()[1]-1, 0),
-                     multiplot = 'layout 2,2',
+                     multiplot = multiplot_layout(),
                      **processoptions_output)
             if extension == 'pdf':
                 os.system(f"pdfcrop {processoptions_output['hardcopy']}")
@@ -732,7 +735,7 @@ if args.make_documentation_plots is not None:
                  square=1,
                  _xrange=(0, models_vanilla_true[0].imagersize()[0]-1),
                  _yrange=(models_vanilla_true[0].imagersize()[1]-1, 0),
-                 multiplot = 'layout 2,2',
+                 multiplot = multiplot_layout(),
                  **processoptions_output)
 
 
@@ -3098,6 +3101,13 @@ if args.write_models:
 
 
 
+def model_from_icam(icam):
+    if args.moving == 'board':
+        return models_baseline[icam]
+    # Moving camera. I have Ncameras==0 and any of the models will work for
+    # the uncertainty computation
+    return models_baseline[0]
+
 def check_uncertainties_at(q0_baseline, distance):
 
     # distance of "None" means I'll simulate a large distance, but compare
@@ -3147,13 +3157,6 @@ def check_uncertainties_at(q0_baseline, distance):
     # shape (Ncameras, 2,2)
     Var_dq_observed = np.mean( nps.outer(q_sampled-q_sampled_mean,
                                          q_sampled-q_sampled_mean), axis=-4 )
-
-    def model_from_icam(icam):
-        if args.moving == 'board':
-            return models_baseline[icam]
-        # Moving camera. I have Ncameras==0 and any of the models will work for
-        # the uncertainty computation
-        return models_baseline[0]
 
     # shape (Ncameras, 2,2)
     Var_dq_predicted = \
@@ -3286,7 +3289,7 @@ if args.make_documentation_plots is not None:
                                          hardcopy = f'{args.make_documentation_plots}--distribution-onepoint.{extension}')
             gp.plot( *data_tuples,
                      **plot_options,
-                     multiplot = f'layout 2,2',
+                     multiplot = multiplot_layout(),
                      **processoptions_output)
             if extension == 'pdf':
                 os.system(f"pdfcrop {processoptions_output['hardcopy']}")
@@ -3294,12 +3297,12 @@ if args.make_documentation_plots is not None:
         processoptions_output = dict(wait = True)
         gp.plot( *data_tuples,
                  **plot_options,
-                 multiplot = f'layout 2,2',
+                 multiplot = multiplot_layout(),
                  **processoptions_output)
 
 
     data_tuples_plot_options = \
-        [ mrcal.show_projection_uncertainty( m,
+        [ mrcal.show_projection_uncertainty( model_from_icam(icam),
                                              method                = method,
                                              observed_pixel_uncertainty = args.observed_pixel_uncertainty,
                                              observations          = 'dots',
@@ -3307,7 +3310,7 @@ if args.make_documentation_plots is not None:
                                              contour_increment     = -0.4,
                                              contour_labels_styles = '',
                                              return_plot_args      = True) \
-          for icam,m in enumerate(models_baseline) ]
+          for icam in range(args.Ncameras) ]
     plot_options = data_tuples_plot_options[0][1]
     del plot_options['title']
     gp.add_plot_option(plot_options, 'unset', 'key')
@@ -3321,7 +3324,7 @@ if args.make_documentation_plots is not None:
                             [(q0_baseline[0], q0_baseline[1], 0, \
                               dict(tuplesize = 3,
                                    _with =f'points pt 3 lw 2 lc "red" ps {2*pointscale[extension]} nocontour'))] \
-                            for icam in range(len(models_baseline)) ]
+                            for icam in range(args.Ncameras) ]
 
             # look through all the plots
             #   look through all the data tuples in each plot
@@ -3352,7 +3355,7 @@ if args.make_documentation_plots is not None:
                     del processoptions_output['_set']
                 gp.plot( *dt,
                          **plot_options,
-                         multiplot = f'layout 2,2',
+                         multiplot = multiplot_layout(),
                          **processoptions_output)
                 if extension == 'pdf':
                     os.system(f"pdfcrop {processoptions_output['hardcopy']}")
@@ -3362,14 +3365,14 @@ if args.make_documentation_plots is not None:
                         [(q0_baseline[0], q0_baseline[1], 0, \
                           dict(tuplesize = 3,
                                _with =f'points pt 3 lw 2 lc "red" ps {2*pointscale[""]} nocontour'))] \
-                        for icam in range(len(models_baseline)) ]
+                        for icam in range(args.Ncameras) ]
         processoptions_output = dict(wait = True)
         if '_set' in processoptions_output:
             gp.add_plot_option(plot_options, 'set', processoptions_output['_set'])
             del processoptions_output['_set']
         gp.plot( *data_tuples,
                  **plot_options,
-                 multiplot = f'layout 2,2',
+                 multiplot = multiplot_layout(),
                  **processoptions_output)
 
 if args.explore:
