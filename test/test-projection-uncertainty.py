@@ -1174,7 +1174,7 @@ def reproject_perturbed__cross_reprojection(q, distance,
                                             # shape (..., Nobservations_point, 2)
                                             query_q_noise_point):
 
-    r'''Reproject by explicitly computing a ref-refperturbed transformation
+    r'''Reproject by explicitly computing a cross-reprojection transformation
 
 The logic here is described thoroughly in
 
