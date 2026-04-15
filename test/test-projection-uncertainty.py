@@ -1181,8 +1181,6 @@ The logic here is described thoroughly in
   https://mrcal.secretsauce.net/uncertainty-cross-reprojection.html
     '''
 
-    if nps.norm2(baseline_rt_cam_ref_mounted[0]) > 1e-12:
-        raise Exception("I'm assuming a stationary-camera calibration problem reference at cam0")
 
     mode = re.match('cross-reprojection-(.+)', args.reproject_perturbed).group(1)
     is_rrp = re.search('rrp', mode)
