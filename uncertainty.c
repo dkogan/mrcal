@@ -252,7 +252,7 @@ void accumulate_rt_block(// output
 {
     /*
 
-    This function accumulates a chunk of Jcross_this (rt_cam_ref or
+    This function accumulates a chunk of Jcross_this ("this" is rt_cam_ref or
     rt_ref_frame). So in all the below, Jcross = Jcross_this
 
     Jcross has full state, but J_packed has packed state, so I need different
@@ -1057,7 +1057,8 @@ bool _mrcal_drt_cross_reprojection__dbpacked(// output
     // cam,frame,point). For instance, all 2*N*N measurements for a single
     // chessboard observation come from the same chunk
     //
-    // "cam" is used for cross_reprojection_ccp only. if(cross_reprojection_rrp), this is always -1
+    // "state_index_accumulating_cam" is used for cross_reprojection_ccp only.
+    // if(cross_reprojection_rrp), this is always -1
     int state_index_accumulating_cam   = -1;
     // if(cross_reprojection_rrp) {these mean the chunk being processed}
     // if(cross_reprojection_ccp) {
