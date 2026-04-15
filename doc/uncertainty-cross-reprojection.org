@@ -635,7 +635,7 @@ x_\mathrm{cross}$):
 
 - If $T_\mathrm{c^+r^+}$ does /not/ exist (the camera I'm evaluating /is/ at the reference
   coordinate system). In this case $T_\mathrm{c^+r^+}$ is the identity in the
-  above equations, and thus $T_\mathrm{c^+c^+}$ applies to the frame transform
+  above equations, and thus $T_\mathrm{cc^+}$ applies to the frame transform
   or the points. We see $\vec {\mathrm{rt}_\mathrm{rf}} \rightarrow
   \mathrm{compose\_rt}\left(\vec{\mathrm{rt}_\mathrm{cc^+}},\vec{\mathrm{rt}_\mathrm{r^+f^+}}\right)$
   and/or a point shift $\vec p_\mathrm{point} \rightarrow T_\mathrm{cc^+} \vec
