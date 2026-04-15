@@ -1201,6 +1201,7 @@ bool _mrcal_drt_cross_reprojection__dbpacked(// output
         // state_index_accumulating_cam >= 0 happens only if cross_reprojection_ccp
         if(state_index_accumulating_cam >= 0 &&
            (
+            // We were accumulating extrinsics. Are we about to accumulate something different?
             state_index_accumulating_cam           != state_index_accumulating_cam_here ||
             state_index_accumulating_frame_for_cam != state_index_accumulating_frame_here ||
             state_index_accumulating_point_for_cam != state_index_accumulating_point_here
@@ -1234,8 +1235,9 @@ bool _mrcal_drt_cross_reprojection__dbpacked(// output
         }
 
         if(state_index_accumulating_frame >= 0 &&
-           ival_frames >= 0 &&
-           state_index_accumulating_frame != Jcolidx[ival_frames])
+           // We were accumulating frames. Are we about to accumulate something different?
+           ( state_index_accumulating_frame != state_index_accumulating_frame_here ||
+             (cross_reprojection_ccp && ival_extrinsics >= 0) ))
         {
             // New measurement is different. Accumulate.
             accumulate_rt_block( // output
@@ -1260,8 +1262,9 @@ bool _mrcal_drt_cross_reprojection__dbpacked(// output
         }
 
         if(state_index_accumulating_point >= 0 &&
-           ival_points >= 0 &&
-           state_index_accumulating_point != Jcolidx[ival_points])
+           // We were accumulating points. Are we about to accumulate something different?
+           ( state_index_accumulating_point != state_index_accumulating_point_here ||
+             (cross_reprojection_ccp && ival_extrinsics >= 0) ))
         {
             // New measurement is different. Accumulate.
             accumulate_point( // output
