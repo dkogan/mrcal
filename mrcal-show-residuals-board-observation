@@ -144,6 +144,7 @@ def parse_args():
               file=sys.stderr)
         sys.exit(1)
 
+    # copy from mrcal-show-geometry
     def list_ints_from_range_string(s):
         try:
             i = int(s)
@@ -167,7 +168,7 @@ def parse_args():
             print(f"Observations should be a list of non-negative integers and/or A-B ranges. Invalid observation given: '{s}'",
                   file=sys.stderr)
             sys.exit(1)
-        return list(range(i0,i1+1))
+        return range(i0,i1+1)
 
     if not args.from_glob:
         args.observations = [o for obs in args.observations for o in list_ints_from_range_string(obs)]
