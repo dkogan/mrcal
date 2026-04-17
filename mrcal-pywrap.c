@@ -1578,6 +1578,12 @@ PyObject* _optimize(optimizemode_t optimizemode,
 
     SET_SIGINT();
 
+    if(kwargs == NULL)
+    {
+        BARF("kwargs MUST be passed in");
+        goto done;
+    }
+
     if(!optimization_inputs_kwargs_delete_unknown(&kwargs, &need_decref_kwargs))
         goto done;
 
