@@ -5700,7 +5700,7 @@ void optimizer_callback(// input state
              Nmeasurements_regularization_centerpixel +
              Nmeasurements_regularization_unity_cam01);
 
-        double normal_pixel_error = 1.0;
+        const double normal_pixel_error = 1.0;
         double expected_total_pixel_error_sq =
             (double)Nmeasurements_nonregularization *
             normal_pixel_error *
@@ -5752,7 +5752,7 @@ void optimizer_callback(// input state
                 if(modelHasCore_fxfycxcy(&ctx->lensmodel) &&
                    ctx->problem_selections.do_optimize_intrinsics_core)
                 {
-                    double normal_centerpixel_offset = 500.0;
+                    const double normal_centerpixel_offset = 500.0;
 
                     double expected_regularization_centerpixel_error_sq_noscale =
                         (double)Nmeasurements_regularization_centerpixel *
@@ -5954,7 +5954,7 @@ void optimizer_callback(// input state
 #if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
 #warning "triangulated-solve: better unity_cam01 scale"
 #endif
-                double normal_unity_cam01_value = 1.0;
+                const double normal_unity_cam01_value = 1.0;
 
                 double expected_regularization_unity_cam01_error_sq_noscale =
                     (double)Nmeasurements_regularization_unity_cam01 *
