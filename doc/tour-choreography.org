@@ -12,7 +12,7 @@ computed by the [[https://www.github.com/dkogan/mrcal/blob/master/analyses/danci
 data, scans a parameter, and produces the uncertainty-vs-range curves at the
 imager center to visualize the effect of that parameter.
 
-I run all of these studies using the =LENSMODEL_OPENCV8= model. It computes
+I run all of these studies using the =LENSMODEL_OPENCV4= model. It computes
 faster than the splined model, and qualitatively produces similar results.
 
 ** How many chessboard observations should we get?
@@ -28,7 +28,7 @@ dance-study.py                   \
   --range 0.5                    \
   --observed-pixel-uncertainty 2 \
   --ymax 1                       \
-  opencv8.cameramodel
+  opencv4.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
 mkdir -p ~/projects/mrcal-doc-external/figures/dance-study
@@ -43,7 +43,7 @@ $PYTHONPATH/analyses/dancing/dance-study.py      \
   --range 0.5                                    \
   --observed-pixel-uncertainty 2                 \
   --ymax 1                                       \
-  $D/opencv8.cameramodel                         \
+  $D/opencv4.cameramodel                         \
   --hardcopy ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-Nframes.svg \
   --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' 2> /dev/null
 $PYTHONPATH/analyses/dancing/dance-study.py      \
@@ -53,7 +53,7 @@ $PYTHONPATH/analyses/dancing/dance-study.py      \
   --range 0.5                                    \
   --observed-pixel-uncertainty 2                 \
   --ymax 1                                       \
-  $D/opencv8.cameramodel                         \
+  $D/opencv4.cameramodel                         \
   --hardcopy ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-Nframes.pdf \
   --terminal 'pdf size 8in,6in       noenhanced solid color   font ",16"' 2> /dev/null
 
@@ -85,7 +85,7 @@ dance-study.py                   \
   --Nframes 100                  \
   --range 0.4,10                 \
   --observed-pixel-uncertainty 2 \
-  opencv8.cameramodel
+  opencv4.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
@@ -97,7 +97,7 @@ $PYTHONPATH/analyses/dancing/dance-study.py      \
   --Nframes 100                                  \
   --range 0.4,10                                 \
   --observed-pixel-uncertainty 2                 \
-  $D/opencv8.cameramodel                         \
+  $D/opencv4.cameramodel                         \
   --hardcopy ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-range.svg \
   --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' 2> /dev/null
 $PYTHONPATH/analyses/dancing/dance-study.py      \
@@ -106,7 +106,7 @@ $PYTHONPATH/analyses/dancing/dance-study.py      \
   --Nframes 100                                  \
   --range 0.4,10                                 \
   --observed-pixel-uncertainty 2                 \
-  $D/opencv8.cameramodel                         \
+  $D/opencv4.cameramodel                         \
   --hardcopy ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-range.pdf \
   --terminal 'pdf size 8in,6in       noenhanced solid color   font ",16"' 2> /dev/null
 
@@ -135,7 +135,7 @@ dance-study.py                         \
   --observed-pixel-uncertainty 2       \
   --ymax 2                             \
   --uncertainty-at-range-sampled-max 5 \
-  opencv8.cameramodel
+  opencv4.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
@@ -150,7 +150,7 @@ $PYTHONPATH/analyses/dancing/dance-study.py      \
   --observed-pixel-uncertainty 2                 \
   --ymax 2                                       \
   --uncertainty-at-range-sampled-max 5           \
-  $D/opencv8.cameramodel                         \
+  $D/opencv4.cameramodel                         \
   --hardcopy ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-tilt_radius.svg \
   --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' 2> /dev/null
 $PYTHONPATH/analyses/dancing/dance-study.py      \
@@ -162,7 +162,7 @@ $PYTHONPATH/analyses/dancing/dance-study.py      \
   --observed-pixel-uncertainty 2                 \
   --ymax 2                                       \
   --uncertainty-at-range-sampled-max 5           \
-  $D/opencv8.cameramodel                         \
+  $D/opencv4.cameramodel                         \
   --hardcopy ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-tilt_radius.pdf \
   --terminal 'pdf size 8in,6in       noenhanced solid color   font ",16"' 2> /dev/null
 
@@ -216,7 +216,7 @@ dance-study.py                          \
   --ymax 0.4                            \
   --uncertainty-at-range-sampled-max 10 \
   --observed-pixel-uncertainty 2        \
-  opencv8.cameramodel
+  opencv4.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
@@ -231,7 +231,7 @@ $PYTHONPATH/analyses/dancing/dance-study.py      \
   --ymax 0.4                                     \
   --uncertainty-at-range-sampled-max 10          \
   --observed-pixel-uncertainty 2                 \
-  $D/opencv8.cameramodel                         \
+  $D/opencv4.cameramodel                         \
   --hardcopy ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-Ncameras.svg \
   --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' 2> /dev/null
 $PYTHONPATH/analyses/dancing/dance-study.py      \
@@ -243,7 +243,7 @@ $PYTHONPATH/analyses/dancing/dance-study.py      \
   --ymax 0.4                                     \
   --uncertainty-at-range-sampled-max 10          \
   --observed-pixel-uncertainty 2                 \
-  $D/opencv8.cameramodel                         \
+  $D/opencv4.cameramodel                         \
   --hardcopy ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-Ncameras.pdf \
   --terminal 'pdf size 8in,6in       noenhanced solid color   font ",16"' 2> /dev/null
 
@@ -277,7 +277,7 @@ dance-study.py                          \
   --object-width-n 5,30                 \
   --uncertainty-at-range-sampled-max 30 \
   --observed-pixel-uncertainty 2        \
-  opencv8.cameramodel
+  opencv4.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
@@ -291,7 +291,7 @@ $PYTHONPATH/analyses/dancing/dance-study.py      \
   --object-width-n 5,30                          \
   --uncertainty-at-range-sampled-max 30          \
   --observed-pixel-uncertainty 2                 \
-  $D/opencv8.cameramodel                         \
+  $D/opencv4.cameramodel                         \
   --hardcopy ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-object_width_n.svg \
   --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' 2> /dev/null
 $PYTHONPATH/analyses/dancing/dance-study.py      \
@@ -302,7 +302,7 @@ $PYTHONPATH/analyses/dancing/dance-study.py      \
   --object-width-n 5,30                          \
   --uncertainty-at-range-sampled-max 30          \
   --observed-pixel-uncertainty 2                 \
-  $D/opencv8.cameramodel                         \
+  $D/opencv4.cameramodel                         \
   --hardcopy ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-object_width_n.pdf \
   --terminal 'pdf size 8in,6in       noenhanced solid color   font ",16"' 2> /dev/null
 
@@ -331,7 +331,7 @@ dance-study.py                   \
   --Nframes 100                  \
   --object-spacing 0.04,0.20     \
   --observed-pixel-uncertainty 2 \
-  opencv8.cameramodel
+  opencv4.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
@@ -344,7 +344,7 @@ $PYTHONPATH/analyses/dancing/dance-study.py      \
   --Nframes 100                                  \
   --object-spacing 0.04,0.20                     \
   --observed-pixel-uncertainty 2                 \
-  $D/opencv8.cameramodel                         \
+  $D/opencv4.cameramodel                         \
   --hardcopy ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-object_spacing.svg \
   --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' 2> /dev/null
 $PYTHONPATH/analyses/dancing/dance-study.py      \
@@ -354,7 +354,7 @@ $PYTHONPATH/analyses/dancing/dance-study.py      \
   --Nframes 100                                  \
   --object-spacing 0.04,0.20                     \
   --observed-pixel-uncertainty 2                 \
-  $D/opencv8.cameramodel                         \
+  $D/opencv4.cameramodel                         \
   --hardcopy ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-object_spacing.pdf \
   --terminal 'pdf size 8in,6in       noenhanced solid color   font ",16"' 2> /dev/null
 
@@ -381,7 +381,7 @@ dance-study.py                                     \
   --ymax 20                                        \
   --uncertainty-at-range-sampled-max 200           \
   --observed-pixel-uncertainty 2                   \
-  opencv8.cameramodel
+  opencv4.cameramodel
 #+end_src
 #+begin_src sh :exports none :eval no-export
 D=~/projects/mrcal-doc-external/2022-11-05--dtla-overpass--samyang--alpha7/2-f22-infinity
@@ -397,7 +397,7 @@ $PYTHONPATH/analyses/dancing/dance-study.py                                     
   --ymax 20                                                                                                          \
   --uncertainty-at-range-sampled-max 200                                                                             \
   --observed-pixel-uncertainty 2                                                                                     \
-  $D/opencv8.cameramodel                                                                                             \
+  $D/opencv4.cameramodel                                                                                             \
   --hardcopy ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-object_spacing-compensated-range.svg \
   --terminal 'svg size 800,600       noenhanced solid dynamic font ",14"' 2> /dev/null
 $PYTHONPATH/analyses/dancing/dance-study.py                                                                          \
@@ -410,7 +410,7 @@ $PYTHONPATH/analyses/dancing/dance-study.py                                     
   --ymax 20                                                                                                          \
   --uncertainty-at-range-sampled-max 200                                                                             \
   --observed-pixel-uncertainty 2                                                                                     \
-  $D/opencv8.cameramodel                                                                                             \
+  $D/opencv4.cameramodel                                                                                             \
   --hardcopy ~/projects/mrcal-doc-external/figures/dance-study/dance-study-scan-object_spacing-compensated-range.pdf \
   --terminal 'pdf size 8in,6in       noenhanced solid color   font ",16"' 2> /dev/null
 
@@ -441,7 +441,7 @@ observation or an extra little bit of board tilt or some extra chessboard
 corners.
 
 Before moving on, I should stress that the results presented here represent a
-particular scenario using a =LENSMODEL_OPENCV8= lens, and produce clear rules of
+particular scenario using a =LENSMODEL_OPENCV4= lens, and produce clear rules of
 thumb. For a /specific/ lens and geometry, rerun these studies for your use
 cases.
 
