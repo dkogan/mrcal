@@ -272,7 +272,8 @@ easy for those that don't already have other functions handy.
 - [[file:mrcal-python-api-reference.html#-mapping_file_framenocameraindex][=mrcal.mapping_file_framenocameraindex()=]]: Parse image filenames to get the frame numbers
 - [[file:mrcal-python-api-reference.html#-close_contour][=mrcal.close_contour()=]]: Close a polyline, if it isn't already closed
 - [[file:mrcal-python-api-reference.html#-apply_homography][=mrcal.apply_homography()=]]: Apply a homogeneous-coordinate homography to a set of 2D points
-- [[file:mrcal-python-api-reference.html#-corresponding_icam_extrinsics][=mrcal.corresponding_icam_extrinsics()=]]: Return the icam_extrinsics corresponding to a given icam_intrinsics
+- [[file:mrcal-python-api-reference.html#-corresponding_icam_extrinsics][=mrcal.corresponding_icam_extrinsics()=]]: Return the icam_extrinsics
+  corresponding to a given icam_intrinsics. Works with stationary cameras
 - [[file:mrcal-python-api-reference.html#-measurements_board][=mrcal.measurements_board()=]]: Compute and return the chessboard measurements (weighted reprojection errors)
 - [[file:mrcal-python-api-reference.html#-measurements_point][=mrcal.measurements_point()=]]: Compute and return the discrete point measurements (weighted reprojection errors)
 - [[file:mrcal-python-api-reference.html#-sorted_eig][=mrcal.sorted_eig()=]]: Compute eigenvalues, eigenvectors; sorted results returned
