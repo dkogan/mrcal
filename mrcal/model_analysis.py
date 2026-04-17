@@ -1168,7 +1168,7 @@ def _dq_db__projection_uncertainty( # shape (...,3)
 
 def projection_uncertainty( p_cam, model,
                             *,
-                            method     = 'mean-pcam',
+                            method     = 'cross-reprojection-ccp',
                             atinfinity = False,
 
                             # what we're reporting
@@ -1241,11 +1241,13 @@ broadcasts on p_cam only. We accept
 - method: optional string, selecting the uncertainty-computing method. Must be
   one of
 
+  - 'cross-reprojection-ccp'
   - 'mean-pcam'
   - 'cross-reprojection-rrp-Jfp'
-  - 'cross-reprojection-ccp'
 
-  The default is 'mean-pcam'
+  The default is 'cross-reprojection-ccp'. 'mean-pcam' is the method used in
+  mrcal < 3.0, and 'cross-reprojection--rrp-Jfp' is experimental. Most people
+  should not touch this.
 
 - atinfinity: optional boolean, defaults to False. If True, we want to know the
   projection uncertainty, looking at a point infinitely-far away. We propagate

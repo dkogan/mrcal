@@ -88,11 +88,11 @@ def parse_args():
                         directions, then we can use this metric, which is
                         potentially easier to compute''')
     parser.add_argument('--method',
-                        choices=('mean-pcam', 'cross-reprojection-ccp', 'cross-reprojection-rrp-Jfp'),
-                        default='mean-pcam',
+                        choices=('cross-reprojection-ccp', 'mean-pcam', 'cross-reprojection-rrp-Jfp'),
+                        default='cross-reprojection-ccp',
                         help='''Multiple uncertainty quantification methods are
-                        available. We default to 'mean-pcam'; the others are
-                        experimental at this time''')
+                        available. We default to 'cross-reprojection-ccp'; most
+                        people should not touch this''')
     parser.add_argument('--observations',
                         action='store_true',
                         default=False,

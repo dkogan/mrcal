@@ -1676,7 +1676,7 @@ def show_projection_uncertainty(model,
                                 valid_intrinsics_region    = False,
                                 distance                   = None,
                                 isotropic                  = False,
-                                method                     = 'mean-pcam',
+                                method                     = 'cross-reprojection-ccp',
                                 cbmax                      = 3,
                                 contour_increment          = None,
                                 contour_labels_styles      = 'boxed',
@@ -1769,11 +1769,13 @@ ARGUMENTS
 - method: optional string, selecting the uncertainty-computing method. Must be
   one of
 
+  - 'cross-reprojection-ccp'
   - 'mean-pcam'
   - 'cross-reprojection-rrp-Jfp'
-  - 'cross-reprojection-ccp'
 
-  The default is 'mean-pcam'
+  The default is 'cross-reprojection-ccp'. 'mean-pcam' is the method used in
+  mrcal < 3.0, and 'cross-reprojection--rrp-Jfp' is experimental. Most people
+  should not touch this.
 
 - cbmax: optional value, defaulting to 3.0. Sets the maximum range of the color
   map
@@ -1959,7 +1961,7 @@ def show_projection_uncertainty_vs_distance(model,
                                             where                      = "centroid",
                                             observed_pixel_uncertainty = None,
                                             isotropic                  = False,
-                                            method                     = 'mean-pcam',
+                                            method                     = 'cross-reprojection-ccp',
                                             distance_min               = None,
                                             distance_max               = None,
                                             extratitle                 = None,
@@ -2030,9 +2032,16 @@ ARGUMENTS
   want the RMS size of the ellipse instead of the worst-direction size, pass
   isotropic=True.
 
-- method: optional string, defaulting to 'mean-pcam'. Multiple uncertainty
-  quantification methods are available. One of ('mean-pcam',
-  'cross-reprojection-rrp-Jfp') is selected by this option
+- method: optional string, selecting the uncertainty-computing method. Must be
+  one of
+
+  - 'cross-reprojection-ccp'
+  - 'mean-pcam'
+  - 'cross-reprojection-rrp-Jfp'
+
+  The default is 'cross-reprojection-ccp'. 'mean-pcam' is the method used in
+  mrcal < 3.0, and 'cross-reprojection--rrp-Jfp' is experimental. Most people
+  should not touch this.
 
 - extratitle: optional string to include in the title of the resulting plot.
   Used to extend the default title string. If kwargs['title'] is given, it is
