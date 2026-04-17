@@ -145,6 +145,7 @@ def calibration_baseline(model, Ncameras, Nframes, extra_observation_at,
                          do_optimize_frames = True,
 
                          report_vanilla_and_requested = False,
+                         optimize_models = True,
 
                          # The logic to avoid oblique views was added in
                          #   https://github.com/dkogan/mrcal/commit/b54df5d3
@@ -378,7 +379,8 @@ ARGUMENTS
 
     if report_vanilla_and_requested:
         optimization_inputs_vanilla_baseline = copy.deepcopy(optimization_inputs_baseline)
-        mrcal.optimize(**optimization_inputs_vanilla_baseline)
+        if optimize_models:
+            mrcal.optimize(**optimization_inputs_vanilla_baseline)
 
         optimization_inputs_list = \
             (optimization_inputs_vanilla_baseline,
@@ -400,7 +402,8 @@ ARGUMENTS
         rt_ref_board_true = np.array(optimization_inputs_baseline['rt_ref_frame'])
     rt_cam_ref_true = np.array(optimization_inputs_baseline['rt_cam_ref'])
 
-    mrcal.optimize(**optimization_inputs_baseline)
+    if optimize_models:
+        mrcal.optimize(**optimization_inputs_baseline)
 
 
     if not points:

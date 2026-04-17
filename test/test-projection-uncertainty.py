@@ -461,11 +461,54 @@ frames_points_true =                  \
                          testdir,
                          range_to_boards    = args.range_to_boards,
                          report_vanilla_and_requested = True,
+                         optimize_models              = False,
                          points             = args.points,
                          moving_cameras     = args.moving == 'camera',
                          ref_frame0         = args.ref    == 'frame0',
                          do_optimize_frames = not args.no_optimize_frames,
                          **calibration_baseline_kwargs)
+
+
+# The other scenarios should produce identical measurements before optimization.
+# After optimization it'll be similar, but regularization will move it a bit
+if not (args.moving == 'camera' and args.ref == 'frame0'):
+    # ignore regularization
+    Nmeas  = \
+        mrcal.num_measurements_boards(**optimization_inputs_baseline) + \
+        mrcal.num_measurements_points(**optimization_inputs_baseline)
+    x_vanilla = mrcal.optimizer_callback(**optimization_inputs_vanilla_baseline,
+                                         no_jacobian      = True,
+                                         no_factorization = True)[1]
+    x         = mrcal.optimizer_callback(**optimization_inputs_baseline,
+                                         no_jacobian      = True,
+                                         no_factorization = True)[1]
+
+    testutils.confirm_equal(x_vanilla[:Nmeas],
+                            x[:Nmeas],
+                            eps = 1e-10,
+                            worstcase = True,
+                            msg = f"x is consistent between (--moving board --ref cam0) and the current case: (--moving {args.moving} --ref {args.ref}) (pre-optimization)")
+
+mrcal.optimize(**optimization_inputs_vanilla_baseline)
+mrcal.optimize(**optimization_inputs_baseline)
+
+if not (args.moving == 'camera' and args.ref == 'frame0'):
+    # And again, post-optimization. The regularization would move the solution a
+    # bit, so the threshold is higher
+    x_vanilla = mrcal.optimizer_callback(**optimization_inputs_vanilla_baseline,
+                                         no_jacobian      = True,
+                                         no_factorization = True)[1]
+    x         = mrcal.optimizer_callback(**optimization_inputs_baseline,
+                                         no_jacobian      = True,
+                                         no_factorization = True)[1]
+
+    testutils.confirm_equal(x_vanilla[:Nmeas],
+                            x[:Nmeas],
+                            eps = 1e-3,
+                            worstcase = True,
+                            msg = f"x is consistent between (--moving board --ref cam0) and the current case: (--moving {args.moving} --ref {args.ref}) (post-optimization)")
+
+
 
 lensmodel       = optimization_inputs_baseline['lensmodel']
 imagersizes     = optimization_inputs_baseline['imagersizes']
@@ -3007,19 +3050,6 @@ for icam,m in enumerate(models_baseline):
     # transform between the cameras. So for now I test this with a single camera
     # (checked above to make sure that --moving camera goes with --Ncameras 1)
     if args.moving == 'camera':
-
-        x_vanilla = mrcal.optimizer_callback(**optimization_inputs_vanilla_baseline,
-                                             no_jacobian      = True,
-                                             no_factorization = True)[1]
-        x         = mrcal.optimizer_callback(**optimization_inputs_baseline,
-                                             no_jacobian      = True,
-                                             no_factorization = True)[1]
-        testutils.confirm_equal(x_vanilla, x,
-                                eps = 1e-7,
-                                worstcase = True,
-                                msg = f"x is consistent between (--moving board --ref cam0) and the current case: (--moving {args.moving} --ref {args.ref})")
-
-
         # This path doesn't work with points because moving-cameras requires
         # Ncameras=1, which is impossible with unity_cam01 regularizaton
         if not args.points:
