@@ -192,6 +192,10 @@ def shorter_terminal(t):
     if m is None: return t
     return m.group(1) + m.group(2) + str(float(m.group(3))*0.8) + m.group(4)
 
+def postprocess_plot(f):
+    if f.endswith('.pdf'):
+        os.system(f"pdfcrop {f} /tmp/out.pdf && mv /tmp/out.pdf {f}")
+
 if args.make_documentation_plots:
 
     d,f = os.path.split(args.make_documentation_plots)
@@ -902,8 +906,7 @@ if args.make_documentation_plots is not None:
                      multiplot = f'layout 1,2',
                      unset = 'grid',
                      **processoptions )
-            if processoptions.get('hardcopy') and extension == 'pdf':
-                os.system(f"pdfcrop {processoptions['hardcopy']}")
+            postprocess_plot(processoptions['hardcopy'])
 
         else:
             # Interactive plotting, so no multiplots. Interactive plots
@@ -920,8 +923,7 @@ if args.make_documentation_plots is not None:
                       xlabel = 'Variable index (left point x,y,z; right point x,y,z)',
                       ylabel = 'Variable index (left point x,y,z; right point x,y,z)',
                       **processoptions)
-        if processoptions.get('hardcopy') and extension == 'pdf':
-            os.system(f"pdfcrop {processoptions['hardcopy']}")
+        postprocess_plot(processoptions['hardcopy'])
 
 
         processoptions = copy.deepcopy(processoptions_base)
@@ -963,8 +965,7 @@ if args.make_documentation_plots is not None:
                 xlabel          = "Range to the left triangulated point (m)",
                 ylabel          = "Frequency",
                 **processoptions)
-        if processoptions.get('hardcopy') and extension == 'pdf':
-            os.system(f"pdfcrop {processoptions['hardcopy']}")
+        postprocess_plot(processoptions['hardcopy'])
 
         processoptions = copy.deepcopy(processoptions_base)
         binwidth = np.sqrt(Var_distance) / 4.
@@ -991,8 +992,7 @@ if args.make_documentation_plots is not None:
                 xlabel          = "Distance between triangulated points (m)",
                 ylabel          = "Frequency",
                 **processoptions)
-        if processoptions.get('hardcopy') and extension == 'pdf':
-            os.system(f"pdfcrop {processoptions['hardcopy']}")
+        postprocess_plot(processoptions['hardcopy'])
 
     if args.make_documentation_plots:
         for extension in ('pdf','svg','png','gp'):
