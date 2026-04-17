@@ -53,6 +53,12 @@ def parse_args():
                         type = float,
                         help='''How much noise to inject into perfect solves. If
                         omitted, we infer this noise level from the model''')
+    parser.add_argument('--method',
+                        choices=('cross-reprojection-ccp', 'mean-pcam', 'cross-reprojection-rrp-Jfp'),
+                        default='cross-reprojection-ccp',
+                        help='''Multiple uncertainty quantification methods are
+                        available. We default to 'cross-reprojection-ccp'; most
+                        people should not touch this''')
     parser.add_argument('--gridn-width',
                         type = int,
                         default = 60,
@@ -151,6 +157,7 @@ plots.append( \
     mrcal.show_projection_uncertainty(model,
                                       gridn_width = args.gridn_width,
                                       observed_pixel_uncertainty = observed_pixel_uncertainty,
+                                      method                     = args.method,
                                       title                      = f'Baseline uncertainty with {observed_pixel_uncertainty=}',
                                       hardcopy = filename,
                                       terminal = args.terminal,
