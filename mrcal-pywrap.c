@@ -1575,13 +1575,14 @@ PyObject* _optimize(optimizemode_t optimizemode,
     CROSS_REPROJECTION_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(ARG_DEFINE);
 
     bool need_decref_kwargs = false;
+
+    SET_SIGINT();
+
     if(!optimization_inputs_kwargs_delete_unknown(&kwargs, &need_decref_kwargs))
         goto done;
 
     int calibration_object_height_n = -1;
     int calibration_object_width_n  = -1;
-
-    SET_SIGINT();
 
     if(optimizemode == OPTIMIZEMODE_OPTIMIZE)
     {
