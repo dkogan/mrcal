@@ -4588,8 +4588,6 @@ void optimizer_callback(// input state
         icam_extrinsics<ctx->Ncameras_extrinsics;
         icam_extrinsics++)
     {
-        if( icam_extrinsics < 0 ) continue;
-
         const int i_var_camera_rt =
             mrcal_state_index_extrinsics(icam_extrinsics,
                                          ctx->Ncameras_intrinsics, ctx->Ncameras_extrinsics,
