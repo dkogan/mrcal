@@ -5730,7 +5730,7 @@ void optimizer_callback(// input state
                     // eliminate the curl in the splined model vector field. For
                     // other models I use 2.0 because that's what I had for a long
                     // time, and I don't want to change it to not break anything
-                    double normal_distortion_value =
+                    const double normal_distortion_value =
                         ctx->lensmodel.type == MRCAL_LENSMODEL_SPLINED_STEREOGRAPHIC ?
                         2.0e-1 :
                         2.0;
