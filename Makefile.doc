@@ -129,5 +129,5 @@ EXTRA_CLEAN += doc/out
 publish-doc: doc
 	rsync --exclude '*~' --exclude external -avu doc/out/ mrcal.secretsauce.net:/var/www/mrcal/docs-latest-release
 publish-doc-external:
-	rsync -avu ../mrcal-doc-external/ mrcal.secretsauce.net:/var/www/mrcal/docs-2.3/external
+	rsync -avu ../mrcal-doc-external/ mrcal.secretsauce.net:/var/www/mrcal/docs-3.0/external
 .PHONY: publish-doc publish-doc-external
