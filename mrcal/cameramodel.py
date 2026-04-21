@@ -1828,7 +1828,8 @@ SYNOPSIS
 The valid-intrinsics region is a closed contour in imager space representated as
 a numpy array of shape (N,2). This is a region where the intrinsics are
 "reliable", with a user-defined meaning of that term. A region of shape (0,2)
-means "intrinsics are valid nowhere".
+means "intrinsics are valid nowhere". A region None means "no valid-intrinsics
+region is defined". To set this call valid_intrinsics_region_reset().
 
 if valid_intrinsics_region is None: this is a getter; otherwise a setter.
 
