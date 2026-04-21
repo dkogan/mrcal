@@ -495,15 +495,7 @@ def _observed_pixel_uncertainty_from_inputs(optimization_inputs,
 
 Documented here:
 
-  https://mrcal.secretsauce.net/docs-2.5/formulation.html#estimating-input-noise
-
-Note that this page describes a correction factor of sqrt(1 -
-Nstates/Nmeasurements). Here I simply assume that we're very overdetermined and
-that this factor is 1.0. I think this is probably true in my case. I don't want
-to add this because I'm not sure whether regularization terms should be treated
-as "measurements" for this. We can run "analyses/validate-input-noise.py" to see
-if this assumption (assuming that we're VERY overdetermined) is valid for any
-particular solve
+  https://mrcal.secretsauce.net/formulation.html#estimating-input-noise
 
     '''
 
@@ -513,24 +505,27 @@ particular solve
                                      no_factorization = True)[1]
 
     sum_of_squares_measurements = 0
-    Nobservations               = 0
+    Nmeasurements               = 0
 
     # shape (Nobservations*2)
     measurements = mrcal.measurements_board(optimization_inputs, x = x).ravel()
     if measurements.size:
-        sum_of_squares_measurements += np.var(measurements) * measurements.size
-        Nobservations += measurements.size
+        sum_of_squares_measurements += np.sum(measurements*measurements)
+        Nmeasurements += measurements.size
 
     measurements = mrcal.measurements_point(optimization_inputs, x = x).ravel()
     if measurements.size:
-        sum_of_squares_measurements += np.var(measurements) * measurements.size
-        Nobservations += measurements.size
+        sum_of_squares_measurements += np.sum(measurements*measurements)
+        Nmeasurements += measurements.size
 
-    if Nobservations == 0:
+    if Nmeasurements == 0:
         raise Exception("observed_pixel_uncertainty cannot be computed because we don't have any board or point observations")
-    observed_pixel_uncertainty = np.sqrt(sum_of_squares_measurements / Nobservations)
 
-    return observed_pixel_uncertainty
+
+    Nstate = mrcal.num_states(**optimization_inputs)
+    f = np.sqrt(1 - Nstate/Nmeasurements)
+
+    return np.sqrt(sum_of_squares_measurements / Nmeasurements) / f
 
 
 

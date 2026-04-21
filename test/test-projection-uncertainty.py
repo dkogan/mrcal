@@ -3088,6 +3088,28 @@ for icam,m in enumerate(models_baseline):
                                     relative  = True,
                                     msg = f"var(dq) (infinity) is consistent between (--moving board --ref cam0) and the current case: (--moving {args.moving} --ref {args.ref})")
 
+# Grab one sample for the noise analysis
+( intrinsics_sampled,         \
+  rt_cam_ref_sampled_mounted, \
+  rt_ref_frame_sampled,             \
+  points_sampled,             \
+  calobject_warp_sampled,     \
+  q_noise_board_sampled,      \
+  q_noise_point_sampled,      \
+  b_sampled_unpacked,         \
+  optimization_inputs_sampled) = \
+      calibration_sample( 1,
+                          optimization_inputs_baseline,
+                          args.observed_pixel_uncertainty)
+
+observed_pixel_uncertainty__empirical = \
+    mrcal.model_analysis._observed_pixel_uncertainty_from_inputs(optimization_inputs_sampled[0])
+testutils.confirm_equal( observed_pixel_uncertainty__empirical,
+                         args.observed_pixel_uncertainty,
+                         relative    = True,
+                         eps         = 0.1, # 10%
+                         reldiff_eps = 0,
+                         msg         = f"observed_pixel_uncertainty recovered")
 
 
 

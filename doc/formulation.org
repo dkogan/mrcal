@@ -457,103 +457,95 @@ Thus the current method is to estimate $\sigma$ from the solve residuals.
 :CUSTOM_ID: estimating-input-noise
 :END:
 
-I'm trying to find a relationship between the solve residuals $\vec
-x^*$ (which I have from the solve) and the input noise
-$\Delta \vec q_\mathrm{ref}$.
+I'm trying to find a relationship between the solve residuals $\vec x^*$ (which
+I have from the solve) and the input noise $\Delta \vec q_\mathrm{ref}$. Let's
+start with a perfect noise-free solve: the observations $\vec q_\mathrm{ref}$
+are perfect and $\vec x = \vec 0$. Then I add some input noise $\Delta \vec
+q_\mathrm{ref}$. I now have
 
-I use $\vec x^*$ to signify the measurement vector at the optimum. For this
-analysis I make a simplifying assumption that the regularization terms are
-insignificant and that the whole measurement vector $\vec x$ contains
-observations.
-
-Let's start with a perfect noise-free solve. The observations $\vec
-q_\mathrm{ref}$ are perfect and $\vec x = \vec 0$.
-
-Then I add some input noise $\Delta \vec q_\mathrm{ref}$. I now have
-
-\[\vec x = -W \Delta \vec q_\mathrm{ref}\]
+\[\vec x_\mathrm{observations} = -W \Delta \vec q_\mathrm{ref}\]
 
 And I reoptimize. As noted on the [[file:uncertainty.org::#propagating-to-state-vector][projection uncertainty page]] this moves the
 optimization state by
 
 \[
-\Delta \vec b = \left( J^T J \right)^{-1} J^T W \Delta \vec q_\mathrm{ref}
+\Delta \vec b = \left( J^T J \right)^{-1} J_\mathrm{observations}^T W \Delta \vec q_\mathrm{ref}
 \]
+
+Let's extend $W$ to $W_\mathrm{full} = \left( \begin{matrix} W \\ 0 \end{matrix}
+\right)$ to include the regularization measurements with weight 0. So
+
+\[
+\Delta \vec b = \left( J^T J \right)^{-1} J^T W_\mathrm{full} \Delta \vec q_\mathrm{ref}
+\]
+
 
 I assume that everything is locally linear, so we can quantify the corresponding
 shift in the measurement vector:
 
 \begin{aligned}
-\vec x^* &= -W \Delta \vec q_\mathrm{ref} + \Delta \vec x \\
-&= -W \Delta \vec q_\mathrm{ref} + J \Delta \vec b \\
-&= -W \Delta \vec q_\mathrm{ref} + J \left( J^T J \right)^{-1} J^T W \Delta \vec q_\mathrm{ref} \\
-&= \left( -I + J \left( J^T J \right)^{-1} J^T \right) W \Delta \vec q_\mathrm{ref}
+\vec x^* &= -W_\mathrm{full} \Delta \vec q_\mathrm{ref} + \Delta \vec x \\
+&= -W_\mathrm{full} \Delta \vec q_\mathrm{ref} + J \Delta \vec b \\
+&= -W_\mathrm{full} \Delta \vec q_\mathrm{ref} + J \left( J^T J \right)^{-1} J^T W_\mathrm{full} \Delta \vec q_\mathrm{ref} \\
+&= \left( -I + J \left( J^T J \right)^{-1} J^T \right) W_\mathrm{full} \Delta \vec q_\mathrm{ref}
 \end{aligned}
 
 And
 
+\begin{aligned}
+\left\Vert \vec x^* \right\Vert^2 &=
+\Delta \vec q_\mathrm{ref}^T W_\mathrm{full}^T \left( I - J \left( J^T J \right)^{-1} J^T \right) W_\mathrm{full} \Delta \vec q_\mathrm{ref} \\
+&= \Delta \vec q_\mathrm{ref}^T W_\mathrm{full}^T M W_\mathrm{full} \Delta \vec q_\mathrm{ref} \\
+\end{aligned}
+
+As noted [[#noise-in-measurement-vector][below]], $W \Delta \vec q_\mathrm{ref}$ is 0-mean, and $\mathrm{Var}\left(W \Delta \vec q_\mathrm{ref}\right) = \sigma^2 I$. So
+$W_\mathrm{full} \Delta \vec q_\mathrm{ref}$ is also 0-mean, and
+$\mathrm{Var}\left(W_\mathrm{full} \Delta \vec q_\mathrm{ref}\right) = \sigma^2
+\mathrm{diag}\left(I_\mathrm{observations} \; 0\right)$. So
+
 \[
-\left\Vert \vec x^* \right\Vert^2 =
-\Delta \vec q_\mathrm{ref}^T W \left( I - J \left( J^T J \right)^{-1} J^T \right) W \Delta \vec q_\mathrm{ref}
+E\left( \left\Vert \vec x \right\Vert^2 \right) &= \mathrm{tr} \left( M_\mathrm{observations} \right) \sigma^2
 \]
 
-Let's treat $\Delta \vec q_\mathrm{ref}$ as a random variable, and look at the
-expectation:
+Where $M_\mathrm{observations}$ is the subset of $M$ corresponding /only/ to the
+observations measurements, /not/ the regularization. I get
 
 \begin{aligned}
-E\left( \left\Vert \vec x^* \right\Vert^2 \right)
+E\left( \left\Vert \vec x \right\Vert^2 \right) &= \mathrm{tr} \left( M_\mathrm{observations} \right) \sigma^2 \\
+&= \mathrm{tr} \left( I_\mathrm{observations} - J_\mathrm{observations} \left( J^T J \right)^{-1} J_\mathrm{observations}^T \right) \sigma^2 \\
+&= \mathrm{tr} \left( I_\mathrm{observations} - J \left( J^T J \right)^{-1} J^T + J_\mathrm{regularization} \left( J^T J \right)^{-1} J_\mathrm{regularization}^T \right) \sigma^2 \\
 &=
-\mathrm{tr}
-\left[ \left( I - J \left( J^T J \right)^{-1} J^T \right) \mathrm{Var}
-\left(
-W \Delta \vec q_\mathrm{ref}
-\right) \right] + E\left( W \Delta \vec q_\mathrm{ref} \right)^T \mathrm{Var}\left( \cdot \right) E\left( W \Delta \vec q_\mathrm{ref} \right)
+\left(N_{\mathrm{measurements}_\mathrm{obs}} - N_\mathrm{state} + \mathrm{tr}\left(J_\mathrm{regularization} \left( J^T J \right)^{-1} J_\mathrm{regularization}^T \right) \right) \sigma^2
 \end{aligned}
 
-$\Delta \vec q_\mathrm{ref}$ is 0-mean, so its expectation is 0. And as noted
-[[#noise-in-measurement-vector][below]], $\mathrm{Var}\left(W \Delta \vec q_\mathrm{ref}\right) = \sigma^2 I$. So
-
-\begin{aligned}
-E\left( \left\Vert \vec x^* \right\Vert^2 \right)
-&=
-\mathrm{tr}
-\left( I - J \left( J^T J \right)^{-1} J^T \right)
-\sigma^2 \\
-&=
-\left(N_\mathrm{measurements} - N_\mathrm{state}\right) \sigma^2
-\end{aligned}
-
-
-So the expected RMS reprojection error in a solve is
+The regularization terms are meant to be insignificant, and should move little
+in response to state changes, so I ignore them here:
 
 \[
-\sqrt{ \frac{E\left( \left\Vert \vec x^* \right\Vert^2 \right)}{N_\mathrm{measurements}}} =
-\sqrt{ \frac{\left(N_\mathrm{measurements} - N_\mathrm{state}\right) \sigma^2}{N_\mathrm{measurements}}} =
-\sigma \sqrt{1 - \frac{N_\mathrm{state}}{N_\mathrm{measurements}}}
+E\left( \left\Vert \vec x \right\Vert^2 \right) \approx
+\left(N_{\mathrm{measurements}_\mathrm{obs}} - N_\mathrm{state} \right) \sigma^2
+\]
+
+Here $N_{\mathrm{measurements}_\mathrm{obs}}$ is the number of measurements in $\vec x$ from
+pixel observations, /not/ from regularization.
+
+So the RMS reprojection error in a solve can be estimated as
+
+\[
+\sqrt{ \frac{E\left( \left\Vert \vec x \right\Vert^2 \right)}{N_{\mathrm{measurements}_\mathrm{obs}}}} =
+\sqrt{ \frac{\left(N_{\mathrm{measurements}_\mathrm{obs}} - N_\mathrm{state}\right) \sigma^2}{N_{\mathrm{measurements}_\mathrm{obs}}}} =
+\sigma \sqrt{1 - \frac{N_\mathrm{state}}{N_{\mathrm{measurements}_\mathrm{obs}}}}
 \]
 
 If we have information-full data, such as chessboard observations, then
-$N_\mathrm{measurements} >> N_\mathrm{state}$, and we can simply assume that the
-standard deviation of the input observation noise $\sigma$ is the RMS
-reprojection error in the solve. It's possible that with lower-quality data the
-extra correction factor of $\sqrt{1 -
-\frac{N_\mathrm{state}}{N_\mathrm{measurements}}}$ cannot be ignored.
+$N_{\mathrm{measurements}_\mathrm{obs}} >> N_\mathrm{state}$, and we can simply
+assume that the standard deviation of the input observation noise $\sigma$ is
+the RMS reprojection error in the solve. However, with lower-quality data, such
+as point observations, the extra correction factor of $\sqrt{1 -
+\frac{N_\mathrm{state}}{N_{\mathrm{measurements}_\mathrm{obs}}}}$ cannot be
+ignored.
 
-Today, mrcal /does/ ignore this extra correction factor: the
-=_observed_pixel_uncertainty_from_inputs()= implementation in
-[[https://www.github.com/dkogan/mrcal/blob/master/mrcal/model_analysis.py][=model_analysis.py=]] uses $\sigma$ only because it's not clear if regularization
-terms should count as "measurements" here. I /have/ seen this factor be
-required, but only when running very funky experiments. The
-[[https://www.github.com/dkogan/mrcal/blob/master/analyses/validate-input-noise.py][=analyses/validate-input-noise.py=]] tool reports whether the noise assumptions
-are valid for any given solve. For the [[file:tour-initial-calibration.org::#splined-stereographic-fit][splined-model solve in the tour of mrcal]]:
-
-#+begin_example
-$ analyses/validate-input-noise.py ../doc/data/figueroa-overpass-looking-S/splined.cameramodel
-
-Noise ratios measured/actual. Should be ~ 1.0
-  observed, by looking at the distribution of residuals: 0.981
-  predicted, by correcting the above by sqrt(1-Nstates/Nmeasurements_observed): 1.012
-#+end_example
+Today this is implemented in [[file:mrcal-python-api-reference.html#-_observed_pixel_uncertainty_from_inputs][=mrcal._observed_pixel_uncertainty_from_inputs()=]].
 
 ** Noise in the measurement vector $\vec x$
 :PROPERTIES:
