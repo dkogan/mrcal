@@ -523,7 +523,35 @@ Documented here:
 
 
     Nstate = mrcal.num_states(**optimization_inputs)
-    f = np.sqrt(1 - Nstate/Nmeasurements)
+
+    # The main takeaway from the docs
+    #   https://mrcal.secretsauce.net/formulation.html#estimating-input-noise
+    # is:
+    # norm2(x) ~ (Nmeas - Nstate + tr(Jreg inv_JtJ Jreg^T ) ) sigma^2
+    #
+    # RMS(x) = sqrt(norm2(x)/Nmeas)
+    #        = sigma sqrt(Nmeas - Nstate + tr(Jreg inv_JtJ Jreg^T ) / Nmeas)
+    #        = sigma sqrt(1 - Nstate/Nmeas + tr(Jreg inv_JtJ Jreg^T ) / Nmeas)
+    #
+    # So the correction factor is sqrt(1 - Nstate/Nmeas + tr(Jreg inv_JtJ Jreg^T ) / Nmeas)
+    # I generally ignore the regularization
+    if True:
+        f = np.sqrt(1 - Nstate/Nmeasurements)
+    else:
+        # But as an experiment, I want to be able to include it. It should
+        # mostly not make any difference
+        Nmeasurements_regularization = mrcal.num_measurements_regularization(**optimization_inputs)
+        if Nmeasurements_regularization == 0:
+            f = np.sqrt(1 - Nstate/Nmeasurements)
+        else:
+            _,x,Jpacked,factorization = mrcal.optimizer_callback(**optimization_inputs)
+
+            # I assume the regularization measurements are at the end
+            # tr(Jreg inv_JtJ Jreg^T ) = tr(Jreg^T Jreg inv_JtJ )
+            Jreg = Jpacked[-Nmeasurements_regularization:]
+            JregtJreg = (Jreg.T @ Jreg).toarray().T
+            f_extra = np.linalg.trace( factorization.solve_xt_JtJ_bt(JregtJreg) )
+            f = np.sqrt(1 + (- Nstate + f_extra)/Nmeasurements)
 
     return np.sqrt(sum_of_squares_measurements / Nmeasurements) / f
 
