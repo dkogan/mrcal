@@ -131,7 +131,11 @@ for bpp,extension,what in ( (8,  'png', "8bpp  png grayscale"),
                             (16, 'png', "16bpp png grayscale"),
                             (24, 'png', "24bpp png bgr"),
                             (8,  'jpg', "8bpp  jpg grayscale"),
-                            (24, 'jpg', "24bpp jpg bgr")):
+                            (24, 'jpg', "24bpp jpg bgr"),
+                            (8,  'pgm', "8bpp  pgm grayscale"),
+                            (16, 'pgm', "16bpp pgm grayscale"),
+                            (24, 'ppm', "24bpp ppm bgr"),
+                           ):
 
     filename = filename_pattern.format(extension=extension)
 

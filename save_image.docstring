@@ -23,6 +23,13 @@ these 3 data formats:
 - bpp = 16, channels = 1: 16-bit grayscale data
 - bpp = 24, channels = 3: BGR color data
 
+The format is inferred from the filename. At this time we support:
+
+- jpg
+- png
+- pgm
+- ppm
+
 ARGUMENTS
 
 - filename: the image on disk to save to

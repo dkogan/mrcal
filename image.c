@@ -51,7 +51,7 @@ const char* get_extension(const char* filename)
     const int filename_len = strlen(filename);
     if(filename_len < 5)
     {
-        MSG("Image must be xxx.png or xxx.jpg; the name is too short");
+        MSG("Image must be XXX.png or XXX.jpg or XXX.pgm or XXX.ppm; the name is too short");
         return NULL;
     }
 
@@ -84,6 +84,91 @@ bool generic_save_png(const char* filename,
 done:
     png_image_free(&pimage);
     return result;
+}
+
+static
+bool generic_save_pnm(const char* filename,
+                      const mrcal_image_void_t* image,
+                      const int bits_per_pixel,
+                      const int channels)
+{
+    bool result = false;
+    FILE* fp = NULL;
+
+    if(!( (channels == 1 && (bits_per_pixel == 8 || bits_per_pixel == 16)) ||
+          (channels == 3 && bits_per_pixel == 24)))
+    {
+        MSG("Unsupported image format. I know about 1-channel 8- or 16-bit images; or 3-channel 24-bit images. Got channels==%d bits_per_pixel==%d", channels, bits_per_pixel);
+        goto done;
+    }
+
+    if(NULL == (fp = fopen(filename, "wb")))
+    {
+        MSG("Couldn't open '%s'", filename);
+        return false;
+    }
+
+    fprintf(fp,
+            "P%d\n%d %d\n%d\n",
+            channels == 1 ? 5 : 6,
+            image->width,
+            image->height,
+            bits_per_pixel == 16 ? 65535 : 255);
+
+    // I write each row separately, in case the rows aren't stored densely
+    for(int i=0; i<image->height; i++)
+    {
+        if( (size_t)image->width !=
+            fwrite(&((const uint8_t*)image->data)[ image->stride*i ],
+                   bits_per_pixel/8,
+                   image->width,
+                   fp) )
+        {
+            MSG("Didn't write the correct number of bytes into '%s'; giving up", filename);
+            goto done;
+        }
+    }
+    result = true;
+
+done:
+    if(fp != NULL) fclose(fp);
+    return result;
+}
+
+static
+bool generic_save_pgm(const char* filename,
+                      const mrcal_image_void_t* image,
+                      const int bits_per_pixel,
+                      const int channels)
+{
+    if(channels != 1)
+    {
+        MSG(".pgm files are by definition 1-channel images only; requested channels=%d",
+            channels);
+        return false;
+    }
+    return generic_save_pnm(filename,
+                            image,
+                            bits_per_pixel,
+                            channels);
+}
+
+static
+bool generic_save_ppm(const char* filename,
+                      const mrcal_image_void_t* image,
+                      const int bits_per_pixel,
+                      const int channels)
+{
+    if(channels != 3)
+    {
+        MSG(".ppm files are by definition 3-channel images only; requested channels=%d",
+            channels);
+        return false;
+    }
+    return generic_save_pnm(filename,
+                            image,
+                            bits_per_pixel,
+                            channels);
 }
 
 
@@ -247,9 +332,19 @@ bool generic_save(const char* filename,
 #endif
         goto done;
     }
+    if(0 == strcasecmp(extension, ".pgm"))
+    {
+        result = generic_save_pgm(filename, image, bits_per_pixel, channels);
+        goto done;
+    }
+    if(0 == strcasecmp(extension, ".ppm"))
+    {
+        result = generic_save_ppm(filename, image, bits_per_pixel, channels);
+        goto done;
+    }
 
     {
-        MSG("The path being written MUST be XXX.png or XXX.jpg");
+        MSG("The path being written MUST be XXX.png or XXX.jpg or XXX.pgm or XXX.ppm");
         goto done;
     }
     result = true;

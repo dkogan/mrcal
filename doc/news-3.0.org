@@ -30,6 +30,8 @@ ranges. A value of -1 means "identity", useful to show cameras at the
 optimization reference. A special value of "all" means "show ALL of the
 extrinsics". This option is useful for moving-camera solves
 
+I can save .pgm and .ppm images
+
 
 * Migration notes 2.4 -> 3.0
 
