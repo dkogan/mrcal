@@ -3137,6 +3137,7 @@ if args.write_models:
             print("Wrote 10 models. Not writing the rest")
             break
 
+        # Arbitrarily, I look at sample 0 only
         if args.moving == 'board':
             m =  mrcal.cameramodel( optimization_inputs = optimization_inputs_sampled[0],
                                     icam_intrinsics     = i)
