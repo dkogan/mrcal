@@ -416,16 +416,16 @@ def solve_initial(args,
                                      object_spacing       = args.object_spacing,
                                      paths                = paths)
 
+        # We now have a nominal fxycxy (--focal, (wh-1)/2) and a loose geometry estimate
+
         sys.stderr.write("## initial solve: geometry only\n")
-        lensmodel = 'LENSMODEL_STEREOGRAPHIC'
 
         stats = mrcal.optimize(intrinsics                                = intrinsics_data,
                                rt_cam_ref                                = rt_cam_ref,
                                rt_ref_frame                              = rt_ref_frame,
                                observations_board                        = observations,
                                indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
-                               lensmodel                                 = lensmodel,
-
+                               lensmodel                                 = 'LENSMODEL_STEREOGRAPHIC',
                                imagersizes                       = imagersizes,
                                do_optimize_intrinsics_core       = False,
                                do_optimize_intrinsics_distortions= False,
@@ -436,14 +436,15 @@ def solve_initial(args,
                                verbose                           = False)
         sys.stderr.write(f"## RMS error: {stats['rms_reproj_error__pixels']:.02f}\n\n")
 
+        # We now have a nominal fxycxy (--focal, (wh-1)/2) and a better geometry estimate
+
         sys.stderr.write("## initial solve: geometry and LENSMODEL_STEREOGRAPHIC core only\n")
         stats = mrcal.optimize(intrinsics                                = intrinsics_data,
                                rt_cam_ref                                = rt_cam_ref,
                                rt_ref_frame                              = rt_ref_frame,
                                observations_board                        = observations,
                                indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
-                               lensmodel                                 = lensmodel,
-
+                               lensmodel                                 = 'LENSMODEL_STEREOGRAPHIC',
                                imagersizes                       = imagersizes,
                                do_optimize_intrinsics_core       = True,
                                do_optimize_intrinsics_distortions= False,
