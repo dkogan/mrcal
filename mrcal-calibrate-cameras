@@ -454,6 +454,37 @@ def solve_initial(args,
                                do_apply_regularization           = False,
                                verbose                           = False)
 
+        if re.match("LENSMODEL_SPLINED_STEREOGRAPHIC_", args.lensmodel):
+            # With a splined model I want to keep the nominal cxy and a better
+            # fxy: in that case the splined coefficients will take care of all
+            # the other effects. I'd like to be able to optimize fxy while
+            # keeping cxy locked, but that's not implemented. So I do that
+            # semi-manually here. I have an optimized fxy, cxy. I reset them to
+            # what I want, and reoptimize the geometry with the fxycxy locked
+
+            # fx = fy. These are the optimized values
+            fxy = np.mean(intrinsics_data[...,:2])
+            intrinsics_data[...,:2] = fxy
+
+            # cxy is at the image center
+            intrinsics_data[...,2:] = (imagersizes - 1.) / 2.
+
+            # reoptimize, locking fxycxy
+            stats = mrcal.optimize(intrinsics                                = intrinsics_data,
+                                   rt_cam_ref                                = rt_cam_ref,
+                                   rt_ref_frame                              = rt_ref_frame,
+                                   observations_board                        = observations,
+                                   indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
+                                   lensmodel                                 = 'LENSMODEL_STEREOGRAPHIC',
+                                   imagersizes                       = imagersizes,
+                                   do_optimize_intrinsics_core       = False,
+                                   do_optimize_intrinsics_distortions= False,
+                                   do_optimize_calobject_warp        = False,
+                                   calibration_object_spacing        = args.object_spacing,
+                                   do_apply_outlier_rejection        = False,
+                                   do_apply_regularization           = False,
+                                   verbose                           = False)
+
         Rt_cam_ref = mrcal.Rt_from_rt( rt_cam_ref )
 
         return                     \
@@ -597,8 +628,7 @@ def solve_initial(args,
 
     # Alrighty. All the preliminary business is finished. I should have a usable
     # seed now. And thus I now run the main optimization loop
-    lensmodel = args.lensmodel
-    intrinsics_data  = expand_intrinsics(lensmodel, intrinsics_data)
+    intrinsics_data  = expand_intrinsics(args.lensmodel, intrinsics_data)
 
     print("=================== optimizing everything{}from seeded intrinsics". \
           format(" except board warp " if not args.skip_calobject_warp_solve else " "))
@@ -609,7 +639,7 @@ def solve_initial(args,
     # the spline parameters. So I run another pre-solve to get reasonable values
     # for the core, and then I lock it down
     do_optimize_intrinsics_core = not args.skip_intrinsics_solve
-    if re.match("LENSMODEL_SPLINED_STEREOGRAPHIC_", lensmodel):
+    if re.match("LENSMODEL_SPLINED_STEREOGRAPHIC_", args.lensmodel):
         do_optimize_intrinsics_core = False
 
     optimization_inputs = \
@@ -621,7 +651,7 @@ def solve_initial(args,
               indices_frame_camintrinsics_camextrinsics = indices_frame_camintrinsics_camextrinsics,
               observations_point                        = None,
               indices_point_camintrinsics_camextrinsics = None,
-              lensmodel                                 = lensmodel,
+              lensmodel                                 = args.lensmodel,
               imagersizes                               = imagersizes,
               calobject_warp                            = None,
               do_optimize_intrinsics_core               = do_optimize_intrinsics_core,

@@ -32,6 +32,10 @@ extrinsics". This option is useful for moving-camera solves
 
 I can save .pgm and .ppm images
 
+When calibration a splined model, I use the NOMINAL fxycxy
+  The spline coefficients can compensate for any fxycxy, and it makes life easier
+  if the numbers used were the expected simple values
+
 
 * Migration notes 2.4 -> 3.0
 
