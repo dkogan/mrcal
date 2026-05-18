@@ -534,6 +534,7 @@ else:
 # this to represent a point in a globally-consistent coordinate system. Note
 # that I look at q0 for each camera separately, so I'm going to evaluate a
 # different world point for each camera
+# shape (Ncameras,2)
 q0_baseline = imagersizes[0]/3.
 
 
@@ -2903,6 +2904,13 @@ The rt_refperturbed_ref formulation:
         reshape( *query_intrinsics.shape[:-1],
                  2)
 
+def model_from_icam(icam):
+    if args.moving == 'board':
+        return models_baseline[icam]
+    # Moving camera. I have Ncameras==0 and any of the models will work for
+    # the uncertainty computation
+    return models_baseline[0]
+
 
 
 # Which implementation we're using. Use the method that matches the uncertainty
@@ -2965,9 +2973,12 @@ for distance in args.distances:
                                 worstcase = True,
                                 msg = f"Regularization bias small-enough for camera {icam} at distance={'infinity' if distance is None else distance}")
 
-for icam,m in enumerate(models_baseline):
-    if icam >= 6: break # run at most this many times. Makes --moving cameras reasonable
 
+
+for icam in range(args.Ncameras):
+    m = model_from_icam(icam)
+
+    # shape (Ncameras,3)
     p_cam_baseline = mrcal.unproject( q0_baseline, *m.intrinsics(),
                                       normalize = True)
     Var_dq_ref = \
@@ -3050,8 +3061,7 @@ for icam,m in enumerate(models_baseline):
     # transform between the cameras. So for now I test this with a single camera
     # (checked above to make sure that --moving camera goes with --Ncameras 1)
     if args.moving == 'camera':
-        # This path doesn't work with points because moving-cameras requires
-        # Ncameras=1, which is impossible with unity_cam01 regularizaton
+        # This path doesn't work with points because an equivalent vanilla points scenario isn't currently possible
         if not args.points:
             m_vanilla = mrcal.cameramodel(optimization_inputs = optimization_inputs_vanilla_baseline,
                                           # The moving-camera scenarios all have
@@ -3154,13 +3164,6 @@ if args.write_models:
     sys.exit()
 
 
-
-def model_from_icam(icam):
-    if args.moving == 'board':
-        return models_baseline[icam]
-    # Moving camera. I have Ncameras==0 and any of the models will work for
-    # the uncertainty computation
-    return models_baseline[0]
 
 def check_uncertainties_at(q0_baseline, distance):
 
