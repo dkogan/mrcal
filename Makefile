@@ -108,7 +108,8 @@ DIST_BIN :=					\
 	mrcal-cull-corners                      \
 	mrcal-show-residuals-board-observation  \
 	mrcal-show-residuals                    \
-	mrcal-stereo
+	mrcal-stereo                            \
+	mrcal-report-fov
 
 # generate manpages from distributed binaries, and ship them. This is a hoaky
 # hack because apparenly manpages from python tools is a crazy thing to want to

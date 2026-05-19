@@ -1,0 +1,109 @@
+#!/usr/bin/env python3
+
+# Copyright (c) 2017-2026 California Institute of Technology ("Caltech"). U.S.
+# Government sponsorship acknowledged. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+r'''Report the field-of-view of a model
+
+SYNOPSIS
+
+  $ mrcal-report-fov model.cameramodel
+
+  Valid radial angle at the centersx: [21.85 23.68]degrees
+  Valid radial angle at the centersy: [29.31 27.42]degrees
+  Valid radial angle at the corners:  [37.86 39.11 36.22 37.5 ]degrees
+  -----------------------------
+  Mean FOV vertically:    45.53degrees
+  Mean FOV horizontally:  56.73degrees
+  Mean FOV corner-corner: 75.34degrees
+
+Given a camera model, reports the field of view in various directions. Since
+this tool uses the lens projection behavior at the edges and corners, this could
+produce inaccurate results if the projection uncertainty is high at the edges.
+Look at the uncertainty and cross-validation reports if you're not sure.
+
+A more extensive display of similar same data is produced by
+
+  mrcal-show-distortion-off-pinhole --radial
+'''
+
+
+import sys
+import argparse
+import re
+import os
+
+def parse_args():
+
+    parser = \
+        argparse.ArgumentParser(description = __doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    parser.add_argument('model',
+                        type=str,
+                        help='''The camera model. If "-' is given, we read standard input''')
+
+    return parser.parse_args()
+
+args = parse_args()
+
+import mrcal
+import numpy as np
+import numpysane as nps
+
+model = mrcal.cameramodel(args.model)
+W,H = model.imagersize()
+lensmodel,intrinsics_data = model.intrinsics()
+
+if mrcal.lensmodel_metadata_and_config(lensmodel)['has_core']:
+    cxy = model.intrinsics()[1][2:4]
+else:
+    cxy = (np.array((W,H),dtype=float) - 1.)/2.
+
+
+def th_from_q(q, *intrinsics):
+    v = mrcal.unproject( q, *intrinsics)
+    # some unprojections may be nan (we're looking beyond where the projection
+    # is valid), so I explicitly ignore those. The projection behavior may be
+    # poorly defined at the corners and edges (uncertainty is high), so the
+    # resulting unprojection might still be very imprecise
+    v = v[np.all(np.isfinite(v),  axis=-1)]
+    return 180./np.pi * np.arctan2(nps.mag(v[...,:2]),
+                                   v[...,2])
+
+x0,x1 = (0, W-1)
+y0,y1 = (0, H-1)
+
+q_corners = np.array(((x0,y0),
+                      (x0,y1),
+                      (x1,y0),
+                      (x1,y1)), dtype=float)
+q_centersx  = np.array(((cxy[0],y0),
+                        (cxy[0],y1)), dtype=float)
+q_centersy  = np.array(((x0,cxy[1]),
+                        (x1,cxy[1])), dtype=float)
+
+th_corners  = th_from_q(q_corners,  lensmodel, intrinsics_data)
+th_centersx = th_from_q(q_centersx, lensmodel, intrinsics_data)
+th_centersy = th_from_q(q_centersy, lensmodel, intrinsics_data)
+
+np.set_printoptions(precision = 2)
+print(f"Valid radial angle at the centersx: {th_centersx}degrees")
+print(f"Valid radial angle at the centersy: {th_centersy}degrees")
+print(f"Valid radial angle at the corners:  {th_corners}degrees")
+print('-----------------------------')
+
+if th_centersx.size: print(f"Mean FOV vertically:    {2.*np.mean(th_centersx):.2f}degrees")
+else:                print(f"Mean FOV vertically:    undefined")
+
+if th_centersx.size: print(f"Mean FOV horizontally:  {2.*np.mean(th_centersy):.2f}degrees")
+else:                print(f"Mean FOV horizontally:  undefined")
+
+if th_centersx.size: print(f"Mean FOV corner-corner: {2.*np.mean(th_corners):.2f}degrees")
+else:                print(f"Mean FOV corner-corner: undefined")
+
