@@ -17,12 +17,6 @@ def parse_args():
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    parser.add_argument('--fixed',
-                        type=str,
-                        choices=('cam0','frames'),
-                        default = 'cam0',
-                        help='''Are we putting the origin at camera0, or are all the frames at a fixed (and
-                        non-optimizeable) pose? One or the other is required.''')
     parser.add_argument('--model',
                         type=str,
                         choices=('opencv4','opencv8','splined'),
@@ -111,7 +105,6 @@ p_triangulated_true0[:,2] = 100.
 
 ############# Set up my world, and compute all the perfect positions, pixel
 ############# observations of everything
-fixedframes = (args.fixed == 'frames')
 object_spacing          = 0.1
 object_width_n          = 10
 object_height_n         = 9
@@ -142,7 +135,6 @@ models_true =                 \
                          object_spacing,
                          rt_cam_ref_true,
                          calobject_warp_true,
-                         fixedframes,
                          testdir,
                          cull_left_of_center = args.cull_left_of_center)[:2]
 

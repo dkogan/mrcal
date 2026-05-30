@@ -30,7 +30,6 @@ calobject_warp_true     = np.array((0.002, -0.005))
 model       = 'opencv4'
 Ncameras    = 4
 Nframes     = 10
-fixedframes = False
 
 rt_cam_ref_true = \
     np.array(((0,    0,    0,      0,   0,   0),
@@ -49,7 +48,6 @@ models_true = \
                          object_spacing,
                          rt_cam_ref_true,
                          calobject_warp_true,
-                         fixedframes,
                          testdir)[:2]
 
 models_baseline = \
