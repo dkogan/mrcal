@@ -1183,7 +1183,7 @@ bool _mrcal_drt_cross_reprojection__dbpacked(// output
         {
             if(icam_intrinsics_here < 0)
             {
-                MSG("ERROR: I was asked to report the uncertainty for a given icam_intrinsics, but saw a measurement with now known icam_intrinsics");
+                MSG("ERROR: I was asked to report the uncertainty for a given icam_intrinsics, but saw a measurement with unknown icam_intrinsics. The intrinsics are probably fixed, and this implementation can't handle that. Please fix it");
                 return false;
             }
             if(icam_intrinsics != icam_intrinsics_here)
