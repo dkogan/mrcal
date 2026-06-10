@@ -1264,6 +1264,9 @@ general function is used to find the data. The args are:
             # icam_extrinsics is optional. so ==2 may or may not be valid
             if optimization_inputs is None:
                 raise Exception("icam_intrinsics or icam_extrinsics are given, so optimization_input MUST be given")
+            if icam_intrinsics is None:
+                raise Exception(f"optimization_inputs given, so icam_intrinsics MUST be given")
+
             self.intrinsics( ( optimization_inputs['lensmodel'],
                                optimization_inputs['intrinsics'][icam_intrinsics] ),
                              imagersize = optimization_inputs['imagersizes'][icam_intrinsics],
