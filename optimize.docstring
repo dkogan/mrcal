@@ -223,6 +223,9 @@ OPTIONAL ARGUMENTS
 - do_apply_regularization: if False, don't include regularization terms in the
   solver. Defaults to True
 
+- do_apply_regularization_unity_cam01: if True, DO include regularization terms
+  in the solver. Defaults to False xxxx
+
 - imagepaths: list of paths to images in this solve. This is used by the Python
   diagnostic code, and is untouched by mrcal.optimize() and
   mrcal.optimizer_callback()
