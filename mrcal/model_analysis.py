@@ -1330,14 +1330,16 @@ else:                    we return an array of shape (...)
     if istate_intrinsics0 is not None:
         slice_intrinsics_state = slice(istate_intrinsics0,
                                        istate_intrinsics0 + Nstates_intrinsics)
+
+        if not optimization_inputs.get('do_optimize_intrinsics_core',True) and \
+           mrcal.lensmodel_metadata_and_config(lensmodel)['has_core']:
+
+            slice_intrinsics_arg = slice(4, 4+Nstates_intrinsics)
+        else:
+            slice_intrinsics_arg = slice(0, 0+Nstates_intrinsics)
+
     else:
         slice_intrinsics_state = None
-    if not optimization_inputs.get('do_optimize_intrinsics_core') and \
-       mrcal.lensmodel_metadata_and_config(lensmodel)['has_core']:
-
-        slice_intrinsics_arg = slice(4, 4+Nstates_intrinsics)
-    else:
-        slice_intrinsics_arg = slice(0, 0+Nstates_intrinsics)
 
     Nstate = mrcal.num_states(**optimization_inputs)
 

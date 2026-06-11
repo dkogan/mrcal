@@ -549,8 +549,8 @@ if istate_e1 is not None:
                             msg = "Gradient check: dp_triangulated_dbstate[extrinsics1]")
 
 
-if optimization_inputs_baseline.get('do_optimize_frames'):
-    istate_f0     = mrcal.state_index_frames(0, **optimization_inputs_baseline)
+istate_f0 = mrcal.state_index_frames(0, **optimization_inputs_baseline)
+if istate_f0 is not None:
     Nstate_frames = mrcal.num_states_frames(    **optimization_inputs_baseline)
     testutils.confirm_equal(dp_triangulated_dbstate[...,istate_f0:istate_f0+Nstate_frames],
                             nps.clump(dp_triangulated_drtrf_empirical, n=-2),

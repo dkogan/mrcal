@@ -1414,12 +1414,12 @@ if optimization_inputs is None and q_observation_stdev is None:
         # "packed" part. I'll scale the thing when done to pack it
         dp_triangulated_db = np.zeros((Npoints,3,Nstate), dtype=float)
 
-        if stabilize_coords and optimization_inputs.get('do_optimize_frames'):
+        istate_f0 = mrcal.state_index_frames(0, **optimization_inputs)
+        if stabilize_coords and istate_f0 is not None:
             # We're re-optimizing (looking at calibration uncertainty) AND we
             # are optimizing the frames AND we have stabilization enabled.
             # Without stabilization, there's no dependence on rt_ref_frame
             rt_ref_frame  = optimization_inputs['rt_ref_frame']
-            istate_f0     = mrcal.state_index_frames(0, **optimization_inputs)
             Nstate_frames = mrcal.num_states_frames(    **optimization_inputs)
         else:
             rt_ref_frame  = None
@@ -1496,19 +1496,6 @@ if optimization_inputs is None and q_observation_stdev is None:
             dp_triangulated_drt_0ref = None
 
 
-        # Do the right thing is we're optimizing partial intrinsics only
-        i0,i1 = None,None # everything by default
-        has_core     = mrcal.lensmodel_metadata_and_config(optimization_inputs['lensmodel'])['has_core']
-        Ncore        = 4 if has_core else 0
-        Ndistortions = mrcal.lensmodel_num_params(optimization_inputs['lensmodel']) - Ncore
-        if not optimization_inputs.get('do_optimize_intrinsics_core'):
-            i0 = Ncore
-        if not optimization_inputs.get('do_optimize_intrinsics_distortions'):
-            i1 = -Ndistortions
-        slice_optimized_intrinsics  = slice(i0,i1)
-        dvlocal0_dintrinsics0 = dvlocal0_dintrinsics0[...,slice_optimized_intrinsics]
-        dvlocal1_dintrinsics1 = dvlocal1_dintrinsics1[...,slice_optimized_intrinsics]
-
         ### Sensitivities
         # The data flow:
         #   q0,i0                       -> v0 (same as vlocal0; I'm working in the cam0 coord system)
@@ -1519,20 +1506,33 @@ if optimization_inputs is None and q_observation_stdev is None:
         #   v0,v1,t01                   -> p_triangulated
         icam_intrinsics0 = models01[0].icam_intrinsics()
         icam_intrinsics1 = models01[1].icam_intrinsics()
-
         istate_i0 = mrcal.state_index_intrinsics(icam_intrinsics0, **optimization_inputs)
         istate_i1 = mrcal.state_index_intrinsics(icam_intrinsics1, **optimization_inputs)
-        if istate_i0 is not None:
-            # dp_triangulated_di0 = dp_triangulated_dv0              dvlocal0_di0
-            # dp_triangulated_di1 = dp_triangulated_dv1 dv1_dvlocal1 dvlocal1_di1
-            nps.matmult( dp_triangulated_dv0,
-                         dvlocal0_dintrinsics0,
-                         out = dp_triangulated_db[ipt, :, istate_i0:istate_i0+Nintrinsics])
-        if istate_i1 is not None:
-            nps.matmult( dp_triangulated_dv1,
-                         dv1_dvlocal1,
-                         dvlocal1_dintrinsics1,
-                         out = dp_triangulated_db[ipt, :, istate_i1:istate_i1+Nintrinsics])
+
+        if istate_i0 is not None or istate_i1 is not None:
+            # Do the right thing is we're optimizing partial intrinsics only
+            i0,i1 = None,None # everything by default
+            has_core     = mrcal.lensmodel_metadata_and_config(optimization_inputs['lensmodel'])['has_core']
+            Ncore        = 4 if has_core else 0
+            Ndistortions = mrcal.lensmodel_num_params(optimization_inputs['lensmodel']) - Ncore
+            if not optimization_inputs.get('do_optimize_intrinsics_core', True):
+                i0 = Ncore
+            if not optimization_inputs.get('do_optimize_intrinsics_distortions', True):
+                i1 = -Ndistortions
+            slice_optimized_intrinsics  = slice(i0,i1)
+            if istate_i0 is not None:
+                # dp_triangulated_di0 = dp_triangulated_dv0              dvlocal0_di0
+                # dp_triangulated_di1 = dp_triangulated_dv1 dv1_dvlocal1 dvlocal1_di1
+                dvlocal0_dintrinsics0 = dvlocal0_dintrinsics0[...,slice_optimized_intrinsics]
+                nps.matmult( dp_triangulated_dv0,
+                             dvlocal0_dintrinsics0,
+                             out = dp_triangulated_db[ipt, :, istate_i0:istate_i0+Nintrinsics])
+            if istate_i1 is not None:
+                dvlocal1_dintrinsics1 = dvlocal1_dintrinsics1[...,slice_optimized_intrinsics]
+                nps.matmult( dp_triangulated_dv1,
+                             dv1_dvlocal1,
+                             dvlocal1_dintrinsics1,
+                             out = dp_triangulated_db[ipt, :, istate_i1:istate_i1+Nintrinsics])
 
 
         icam_extrinsics0 = mrcal.corresponding_icam_extrinsics(icam_intrinsics0, **optimization_inputs)
