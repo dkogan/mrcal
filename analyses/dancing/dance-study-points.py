@@ -83,6 +83,10 @@ rt_cam_ref = rt_cam_cam0
 points     = points_cam0
 indices_point_camintrinsics_camextrinsics[:,2] -= 1
 
+# make unity_cam01 fit perfectly
+d = nps.mag(rt_cam_ref[0,3:])
+rt_cam_ref[:,3:] /= d
+points           /= d
 
 optimization_inputs = \
     dict(
