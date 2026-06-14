@@ -748,3 +748,305 @@ None
 
             optimization_inputs[what][...,:2] += \
                 noise_nominal / weight
+
+
+
+
+
+
+
+
+def make_tracks(model,
+                # The world frame has the ground at z=0. It is xyz ~ North,East,down
+                Rt_NED_cam0,
+                R_cam_camnext,
+                t_cam_camnext__world,
+                Nobservations_total, # I aim for this
+                track_length,
+                Nobservations_image,  # desired feature density
+                gridn):
+
+
+    def generate_new_features(q_extant, model, Rt_NED_cam,
+                              Nobservations_image,
+                              *,
+                              gridn):
+        r'''Reports new q,p given the existing set of observed features and the
+        desired distribution
+
+        '''
+
+        def points_on_ground(q, model, Rt_NED_cam):
+            r'''Takes pixel observations
+
+        Returns a subset of those observations that are looking at the ground at z=0,
+        and the corresponding points
+            '''
+
+            p = Rt_NED_cam[3,:]
+
+            vcam = mrcal.unproject(q, *model.intrinsics())
+            mask = \
+                np.isfinite(vcam[...,0]) * \
+                np.isfinite(vcam[...,1]) * \
+                np.isfinite(vcam[...,2]) * \
+                (nps.norm2(vcam) > 0)
+
+            # Doesn't matter. To get around /0 and operating on nan
+            vcam[~mask,:] = 1.
+
+            v = mrcal.rotate_point_R(Rt_NED_cam[:3,:], vcam)
+            d = -p[2] / v[...,2]
+            mask *= (d > 0)
+
+            p = p + nps.dummy(d,-1) * v
+
+            q = q[mask]
+            p = p[mask]
+
+            return q,p
+
+
+
+        W,H = model.imagersize()
+
+        Nwant_per_cell = int(0.5 + Nobservations_image/(gridn*gridn))
+
+        for ix in range(gridn):
+            x0 = (W/gridn) * ix
+            x1 = ((W/gridn) * (ix+1)) if ix < gridn-1 else W-0.5
+
+            q_extant_x = q_extant[ (x0 <= q_extant[:,0]) * (q_extant[:,0] < x1) ]
+
+            for iy in range(gridn):
+                y0 = (H/gridn) * iy
+                y1 = ((H/gridn) * (iy+1)) if iy < gridn-1 else H-0.5
+
+                q_extant_xy = q_extant_x[ (y0 <= q_extant_x[:,1]) * (q_extant_x[:,1] < y1) ]
+
+                N = len(q_extant_xy)
+                N_want = Nwant_per_cell - N
+                if N_want <= 0:
+                    continue
+
+                qhere = \
+                    np.array( (x0,y0), dtype=float) + \
+                    np.random.uniform(size=(N_want,2)) * np.array( (x1-x0,y1-y0), dtype=float)
+
+                yield points_on_ground(qhere, model, Rt_NED_cam)
+
+
+    def normalize_indices(indices_point_camintrinsics_camextrinsics,
+                          points,
+                          rt_cam_ref,
+                          observations_point,
+                          *,
+                          Npoint_observations_min = 2):
+        r'''Make sure the input arrays are normal
+
+    - The indices are all sequential and monotonic, starting at 0
+
+    - Each point must be observed at least Npoint_observations_min times
+    '''
+
+        if np.any(indices_point_camintrinsics_camextrinsics < 0):
+            raise Exception("This function assumes all indices are >= 0. Mount your arrays before passing them in")
+
+        # Any point observed too few times is thrown out
+        ipoint,cami,came = nps.transpose(indices_point_camintrinsics_camextrinsics)
+        idx,counts = \
+            np.unique(ipoint,
+                      return_counts  = True)
+        mask_meas_keep = np.isin(ipoint, idx[counts >= Npoint_observations_min])
+        indices_point_camintrinsics_camextrinsics = indices_point_camintrinsics_camextrinsics[mask_meas_keep]
+        observations_point                        = observations_point                       [mask_meas_keep]
+
+
+        # Everything should be sequential and monotonic, starting at 0
+        ipoint,cami,came = nps.transpose(indices_point_camintrinsics_camextrinsics)
+
+        idx,ipoint = \
+            np.unique(ipoint,
+                      return_inverse = True)
+        points = points[idx]
+
+        idx,cami = \
+            np.unique(cami,
+                      return_inverse = True)
+        if False:
+            # I want to assume that we have one camera and exactly one set of
+            # intrinsics
+            intrinsics = intrinsics[idx]
+        else:
+            if not (len(idx) == 1 and idx[0] == 0):
+                raise Exception("Assumption that we have exactly one set of intrinsics failed")
+
+        idx,came = \
+            np.unique(came,
+                      return_inverse = True)
+        rt_cam_ref = rt_cam_ref[idx]
+
+        indices_point_camintrinsics_camextrinsics = \
+            nps.glue( nps.transpose(ipoint.astype(np.int32)),
+                      nps.transpose(cami  .astype(np.int32)),
+                      nps.transpose(came  .astype(np.int32)),
+                      axis = -1 )
+
+        return \
+            (indices_point_camintrinsics_camextrinsics,
+             points,
+             rt_cam_ref,
+             observations_point)
+
+
+
+
+    W,H = model.imagersize()
+
+    # shape (Npoints,3)
+    points = np.zeros((0,3), dtype=float)
+    # shape (Nframes,6)
+    rt_cam_ref = np.zeros((0,6), dtype=float)
+    # shape (Nobservations,2); omit the weight column; will add it at the end
+    observations_point = np.zeros((0,2), dtype=float)
+    # shape (Nobservations,2); will add camintrinsics at the end
+    indices_point_camextrinsics = np.zeros((0,2), dtype=np.int32)
+
+    # shape (Npoints,); this is a cache; can be computed from indices_point_camextrinsics
+    Nobservations_point = np.zeros( (0,), dtype=int)
+
+    len_observations_point_last = -1
+    while len(observations_point) < Nobservations_total:
+        if len_observations_point_last == len(observations_point):
+            raise Exception("No observation added this cycle. Giving up")
+        len_observations_point_last = len(observations_point)
+
+        if len(points) > 0:
+            #### Propagate EXTANT points
+
+            if False:
+                print(f"Propagating extant {len(observations_point)=}")
+            # The start of previous-point-in-time observations. We can keep
+            # track instead of recomputing
+            came = indices_point_camextrinsics[:,1]
+            if len(came) <= 0:
+                iobs0 = 0
+            else:
+                came_last = came[-1]
+                iobs0 = len(came) - np.argmax(came[::-1] != came_last)
+                if iobs0 == len(came):
+                    iobs0 = 0
+
+            ipoints = indices_point_camextrinsics[iobs0:, 0]
+
+            R_cam_world = Rt_NED_cam[:3,:].T
+            Rt_cam_camnext = \
+                nps.glue(R_cam_camnext,
+                         mrcal.rotate_point_R(R_cam_world, t_cam_camnext__world),
+                         axis = -2)
+            Rt_NED_cam = mrcal.compose_Rt( Rt_NED_cam, Rt_cam_camnext )
+            rt_cam_ref = nps.glue(rt_cam_ref,
+                                  mrcal.rt_from_Rt( mrcal.invert_Rt(Rt_NED_cam) ),
+                                  axis = -2)
+            irt_cam_ref = len(rt_cam_ref)-1
+
+            # propagate existing tracks
+            q1 = mrcal.project( mrcal.transform_point_Rt(Rt_NED_cam,
+                                                         points[ipoints],
+                                                         inverted=True),
+                                *model.intrinsics() )
+            mask_keep = \
+                np.isfinite(q1[...,0]) * \
+                np.isfinite(q1[...,1]) * \
+                (q1[...,0] >= 0) * \
+                (q1[...,1] >= 0) * \
+                (q1[...,0] <= W-1) * \
+                (q1[...,1] <= H-1) * \
+                (Nobservations_point[ipoints] < track_length)
+
+            q_extant = q1[mask_keep]
+
+            observations_point = \
+                nps.glue(observations_point,
+                         q_extant,
+                         axis = -2)
+            Nkeep = len(q_extant)
+
+            indices_point_camextrinsics = \
+                nps.glue(indices_point_camextrinsics,
+                         nps.transpose (nps.cat(ipoints[mask_keep],
+                                                irt_cam_ref * np.ones((Nkeep,),dtype=np.int32))),
+                         axis = -2)
+            Nobservations_point[ipoints[mask_keep]] += 1
+
+        else:
+            q_extant = np.zeros((0,2))
+
+            Rt_NED_cam = Rt_NED_cam0
+            rt_cam_ref = nps.atleast_dims(mrcal.rt_from_Rt( mrcal.invert_Rt(Rt_NED_cam) ),
+                                          -2)
+            irt_cam_ref = 0
+
+        #### Done with extant points. Create NEW points
+        if False:
+            print(f"Creating new {len(observations_point)=}")
+        ipoint0 = len(points)
+        for q,p in generate_new_features(q_extant, model, Rt_NED_cam,
+                                         Nobservations_image,
+                                         gridn = gridn):
+            points = \
+                nps.glue(points,
+                         p,
+                         axis = -2)
+            observations_point = \
+                nps.glue(observations_point,
+                         q,
+                         axis = -2)
+            indices_point_camextrinsics = \
+                nps.glue(indices_point_camextrinsics,
+                         nps.transpose(nps.cat(ipoint0 + np.arange(len(p),dtype=np.int32),
+                                               irt_cam_ref * np.ones((len(p),),dtype=np.int32))),
+                         axis = -2)
+            Nobservations_point = \
+                nps.glue(Nobservations_point,
+                         np.ones((len(p),), dtype=int),
+                         axis = -1)
+
+            ipoint0 += len(p)
+        else:
+            if len(points) == 0:
+                raise Exception("Generate_new_features() generated nothing, and we have no extant points to propagate")
+
+    # Added the expected extra columns
+    observations_point = \
+        nps.glue(observations_point,
+                 # weight = 1
+                 np.ones( (len(observations_point),1),),
+                 axis = -1)
+    indices_point_camintrinsics_camextrinsics = \
+        nps.glue( nps.transpose(indices_point_camextrinsics[:,0]),
+                  # camintrinsics = 0
+                  np.zeros( (len(indices_point_camextrinsics),1),dtype=np.int32),
+                  nps.transpose(indices_point_camextrinsics[:,1]),
+                  axis = -1 )
+
+    # cull obs past Nobservations_total
+    Nobservations_extra = len(observations_point) - Nobservations_total
+    if Nobservations_extra > 0:
+        indices_point_camintrinsics_camextrinsics = indices_point_camintrinsics_camextrinsics[:-Nobservations_extra]
+        observations_point                        = observations_point                       [:-Nobservations_extra]
+
+        ( indices_point_camintrinsics_camextrinsics,
+          points,
+          rt_cam_ref,
+          observations_point ) = \
+              normalize_indices(indices_point_camintrinsics_camextrinsics,
+                                points,
+                                rt_cam_ref,
+                                observations_point)
+
+    return \
+        (indices_point_camintrinsics_camextrinsics,
+         points,
+         rt_cam_ref,
+         observations_point)
