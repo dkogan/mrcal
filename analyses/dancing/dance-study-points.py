@@ -12,6 +12,7 @@ import gnuplotlib as gp
 
 # I import the LOCAL mrcal
 scriptdir = os.path.dirname(os.path.realpath(__file__))
+testdir  = f"{scriptdir}/../../test"
 sys.path[:0] = f"{scriptdir}/../..",
 import mrcal
 
@@ -27,17 +28,8 @@ import mrcal
 
 np.random.seed(0)
 
-if False:
-    W,H = 1024,1024
-    model = mrcal.cameramodel( imagersize = (W,H),
-                               intrinsics = ('LENSMODEL_STEREOGRAPHIC',
-                                             np.array((W/3, H/3,
-                                                      (W-1)/2., (H-1)/2.))))
-else:
-
-    # test/test-projection-uncertainty.py --moving camera --ref cam0  --reproject-perturbed cross-reprojection-ccp                  --model splined --write --Ncameras 1 --range-to-boards 4
-    model = mrcal.cameramodel('/tmp/models-baseline-camera00000.cameramodel')
-    W,H = model.imagersize()
+model = mrcal.cameramodel(f"{testdir}/data/cam0.splined.cameramodel")
+W,H = model.imagersize()
 
 
 observed_pixel_uncertainty = 0.3
