@@ -38,7 +38,8 @@ LIB_SOURCES +=			\
   cahvore.cc                    \
   traverse-sensor-links.c       \
   heap.cc                       \
-  python-cameramodel-converter.c
+  python-cameramodel-converter.c\
+  mrcal-ceres.cc
 
 
 ifneq (${USE_LIBELAS},) # using libelas
@@ -49,6 +50,9 @@ ifneq ($(USE_LOCAL_STB_IMPLEMENTATION),)
 image.o: CFLAGS += -DSTB_IMAGE_IMPLEMENTATION=1
 endif
 
+mrcal-ceres.o: CXXFLAGS += -I/usr/include/eigen3
+
+
 BIN_SOURCES +=					\
   test/test-gradients.c				\
   test/test-cahvor.c				\
@@ -57,13 +61,14 @@ BIN_SOURCES +=					\
   test/test-heap.c                              \
   test/test-bitarray.c
 
-LDLIBS += -ldogleg $(if $(USE_LOCAL_STB_IMPLEMENTATION),,-lstb) -lpng -ljpeg -llapack
+LDLIBS += -ldogleg $(if $(USE_LOCAL_STB_IMPLEMENTATION),,-lstb) -lpng -ljpeg -llapack -lceres
 
 ifneq (${USE_LIBELAS},) # using libelas
 LDLIBS += -lelas
 endif
 
 CFLAGS    += --std=gnu11
+CXXFLAGS  += -std=gnu++14
 CCXXFLAGS += -Wno-missing-field-initializers -Wno-unused-variable -Wno-unused-parameter -Wno-missing-braces
 
 $(patsubst %.c,%.o,$(shell grep -l '#include .*minimath\.h' *.c */*.c)): minimath/minimath_generated.h

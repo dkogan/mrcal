@@ -924,7 +924,8 @@ int PyArray_Converter_checkrenamed_leaveNone(PyObject* obj, PyObject** address)
     /* The default for this MUST be 0. See mrcal.cameramodel._serialize_optimization_inputs()*/ \
     _(do_apply_regularization_unity_cam01,int,            0,       "p",  ,                                  NULL,           -1,         {})  \
     _(do_apply_outlier_rejection,         int,            1,       "p",  ,                                  NULL,           -1,         {})  \
-    _(imagepaths,                         PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {})
+    _(imagepaths,                         PyObject*,      NULL,    "O",  ,                                  NULL,           -1,         {}) \
+    _(ceres,                              int,            0,       "p",  ,                                  NULL,           -1,         {})
 /* imagepaths is in the argument list purely to make the
    mrcal-show-residuals-board-observation tool work. The python code doesn't
    actually touch it */
@@ -1799,7 +1800,43 @@ PyObject* _optimize(optimizemode_t optimizemode,
                 Nobservations_board *
                 calibration_object_width_n*calibration_object_height_n;
 
-            mrcal_stats_t stats =
+            mrcal_stats_t stats;
+            if(ceres)
+                stats =
+                mrcal_optimize_ceres( c_b_packed_final,
+                                Nstate*sizeof(double),
+                                c_x_final,
+                                Nmeasurements*sizeof(double),
+                                c_intrinsics,
+                                c_extrinsics,
+                                c_frames,
+                                c_points,
+                                c_calobject_warp,
+
+                                Ncameras_intrinsics, Ncameras_extrinsics,
+                                Nframes, Npoints, Npoints_fixed,
+
+                                c_observations_board,
+                                c_observations_point,
+                                Nobservations_board,
+                                Nobservations_point,
+
+                                c_observations_point_triangulated,
+                                Nobservations_point_triangulated,
+
+                                c_observations_board_pool,
+                                c_observations_point_pool,
+
+                                &mrcal_lensmodel,
+                                c_imagersizes,
+                                problem_selections, &problem_constants,
+
+                                calibration_object_spacing,
+                                calibration_object_width_n,
+                                calibration_object_height_n,
+                                verbose);
+            else
+                stats =
                 mrcal_optimize( c_b_packed_final,
                                 Nstate*sizeof(double),
                                 c_x_final,
@@ -1832,7 +1869,6 @@ PyObject* _optimize(optimizemode_t optimizemode,
                                 calibration_object_width_n,
                                 calibration_object_height_n,
                                 verbose,
-
                                 false);
 
             if(stats.rms_reproj_error__pixels < 0.0)
