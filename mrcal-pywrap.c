@@ -1804,7 +1804,7 @@ PyObject* _optimize(optimizemode_t optimizemode,
                 calibration_object_width_n*calibration_object_height_n;
 
             mrcal_stats_t stats =
-                mrcal_optimize( c_b_packed_final,
+                mrcal_optimize_ceres( c_b_packed_final,
                                 Nstate*sizeof(double),
                                 c_x_final,
                                 Nmeasurements*sizeof(double),
@@ -1835,9 +1835,7 @@ PyObject* _optimize(optimizemode_t optimizemode,
                                 calibration_object_spacing,
                                 calibration_object_width_n,
                                 calibration_object_height_n,
-                                verbose,
-
-                                false);
+                                verbose);
 
             if(stats.rms_reproj_error__pixels < 0.0)
             {

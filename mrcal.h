@@ -520,6 +520,54 @@ mrcal_optimize( // out
                 bool check_gradient);
 
 
+// Ceres-based variant of mrcal_optimize().  The argument list is identical
+// except that check_gradient is absent (use mrcal_optimize() for that).
+//
+// Requires linking with mrcal-ceres.cc and libceres.
+// outlier rejection is not performed; for that feature use mrcal_optimize().
+mrcal_stats_t
+mrcal_optimize_ceres( // out
+                      // Each one of these output pointers may be NULL
+                      // Shape (Nstate,)
+                      double* b_packed,
+                      int buffer_size_b_packed,
+
+                      // Shape (Nmeasurements,)
+                      double* x,
+                      int buffer_size_x,
+
+                      // out, in
+                      double*                 intrinsics,
+                      mrcal_pose_t*           rt_cam_ref,
+                      mrcal_pose_t*           rt_ref_frame,
+                      mrcal_point3_t*         points,
+                      mrcal_calobject_warp_t* calobject_warp,
+
+                      // in
+                      int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
+                      int Npoints, int Npoints_fixed,
+
+                      const mrcal_observation_board_t*              observations_board,
+                      const mrcal_observation_point_t*              observations_point,
+                      int                                           Nobservations_board,
+                      int                                           Nobservations_point,
+
+                      const mrcal_observation_point_triangulated_t* observations_point_triangulated,
+                      int                                           Nobservations_point_triangulated,
+
+                      mrcal_point3_t* observations_board_pool,
+                      mrcal_point3_t* observations_point_pool,
+
+                      const mrcal_lensmodel_t*         lensmodel,
+                      const int*                       imagersizes,
+                      mrcal_problem_selections_t       problem_selections,
+                      const mrcal_problem_constants_t* problem_constants,
+                      double calibration_object_spacing,
+                      int    calibration_object_width_n,
+                      int    calibration_object_height_n,
+                      bool   verbose);
+
+
 // These are cholmod_sparse, cholmod_factor, cholmod_common. I don't want to
 // include the full header that defines these in mrcal.h, and I don't need to:
 // mrcal.h just needs to know that these are a structure

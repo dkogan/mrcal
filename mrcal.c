@@ -6672,6 +6672,330 @@ mrcal_optimize( // out
     return stats;
 }
 
+// ============================================================
+// Ceres-based solver backend
+// ============================================================
+
+// Implemented in mrcal-ceres.cc.
+// Returns ||residuals||^2 at the solution, or -1.0 on failure.
+// On success, packed_state is updated in-place to the optimal solution.
+// block_offsets has Nblocks+1 entries: block b covers packed_state[block_offsets[b]..block_offsets[b+1]).
+extern double _mrcal_ceres_solve(
+    double*      packed_state,
+    int          Nstate,
+    int          Nmeasurements,
+    int          N_j_nonzero,
+    const void*  ctx,
+    void       (*callback)(const double*, double*, cholmod_sparse*, const void*),
+    const int*   block_offsets,
+    int          Nblocks,
+    int          Nblocks_e_start,
+    int          Nblocks_e_count,
+    bool         verbose);
+
+mrcal_stats_t
+mrcal_optimize_ceres(// out
+                     // Each one of these output pointers may be NULL
+                     // Shape (Nstate,)
+                     double* b_packed_final,
+                     int     buffer_size_b_packed_final,
+
+                     // Shape (Nmeasurements,)
+                     double* x_final,
+                     int     buffer_size_x_final,
+
+                     // out, in
+                     // These are a seed on input, solution on output
+                     double*                 intrinsics,         // Ncameras_intrinsics * NlensParams
+                     mrcal_pose_t*           rt_cam_ref,         // Ncameras_extrinsics of these
+                     mrcal_pose_t*           rt_ref_frame,       // Nframes of these
+                     mrcal_point3_t*         points,             // Npoints of these
+                     mrcal_calobject_warp_t* calobject_warp,
+
+                     // in
+                     int Ncameras_intrinsics, int Ncameras_extrinsics, int Nframes,
+                     int Npoints, int Npoints_fixed,
+
+                     const mrcal_observation_board_t*              observations_board,
+                     const mrcal_observation_point_t*              observations_point,
+                     int                                           Nobservations_board,
+                     int                                           Nobservations_point,
+
+                     const mrcal_observation_point_triangulated_t* observations_point_triangulated,
+                     int                                           Nobservations_point_triangulated,
+
+                     mrcal_point3_t*                observations_board_pool,
+                     mrcal_point3_t*                observations_point_pool,
+
+                     const mrcal_lensmodel_t*         lensmodel,
+                     const int*                       imagersizes,
+                     mrcal_problem_selections_t       problem_selections,
+                     const mrcal_problem_constants_t* problem_constants,
+                     double calibration_object_spacing,
+                     int    calibration_object_width_n,
+                     int    calibration_object_height_n,
+                     bool   verbose)
+{
+    // --- Input validation (mirrors mrcal_optimize) ---
+    if(Nobservations_board > 0)
+    {
+        if(problem_selections.do_optimize_calobject_warp && calobject_warp == NULL)
+        {
+            MSG("ERROR: We're optimizing the calibration object warp, so a buffer with a seed MUST be passed in.");
+            return (mrcal_stats_t){.rms_reproj_error__pixels = -1.0};
+        }
+    }
+    else
+        problem_selections.do_optimize_calobject_warp = false;
+
+    if( (observations_point_triangulated != NULL && Nobservations_point_triangulated) &&
+        !(!problem_selections.do_optimize_intrinsics_core       &&
+          !problem_selections.do_optimize_intrinsics_distortions &&
+           problem_selections.do_optimize_extrinsics) )
+    {
+        MSG("ERROR: We have triangulated points. At this time this is only allowed if we're NOT optimizing intrinsics AND if we ARE optimizing extrinsics.");
+        return (mrcal_stats_t){.rms_reproj_error__pixels = -1.0};
+    }
+
+    if(!modelHasCore_fxfycxcy(lensmodel))
+        problem_selections.do_optimize_intrinsics_core = false;
+
+    if( !problem_selections.do_optimize_intrinsics_core        &&
+        !problem_selections.do_optimize_intrinsics_distortions &&
+        !problem_selections.do_optimize_extrinsics             &&
+        !problem_selections.do_optimize_frames                 &&
+        !problem_selections.do_optimize_calobject_warp)
+        MSG("Warning: Not optimizing any of our variables");
+
+    // --- Build callback context (identical to mrcal_optimize) ---
+    callback_context_t ctx = {
+        .intrinsics                       = intrinsics,
+        .rt_cam_ref                       = rt_cam_ref,
+        .rt_ref_frame                     = rt_ref_frame,
+        .points                           = points,
+        .calobject_warp                   = calobject_warp,
+        .Ncameras_intrinsics              = Ncameras_intrinsics,
+        .Ncameras_extrinsics              = Ncameras_extrinsics,
+        .Nframes                          = Nframes,
+        .Npoints                          = Npoints,
+        .Npoints_fixed                    = Npoints_fixed,
+        .observations_board               = observations_board,
+        .observations_board_pool          = observations_board_pool,
+        .observations_point_pool          = observations_point_pool,
+        .Nobservations_board              = Nobservations_board,
+        .observations_point               = observations_point,
+        .Nobservations_point              = Nobservations_point,
+        .observations_point_triangulated  = observations_point_triangulated,
+        .Nobservations_point_triangulated = Nobservations_point_triangulated,
+        .verbose                          = verbose,
+        .lensmodel                        = *lensmodel,
+        .imagersizes                      = imagersizes,
+        .problem_selections               = problem_selections,
+        .problem_constants                = problem_constants,
+        .calibration_object_spacing       = calibration_object_spacing,
+        .calibration_object_width_n  = calibration_object_width_n  > 0 ? calibration_object_width_n  : 0,
+        .calibration_object_height_n = calibration_object_height_n > 0 ? calibration_object_height_n : 0,
+        .Nmeasurements =
+            mrcal_num_measurements(Nobservations_board,
+                                   Nobservations_point,
+                                   observations_point_triangulated,
+                                   Nobservations_point_triangulated,
+                                   calibration_object_width_n,
+                                   calibration_object_height_n,
+                                   Ncameras_intrinsics, Ncameras_extrinsics,
+                                   Nframes, Npoints, Npoints_fixed,
+                                   problem_selections, lensmodel),
+        .N_j_nonzero =
+            _mrcal_num_j_nonzero(Nobservations_board,
+                                  Nobservations_point,
+                                  observations_point_triangulated,
+                                  Nobservations_point_triangulated,
+                                  calibration_object_width_n,
+                                  calibration_object_height_n,
+                                  Ncameras_intrinsics, Ncameras_extrinsics,
+                                  Nframes, Npoints, Npoints_fixed,
+                                  observations_board, observations_point,
+                                  problem_selections, lensmodel),
+        .Nintrinsics = mrcal_lensmodel_num_params(lensmodel)};
+    _mrcal_precompute_lensmodel_data((mrcal_projection_precomputed_t*)&ctx.precomputed, lensmodel);
+
+    const int Nstate = mrcal_num_states(Ncameras_intrinsics, Ncameras_extrinsics,
+                                        Nframes, Npoints, Npoints_fixed,
+                                        Nobservations_board,
+                                        problem_selections, lensmodel);
+
+    if(b_packed_final != NULL &&
+       buffer_size_b_packed_final != Nstate * (int)sizeof(double))
+    {
+        MSG("The buffer passed for b_packed_final has wrong size. Need %d bytes, got %d",
+            Nstate * (int)sizeof(double), buffer_size_b_packed_final);
+        return (mrcal_stats_t){.rms_reproj_error__pixels = -1.0};
+    }
+    if(x_final != NULL &&
+       buffer_size_x_final != ctx.Nmeasurements * (int)sizeof(double))
+    {
+        MSG("The buffer passed for x_final has wrong size. Need %d bytes, got %d",
+            ctx.Nmeasurements * (int)sizeof(double), buffer_size_x_final);
+        return (mrcal_stats_t){.rms_reproj_error__pixels = -1.0};
+    }
+
+    if(verbose)
+        MSG("## Nmeasurements=%d, Nstate=%d", ctx.Nmeasurements, Nstate);
+    if(ctx.Nmeasurements <= Nstate)
+        MSG("WARNING: problem isn't overdetermined: Nmeasurements=%d, Nstate=%d. "
+            "Solver may not converge.", ctx.Nmeasurements, Nstate);
+
+    // --- Pack initial state ---
+    double packed_state[Nstate];
+    pack_solver_state(packed_state,
+                      lensmodel, intrinsics,
+                      rt_cam_ref, rt_ref_frame, points, calobject_warp,
+                      problem_selections,
+                      Ncameras_intrinsics, Ncameras_extrinsics,
+                      Nframes, Npoints - Npoints_fixed,
+                      Nobservations_board, Nstate);
+
+    // --- Build per-entity parameter block layout for Ceres ---
+    // One block per optimised entity: each camera's intrinsics, each camera's
+    // extrinsics, each frame, each variable point, and calobject_warp.
+    // block_offsets[b] is the offset of block b in packed_state;
+    // block_offsets[Nblocks] == Nstate (sentinel).
+    const int Npoints_variable = Npoints - Npoints_fixed;
+    const int max_Nblocks = Ncameras_intrinsics + Ncameras_extrinsics +
+                             Nframes + Npoints_variable + 1; // +1 for calobject_warp
+    int block_offsets[max_Nblocks + 1]; // VLA; +1 for sentinel
+    int Nblocks = 0;
+
+    if(mrcal_num_states_intrinsics(Ncameras_intrinsics, problem_selections, lensmodel) > 0)
+        for(int icam = 0; icam < Ncameras_intrinsics; icam++)
+            block_offsets[Nblocks++] =
+                mrcal_state_index_intrinsics(icam,
+                                              Ncameras_intrinsics, Ncameras_extrinsics,
+                                              Nframes, Npoints, Npoints_fixed,
+                                              Nobservations_board,
+                                              problem_selections, lensmodel);
+
+    if(mrcal_num_states_extrinsics(Ncameras_extrinsics, problem_selections) > 0)
+        for(int icam = 0; icam < Ncameras_extrinsics; icam++)
+            block_offsets[Nblocks++] =
+                mrcal_state_index_extrinsics(icam,
+                                              Ncameras_intrinsics, Ncameras_extrinsics,
+                                              Nframes, Npoints, Npoints_fixed,
+                                              Nobservations_board,
+                                              problem_selections, lensmodel);
+
+    if(mrcal_num_states_frames(Nframes, problem_selections) > 0)
+        for(int iframe = 0; iframe < Nframes; iframe++)
+            block_offsets[Nblocks++] =
+                mrcal_state_index_frames(iframe,
+                                          Ncameras_intrinsics, Ncameras_extrinsics,
+                                          Nframes, Npoints, Npoints_fixed,
+                                          Nobservations_board,
+                                          problem_selections, lensmodel);
+
+    if(mrcal_num_states_points(Npoints, Npoints_fixed, problem_selections) > 0)
+        for(int ip = 0; ip < Npoints_variable; ip++)
+            block_offsets[Nblocks++] =
+                mrcal_state_index_points(ip,
+                                          Ncameras_intrinsics, Ncameras_extrinsics,
+                                          Nframes, Npoints, Npoints_fixed,
+                                          Nobservations_board,
+                                          problem_selections, lensmodel);
+
+    {
+        int idx = mrcal_state_index_calobject_warp(Ncameras_intrinsics, Ncameras_extrinsics,
+                                                    Nframes, Npoints, Npoints_fixed,
+                                                    Nobservations_board,
+                                                    problem_selections, lensmodel);
+        if(idx >= 0)
+            block_offsets[Nblocks++] = idx;
+    }
+
+    block_offsets[Nblocks] = Nstate; // sentinel
+
+    // Schur e-blocks: frames + variable points (eliminated first).
+    // Schur f-blocks: camera intrinsics, extrinsics, calobject_warp.
+    const int Nblocks_cam =
+        (mrcal_num_states_intrinsics(Ncameras_intrinsics, problem_selections, lensmodel) > 0 ? Ncameras_intrinsics : 0) +
+        (mrcal_num_states_extrinsics(Ncameras_extrinsics, problem_selections)             > 0 ? Ncameras_extrinsics : 0);
+    const int Nblocks_e_start = Nblocks_cam;
+    const int Nblocks_e_count =
+        (mrcal_num_states_frames(Nframes, problem_selections)                      > 0 ? Nframes          : 0) +
+        (mrcal_num_states_points(Npoints, Npoints_fixed, problem_selections)       > 0 ? Npoints_variable : 0);
+
+    // --- Outlier tracking (mirrors mrcal_optimize) ---
+    mrcal_stats_t stats = {.rms_reproj_error__pixels = -1.0};
+    stats.Noutliers_board              = 0;
+    stats.Noutliers_triangulated_point = 0;
+
+    const int Nmeasurements_board =
+        mrcal_num_measurements_boards(Nobservations_board,
+                                      calibration_object_width_n,
+                                      calibration_object_height_n);
+    for(int i = 0; i < Nmeasurements_board / 2; i++)
+        if(observations_board_pool[i].z < 0.0)
+            stats.Noutliers_board++;
+
+    // Residual buffer used for outlier detection between solve iterations.
+    double x_solve[ctx.Nmeasurements]; // VLA
+
+    // --- Solve loop with outlier rejection ---
+    double norm2_error;
+    do
+    {
+        norm2_error =
+            _mrcal_ceres_solve(packed_state,
+                               Nstate, ctx.Nmeasurements, ctx.N_j_nonzero,
+                               &ctx,
+                               (void (*)(const double*, double*, cholmod_sparse*, const void*))&optimizer_callback,
+                               block_offsets, Nblocks,
+                               Nblocks_e_start, Nblocks_e_count,
+                               verbose);
+
+        if(norm2_error < 0.0)
+            goto done;
+
+        // Re-evaluate at the optimal state to get residuals for outlier detection.
+        optimizer_callback(packed_state, x_solve, /*Jt=*/NULL, &ctx);
+
+    } while( problem_selections.do_apply_outlier_rejection &&
+             markOutliers(observations_board_pool,
+                          &stats.Noutliers_board,
+                          &stats.Noutliers_triangulated_point,
+                          observations_board,
+                          Nobservations_board,
+                          Nobservations_point,
+                          (mrcal_observation_point_triangulated_t*)observations_point_triangulated,
+                          Nobservations_point_triangulated,
+                          calibration_object_width_n,
+                          calibration_object_height_n,
+                          x_solve, rt_cam_ref, verbose) &&
+             ({MSG("Threw out some outliers. New count = %d/%d (%.1f%%). Going again",
+                   stats.Noutliers_board,
+                   Nmeasurements_board,
+                   (double)(stats.Noutliers_board * 100) / (double)Nmeasurements_board);
+               true;}) );
+
+    // --- Unpack optimal state back into the caller's arrays ---
+    unpack_solver_state(intrinsics, rt_cam_ref, rt_ref_frame, points, calobject_warp,
+                        packed_state, lensmodel, problem_selections,
+                        Ncameras_intrinsics, Ncameras_extrinsics,
+                        Nframes, Npoints - Npoints_fixed,
+                        Nobservations_board, Nstate);
+
+    stats.rms_reproj_error__pixels =
+        sqrt(norm2_error / (double)ctx.Nmeasurements);
+
+    if(b_packed_final)
+        memcpy(b_packed_final, packed_state, Nstate * sizeof(double));
+
+    if(x_final)
+        memcpy(x_final, x_solve, ctx.Nmeasurements * sizeof(double));
+
+ done:
+    return stats;
+}
+
 bool mrcal_write_cameramodel_file(const char* filename,
                                   const mrcal_cameramodel_VOID_t* cameramodel)
 {
