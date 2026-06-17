@@ -1036,14 +1036,14 @@ def make_tracks(model,
         indices_point_camintrinsics_camextrinsics = indices_point_camintrinsics_camextrinsics[:-Nobservations_extra]
         observations_point                        = observations_point                       [:-Nobservations_extra]
 
-        ( indices_point_camintrinsics_camextrinsics,
-          points,
-          rt_cam_ref,
-          observations_point ) = \
-              normalize_indices(indices_point_camintrinsics_camextrinsics,
-                                points,
-                                rt_cam_ref,
-                                observations_point)
+    ( indices_point_camintrinsics_camextrinsics,
+      points,
+      rt_cam_ref,
+      observations_point ) = \
+          normalize_indices(indices_point_camintrinsics_camextrinsics,
+                            points,
+                            rt_cam_ref,
+                            observations_point)
 
     return \
         (indices_point_camintrinsics_camextrinsics,
