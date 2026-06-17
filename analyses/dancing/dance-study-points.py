@@ -44,15 +44,15 @@ Rt_NED_cam0 = np.array(((1, 0, 0),
                         (0, 0, -5.)))
 
 # camera moves 0.2m East every frame
-R_cam_camnext       = mrcal.R_from_r( np.array((0,0.05,0.25),))
-t_cam_camnext_world = np.array((0.0, 0.2, 0))
+R_cam_camnext        = mrcal.R_from_r( np.array((0,0.05,0.25),))
+t_cam_camnext__world = np.array((0.0, 0.2, 0))
 
 
-Nobservations_total = 3000
-track_length        = 10
-Nobservations_image = 80
-gridn               = 4
-
+Nobservations_total     = 3000
+track_length            = 10
+Nobservations_image     = 80
+gridn                   = 4
+Npoint_observations_min = 4
 
 
 
@@ -64,13 +64,14 @@ gridn               = 4
  observations_point) = \
     mrcal.make_tracks(model,
                       # The world frame has the ground at z=0. It is xyz ~ North,East,down
-                      Rt_NED_cam0,
-                      R_cam_camnext,
-                      t_cam_camnext_world,
-                      Nobservations_total, # I aim for this
-                      track_length,
-                      Nobservations_image, # desired feature density
-                      gridn)
+                      Rt_NED_cam0             = Rt_NED_cam0,
+                      R_cam_camnext           = R_cam_camnext,
+                      t_cam_camnext__world    = t_cam_camnext__world,
+                      Nobservations_total     = Nobservations_total, # I aim for this
+                      track_length            = track_length,
+                      Nobservations_image     = Nobservations_image, # desired feature density
+                      gridn                   = gridn,
+                      Npoint_observations_min = Npoint_observations_min)
 
 print(f"{len(rt_cam_ref)=}")
 # Re-reference to cam0

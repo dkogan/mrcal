@@ -757,6 +757,7 @@ None
 
 
 def make_tracks(model,
+                *,
                 # The world frame has the ground at z=0. It is xyz ~ North,East,down
                 Rt_NED_cam0,
                 R_cam_camnext,
@@ -764,7 +765,8 @@ def make_tracks(model,
                 Nobservations_total, # I aim for this
                 track_length,
                 Nobservations_image,  # desired feature density
-                gridn):
+                gridn,
+                Npoint_observations_min = 4):
 
 
     def generate_new_features(q_extant, model, Rt_NED_cam,
@@ -841,7 +843,7 @@ def make_tracks(model,
                           rt_cam_ref,
                           observations_point,
                           *,
-                          Npoint_observations_min = 2):
+                          Npoint_observations_min):
         r'''Make sure the input arrays are normal
 
     - The indices are all sequential and monotonic, starting at 0
@@ -1043,7 +1045,8 @@ def make_tracks(model,
           normalize_indices(indices_point_camintrinsics_camextrinsics,
                             points,
                             rt_cam_ref,
-                            observations_point)
+                            observations_point,
+                            Npoint_observations_min = Npoint_observations_min)
 
     return \
         (indices_point_camintrinsics_camextrinsics,
