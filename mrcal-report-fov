@@ -22,7 +22,7 @@ SYNOPSIS
   Mean FOV horizontally:  56.73degrees
   Mean FOV corner-corner: 75.34degrees
 
-Given a camera model, reports the field of view in various directions. Since
+Given camera model(s), reports the field of view in various directions. Since
 this tool uses the lens projection behavior at the edges and corners, this could
 produce inaccurate results if the projection uncertainty is high at the edges.
 Look at the uncertainty and cross-validation reports if you're not sure.
@@ -30,6 +30,7 @@ Look at the uncertainty and cross-validation reports if you're not sure.
 A more extensive display of similar same data is produced by
 
   mrcal-show-distortion-off-pinhole --radial
+
 '''
 
 
@@ -44,8 +45,9 @@ def parse_args():
         argparse.ArgumentParser(description = __doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    parser.add_argument('model',
+    parser.add_argument('models',
                         type=str,
+                        nargs='+',
                         help='''The camera model. If "-' is given, we read standard input''')
 
     return parser.parse_args()
@@ -56,54 +58,66 @@ import mrcal
 import numpy as np
 import numpysane as nps
 
-model = mrcal.cameramodel(args.model)
-W,H = model.imagersize()
-lensmodel,intrinsics_data = model.intrinsics()
-
-if mrcal.lensmodel_metadata_and_config(lensmodel)['has_core']:
-    cxy = model.intrinsics()[1][2:4]
+if len(args.models) > 1:
+    header = '    '
 else:
-    cxy = (np.array((W,H),dtype=float) - 1.)/2.
+    header = ''
+
+for i,model in enumerate(args.models):
+    if len(args.models) > 1:
+        print(f"========== {model} ==========")
+
+    model = mrcal.cameramodel(model)
+    W,H = model.imagersize()
+    lensmodel,intrinsics_data = model.intrinsics()
+
+    if mrcal.lensmodel_metadata_and_config(lensmodel)['has_core']:
+        cxy = model.intrinsics()[1][2:4]
+    else:
+        cxy = (np.array((W,H),dtype=float) - 1.)/2.
 
 
-def th_from_q(q, *intrinsics):
-    v = mrcal.unproject( q, *intrinsics)
-    # some unprojections may be nan (we're looking beyond where the projection
-    # is valid), so I explicitly ignore those. The projection behavior may be
-    # poorly defined at the corners and edges (uncertainty is high), so the
-    # resulting unprojection might still be very imprecise
-    v = v[np.all(np.isfinite(v),  axis=-1)]
-    return 180./np.pi * np.arctan2(nps.mag(v[...,:2]),
-                                   v[...,2])
+    def th_from_q(q, *intrinsics):
+        v = mrcal.unproject( q, *intrinsics)
+        # some unprojections may be nan (we're looking beyond where the projection
+        # is valid), so I explicitly ignore those. The projection behavior may be
+        # poorly defined at the corners and edges (uncertainty is high), so the
+        # resulting unprojection might still be very imprecise
+        v = v[np.all(np.isfinite(v),  axis=-1)]
+        return 180./np.pi * np.arctan2(nps.mag(v[...,:2]),
+                                       v[...,2])
 
-x0,x1 = (0, W-1)
-y0,y1 = (0, H-1)
+    x0,x1 = (0, W-1)
+    y0,y1 = (0, H-1)
 
-q_corners = np.array(((x0,y0),
-                      (x0,y1),
-                      (x1,y0),
-                      (x1,y1)), dtype=float)
-q_centersx  = np.array(((cxy[0],y0),
-                        (cxy[0],y1)), dtype=float)
-q_centersy  = np.array(((x0,cxy[1]),
-                        (x1,cxy[1])), dtype=float)
+    q_corners = np.array(((x0,y0),
+                          (x0,y1),
+                          (x1,y0),
+                          (x1,y1)), dtype=float)
+    q_centersx  = np.array(((cxy[0],y0),
+                            (cxy[0],y1)), dtype=float)
+    q_centersy  = np.array(((x0,cxy[1]),
+                            (x1,cxy[1])), dtype=float)
 
-th_corners  = th_from_q(q_corners,  lensmodel, intrinsics_data)
-th_centersx = th_from_q(q_centersx, lensmodel, intrinsics_data)
-th_centersy = th_from_q(q_centersy, lensmodel, intrinsics_data)
+    th_corners  = th_from_q(q_corners,  lensmodel, intrinsics_data)
+    th_centersx = th_from_q(q_centersx, lensmodel, intrinsics_data)
+    th_centersy = th_from_q(q_centersy, lensmodel, intrinsics_data)
 
-np.set_printoptions(precision = 2)
-print(f"Valid radial angle at the centersx: {th_centersx}degrees")
-print(f"Valid radial angle at the centersy: {th_centersy}degrees")
-print(f"Valid radial angle at the corners:  {th_corners}degrees")
-print('-----------------------------')
+    np.set_printoptions(precision = 2)
+    print(f"{header}Valid radial angle at the centersx: {th_centersx}degrees")
+    print(f"{header}Valid radial angle at the centersy: {th_centersy}degrees")
+    print(f"{header}Valid radial angle at the corners:  {th_corners}degrees")
+    print(f'{header}-----------------------------')
 
-if th_centersx.size: print(f"Mean FOV vertically:    {2.*np.mean(th_centersx):.2f}degrees")
-else:                print(f"Mean FOV vertically:    undefined")
+    if th_centersx.size: print(f"{header}Mean FOV vertically:    {2.*np.mean(th_centersx):.2f}degrees")
+    else:                print(f"{header}Mean FOV vertically:    undefined")
 
-if th_centersx.size: print(f"Mean FOV horizontally:  {2.*np.mean(th_centersy):.2f}degrees")
-else:                print(f"Mean FOV horizontally:  undefined")
+    if th_centersx.size: print(f"{header}Mean FOV horizontally:  {2.*np.mean(th_centersy):.2f}degrees")
+    else:                print(f"{header}Mean FOV horizontally:  undefined")
 
-if th_centersx.size: print(f"Mean FOV corner-corner: {2.*np.mean(th_corners):.2f}degrees")
-else:                print(f"Mean FOV corner-corner: undefined")
+    if th_centersx.size: print(f"{header}Mean FOV corner-corner: {2.*np.mean(th_corners):.2f}degrees")
+    else:                print(f"{header}Mean FOV corner-corner: undefined")
+
+    if len(args.models) > 1 and i+1 != len(args.models):
+        print('')
 
