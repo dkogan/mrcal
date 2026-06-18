@@ -270,7 +270,7 @@ future
             return isinstance(x,str) and x==''
         v_to = d.get(name_to, '')
         if isinstance(d.get(name_from),str) and d.get(name_from).startswith('ERROR:'):
-            d[name_from] = d[name_to]
+            d[name_from] = v_to
 
         v_from = d.get(name_from, '')
 
