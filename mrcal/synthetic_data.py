@@ -766,7 +766,8 @@ def make_tracks(model,
                 track_length,
                 Nobservations_image,  # desired feature density
                 gridn,
-                Npoint_observations_min = 4):
+                Npoint_observations_min = 4,
+                Ncam_observing_min      = 4):
 
 
     def generate_new_features(q_extant, model, Rt_NED_cam,
@@ -843,25 +844,44 @@ def make_tracks(model,
                           rt_cam_ref,
                           observations_point,
                           *,
-                          Npoint_observations_min):
+                          Npoint_observations_min,
+                          Ncam_observing_min):
         r'''Make sure the input arrays are normal
 
     - The indices are all sequential and monotonic, starting at 0
 
     - Each point must be observed at least Npoint_observations_min times
+
+    - Each camera poes must obesrve at least Ncam_observing_min
     '''
 
         if np.any(indices_point_camintrinsics_camextrinsics < 0):
             raise Exception("This function assumes all indices are >= 0. Mount your arrays before passing them in")
 
-        # Any point observed too few times is thrown out
-        ipoint,cami,came = nps.transpose(indices_point_camintrinsics_camextrinsics)
-        idx,counts = \
-            np.unique(ipoint,
-                      return_counts  = True)
-        mask_meas_keep = np.isin(ipoint, idx[counts >= Npoint_observations_min])
-        indices_point_camintrinsics_camextrinsics = indices_point_camintrinsics_camextrinsics[mask_meas_keep]
-        observations_point                        = observations_point                       [mask_meas_keep]
+        while True:
+
+            # Any point observed too few times is thrown out
+            ipoint,cami,came = nps.transpose(indices_point_camintrinsics_camextrinsics)
+            idx,counts = \
+                np.unique(ipoint,
+                          return_counts  = True)
+            mask_meas_keep = np.isin(ipoint, idx[counts >= Npoint_observations_min])
+            indices_point_camintrinsics_camextrinsics = indices_point_camintrinsics_camextrinsics[mask_meas_keep]
+            observations_point                        = observations_point                       [mask_meas_keep]
+            any_removed = not np.all(mask_meas_keep)
+
+            # Any camera poses observing too few points are thrown out
+            ipoint,cami,came = nps.transpose(indices_point_camintrinsics_camextrinsics)
+            idx,counts = \
+                np.unique(came,
+                          return_counts  = True)
+            mask_meas_keep = np.isin(came, idx[counts >= Ncam_observing_min])
+            indices_point_camintrinsics_camextrinsics = indices_point_camintrinsics_camextrinsics[mask_meas_keep]
+            observations_point                        = observations_point                       [mask_meas_keep]
+            any_removed = any_removed or not np.all(mask_meas_keep)
+
+            if not any_removed: break
+
 
 
         # Everything should be sequential and monotonic, starting at 0
@@ -1046,7 +1066,8 @@ def make_tracks(model,
                             points,
                             rt_cam_ref,
                             observations_point,
-                            Npoint_observations_min = Npoint_observations_min)
+                            Npoint_observations_min = Npoint_observations_min,
+                            Ncam_observing_min      = Ncam_observing_min)
 
     return \
         (indices_point_camintrinsics_camextrinsics,
