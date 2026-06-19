@@ -2244,3 +2244,42 @@ The scalar resolution in degrees/pixel
     if mode == 'eccentricity': return resolution_max_deg_pix/resolution_min_deg_pix
 
     return (resolution_min_deg_pix + resolution_max_deg_pix)/2.
+
+
+def _report_optimization_conditioning(optimization_inputs,
+                                      **kwargs):
+
+    r'''Report some diagnostics that could cause solver difficulties
+
+I look for directions in state space that have little effect on the
+measurements. Ideally all motions in state space have a large effect.
+
+norm2(dx) = dbt JtJ db.
+
+So we look at eigenvectors of JtJ corresponding to smallest eigenvalues
+
+    '''
+
+    import scipy.sparse.linalg
+    import gnuplotlib as gp
+
+    b,x,J,F = mrcal.optimizer_callback(**optimization_inputs)
+
+
+    JtJ = J.T @ J
+    l_largest,v_largest = scipy.sparse.linalg.eigsh(JtJ, k=10, which='LM')
+
+    Nstate = len(b)
+    JtJ_inv_op = \
+        scipy.sparse.linalg.LinearOperator((Nstate, Nstate),
+                                           matvec = lambda b: F.solve_xt_JtJ_bt(b.astype(float)))
+
+    # eig_largest(JtJ_inv) = eig_smallest(JtJ)
+    l_smallest,v_smallest = scipy.sparse.linalg.eigsh(JtJ_inv_op, k=10, which='LM')
+    l_smallest = 1.0/l_smallest
+
+    # find small eigenvalues
+    gp.plot( v_smallest.T,
+             legend = l_smallest,
+             _set = mrcal.plotoptions_state_boundaries(**optimization_inputs),
+             **kwargs)
