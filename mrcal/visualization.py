@@ -2299,8 +2299,10 @@ plot
         v = mrcal.unproject( q, *intrinsics)
         # some unprojections may be nan (we're looking beyond where the projection
         # is valid), so I explicitly ignore those
-        v = v [np.all(np.isfinite(v),  axis=-1)]
-        return 180./np.pi * np.arctan2(nps.mag(v [...,:2]), v [...,2])
+        mask = np.all(np.isfinite(v),  axis=-1)
+        v[~mask] = 1 # to avoid errors in the arctan2
+        return (180./np.pi * np.arctan2(nps.mag(v [...,:2]), v [...,2]),
+                mask)
 
     x0,x1 = 0, W-1
     y0,y1 = 0, H-1
@@ -2314,9 +2316,15 @@ plot
     q_centersy  = np.array(((x0,cxy[1]),
                             (x1,cxy[1])), dtype=float)
 
-    th_corners  = th_from_q(q_corners,  lensmodel, intrinsics_data)
-    th_centersx = th_from_q(q_centersx, lensmodel, intrinsics_data)
-    th_centersy = th_from_q(q_centersy, lensmodel, intrinsics_data)
+    th_corners,m = th_from_q(q_corners,  lensmodel, intrinsics_data)
+    th_corners   = th_corners[m]
+
+    th_centersx,m = th_from_q(q_centersx, lensmodel, intrinsics_data)
+    th_centersx   = th_centersx[m]
+
+    th_centersy,m = th_from_q(q_centersy, lensmodel, intrinsics_data)
+    th_centersy   = th_centersy[m]
+
 
     if show_fisheye_projections:
         equations += [f'180./pi*atan(2. * tan( x*pi/180. / 2.)) title "stereographic"',
@@ -2377,10 +2385,10 @@ plot
                                             (0,      cxy[1]),),)):
             qxy = np.linspace( cxy, target, N)
 
-            th_pinhole = th_from_q(qxy, 'LENSMODEL_PINHOLE', intrinsics_data[:4])
-            th         = th_from_q(qxy, lensmodel, intrinsics_data)
-
-            data_tuples[i] = (th, th_pinhole,
+            th_pinhole,mask0 = th_from_q(qxy, 'LENSMODEL_PINHOLE', intrinsics_data[:4])
+            th,        mask1 = th_from_q(qxy, lensmodel, intrinsics_data)
+            mask = mask0 * mask1
+            data_tuples[i] = (th[mask], th_pinhole[mask],
                               dict(_with  = 'lines',
                                    legend = f'optical center to imager {what[i]}'))
     else:
