@@ -2278,7 +2278,9 @@ So we look at eigenvectors of JtJ corresponding to smallest eigenvalues
     l_smallest,v_smallest = scipy.sparse.linalg.eigsh(JtJ_inv_op, k=10, which='LM')
     l_smallest = 1.0/l_smallest
 
-    # find small eigenvalues
+    gp.add_plot_option(kwargs,
+                       title     = "Eigenvectors(JtJ) for the smallest eigenvalues. Quantifies norm2(dx)",
+                       overwrite = True)
     gp.plot( v_smallest.T,
              legend = l_smallest,
              _set = mrcal.plotoptions_state_boundaries(**optimization_inputs),
