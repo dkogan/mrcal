@@ -845,7 +845,8 @@ def make_tracks(model,
                           observations_point,
                           *,
                           Npoint_observations_min,
-                          Ncam_observing_min):
+                          Ncam_observing_min,
+                          Nobservations_min = 10):
         r'''Make sure the input arrays are normal
 
     - The indices are all sequential and monotonic, starting at 0
@@ -854,6 +855,9 @@ def make_tracks(model,
 
     - Each camera poes must obesrve at least Ncam_observing_min
     '''
+
+        if len(indices_point_camintrinsics_camextrinsics) < Nobservations_min:
+            raise Exception("Started out with too few indices_point_camintrinsics_camextrinsics")
 
         if np.any(indices_point_camintrinsics_camextrinsics < 0):
             raise Exception("This function assumes all indices are >= 0. Mount your arrays before passing them in")
@@ -869,6 +873,8 @@ def make_tracks(model,
             indices_point_camintrinsics_camextrinsics = indices_point_camintrinsics_camextrinsics[mask_meas_keep]
             observations_point                        = observations_point                       [mask_meas_keep]
             any_removed = not np.all(mask_meas_keep)
+            if len(indices_point_camintrinsics_camextrinsics) < Nobservations_min:
+                raise Exception("Culled Npoint_observations_min, and too few indices_point_camintrinsics_camextrinsics remain")
 
             # Any camera poses observing too few points are thrown out
             ipoint,cami,came = nps.transpose(indices_point_camintrinsics_camextrinsics)
@@ -879,6 +885,8 @@ def make_tracks(model,
             indices_point_camintrinsics_camextrinsics = indices_point_camintrinsics_camextrinsics[mask_meas_keep]
             observations_point                        = observations_point                       [mask_meas_keep]
             any_removed = any_removed or not np.all(mask_meas_keep)
+            if len(indices_point_camintrinsics_camextrinsics) < Nobservations_min:
+                raise Exception("Culled Ncam_observing_min, and too few indices_point_camintrinsics_camextrinsics remain")
 
             if not any_removed: break
 
