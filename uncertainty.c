@@ -971,6 +971,13 @@ bool _mrcal_drt_cross_reprojection__dbpacked(// output
         return false;
     }
 
+    if(state_index_frames0     < 0 &&
+       state_index_extrinsics0 < 0)
+    {
+        MSG("Cross-reprojection uncertainty requires either the extrinsics or the frames/points to be optimized. Otherwise the direct method looking at the intrinsics subset of J works fine");
+        return false;
+    }
+
 #define INIT_ARRAY(Kpacked, N)                                          \
     init_stride_2D(Kpacked, 6, N);                                      \
     const int Kpacked ## _stride0_elems = Kpacked ## _stride0 / sizeof(double); \
