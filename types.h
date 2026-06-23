@@ -12,7 +12,7 @@
 extern "C" {
 #endif
 
-
+#include <assert.h>
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -62,11 +62,7 @@ typedef struct {} mrcal_LENSMODEL_CAHVOR__config_t;
 
 #define _MRCAL_ITEM_DEFINE_ELEMENT(name, type, pybuildvaluecode, PRIcode,SCNcode, bitfield, cookie) type name bitfield;
 
-#ifndef __cplusplus
-// This barfs with g++ 4.8, so I disable it for C++ in general. Checking it for
-// C code is sufficient
-_Static_assert(sizeof(uint16_t) == sizeof(unsigned short int), "I need a short to be 16-bit. Py_BuildValue doesn't let me just specify that. H means 'unsigned short'");
-#endif
+static_assert(sizeof(uint16_t) == sizeof(unsigned short int), "I need a short to be 16-bit. Py_BuildValue doesn't let me just specify that. H means 'unsigned short'");
 
 // Configuration for CAHVORE. These are given as an an
 // "X macro": https://en.wikipedia.org/wiki/X_Macro

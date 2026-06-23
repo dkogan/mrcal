@@ -8,6 +8,7 @@
 
 #define NPY_NO_DEPRECATED_API NPY_API_VERSION
 
+#include <assert.h>
 #include <stdbool.h>
 #include <Python.h>
 #include <structmember.h>
@@ -26,6 +27,7 @@
 #include "mrcal.h"
 #include "image.h"
 #include "stereo.h"
+#include "_util.h"
 
 #include "python-wrapping-utilities.h"
 
@@ -58,7 +60,7 @@ static PyObject* csr_from_cholmod_sparse( PyObject* P,
     }
 
     // Here I'm assuming specific types in my cholmod arrays. I tried to
-    // _Static_assert it, but internally cholmod uses void*, so I can't do that
+    // static_assert it, but internally cholmod uses void*, so I can't do that
     PyObject* MatrixDef = PyTuple_Pack(3, X, I, P);
     args                = PyTuple_Pack(1, MatrixDef);
     Py_DECREF(MatrixDef);
@@ -980,9 +982,9 @@ static bool optimize_validate_args( // out
                                     OPTIMIZE_ARGUMENTS_OPTIONAL(ARG_LIST_DEFINE)
                                     OPTIMIZER_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(ARG_LIST_DEFINE)
                                     CROSS_REPROJECTION_CALLBACK_ARGUMENTS_OPTIONAL_EXTRA(ARG_LIST_DEFINE)
-                                    void* dummy __attribute__((unused)))
+                                    void* dummy MRCAL_UNUSED)
 {
-    _Static_assert( sizeof(mrcal_pose_t)/sizeof(double) == 6, "mrcal_pose_t is assumed to contain 6 elements");
+    static_assert( sizeof(mrcal_pose_t)/sizeof(double) == 6, "mrcal_pose_t is assumed to contain 6 elements");
 
     OPTIMIZE_ARGUMENTS_REQUIRED(CHECK_LAYOUT);
     OPTIMIZE_ARGUMENTS_OPTIONAL(CHECK_LAYOUT);
@@ -3828,7 +3830,7 @@ PyObject* save_image(PyObject* NPY_UNUSED(self),
     _(R_cam0_rect0, PyArrayObject*, NULL, "O&", PyArray_Converter COMMA, R_cam0_rect0, NPY_DOUBLE, {3 COMMA 3 } )
 static bool
 rectified_resolution_validate_args(RECTIFIED_RESOLUTION_ARGUMENTS(ARG_LIST_DEFINE)
-                                   void* dummy __attribute__((unused)))
+                                   void* dummy MRCAL_UNUSED)
 {
     RECTIFIED_RESOLUTION_ARGUMENTS(CHECK_LAYOUT);
     return true;
@@ -3933,7 +3935,7 @@ PyObject* _rectified_resolution(PyObject* NPY_UNUSED(self),
     _(rt_cam1_ref, PyArrayObject*, NULL, "O&", PyArray_Converter COMMA, rt_cam1_ref, NPY_DOUBLE, {6 } )
 static bool
 rectified_system_validate_args(RECTIFIED_SYSTEM_ARGUMENTS(ARG_LIST_DEFINE)
-                               void* dummy __attribute__((unused)))
+                               void* dummy MRCAL_UNUSED)
 {
     RECTIFIED_SYSTEM_ARGUMENTS(CHECK_LAYOUT);
     return true;
@@ -4099,7 +4101,7 @@ PyObject* _rectified_system(PyObject* NPY_UNUSED(self),
 
 static bool
 rectification_maps_validate_args(RECTIFICATION_MAPS_ARGUMENTS(ARG_LIST_DEFINE)
-                                 void* dummy __attribute__((unused)))
+                                 void* dummy MRCAL_UNUSED)
 {
     RECTIFICATION_MAPS_ARGUMENTS(CHECK_LAYOUT);
     return true;

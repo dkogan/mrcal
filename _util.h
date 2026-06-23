@@ -17,6 +17,14 @@ extern "C" {
 
 #define MSG(fmt, ...) fprintf(stderr, "%s(%d): " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__)
 
+#ifdef _MSC_VER
+#define MRCAL_HIDDEN
+#define MRCAL_UNUSED
+#else
+#define MRCAL_HIDDEN __attribute__((visibility ("hidden")))
+#define MRCAL_UNUSED __attribute__((unused))
+#endif
+
 #ifdef __cplusplus
 }
 #endif

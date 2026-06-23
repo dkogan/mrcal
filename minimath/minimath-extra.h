@@ -1,5 +1,13 @@
 #pragma once
 
+#ifdef _MSC_VER
+#define MRCAL_HIDDEN
+#define MRCAL_UNUSED
+#else
+#define MRCAL_HIDDEN __attribute__((visibility ("hidden")))
+#define MRCAL_UNUSED __attribute__((unused))
+#endif
+
 // Extra functions I'm using in mrcal. I'm going to replace this whole library
 // eventually, to make things nicer. These new functions will be a part of the
 // replacement, and I'm not going to be thorough and I'm not going to add tests
@@ -7,7 +15,7 @@
 
 
 // Upper triangle is stored, in the usual row-major order.
-__attribute__((unused))
+MRCAL_UNUSED
 static
 int index_sym33(int i, int j)
 {
@@ -19,7 +27,7 @@ int index_sym33(int i, int j)
     if(i<=j) return (N*2-i-1)*i/2 + j;
     else     return (N*2-j-1)*j/2 + i;
 }
-__attribute__((unused))
+MRCAL_UNUSED
 static
 int index_sym33_assume_upper(int i, int j)
 {
@@ -28,7 +36,7 @@ int index_sym33_assume_upper(int i, int j)
 }
 
 // Upper triangle is stored, in the usual row-major order.
-__attribute__((unused))
+MRCAL_UNUSED
 static
 int index_sym66(int i, int j)
 {
@@ -40,14 +48,14 @@ int index_sym66(int i, int j)
     if(i<=j) return (N*2-i-1)*i/2 + j;
     else     return (N*2-j-1)*j/2 + i;
 }
-__attribute__((unused))
+MRCAL_UNUSED
 static
 int index_sym66_assume_upper(int i, int j)
 {
     const int N=6;
     return (N*2-i-1)*i/2 + j;
 }
-__attribute__((unused))
+MRCAL_UNUSED
 static
 void mul_gen33_gen33insym66(// output
                             double* restrict P, int P_strideelems0, int P_strideelems1,
@@ -70,7 +78,7 @@ void mul_gen33_gen33insym66(// output
         }
 }
 // Assumes the output is symmetric, and only computes the upper triangle
-__attribute__((unused))
+MRCAL_UNUSED
 static
 void mul_gen33_gen33_into33insym66_accum(// output
                                          double* restrict Psym66, int P_i0, int P_j0,
@@ -98,7 +106,7 @@ void mul_gen33_gen33_into33insym66_accum(// output
             }
         }
 }
-__attribute__((unused))
+MRCAL_UNUSED
 static
 void set_gen33_from_gen33insym66_accum(// output
                                        double* restrict P, int P_strideelems0, int P_strideelems1,
@@ -112,7 +120,7 @@ void set_gen33_from_gen33insym66_accum(// output
                 Msym66[index_sym66(iout+M_i0, jout+M_j0)] * scale;
 }
 // Assumes the output is symmetric, and only computes the upper triangle
-__attribute__((unused))
+MRCAL_UNUSED
 static
 void set_33insym66_from_gen33_accum(// output
                                     double* restrict Psym66, int P_i0, int P_j0,
@@ -152,7 +160,7 @@ void set_33insym66_from_gen33_accum(// output
 } while(0)
 
 // Matrix multiplication. Dimensions (N,L) <- (N,M) * (M,L)
-__attribute__((unused))
+MRCAL_UNUSED
 static
 void mul_genNM_genML(// output
                      double* restrict P, int P_strideelems0, int P_strideelems1,
@@ -164,7 +172,7 @@ void mul_genNM_genML(// output
 {
     _MUL_CORE(1);
 }
-__attribute__((unused))
+MRCAL_UNUSED
 static
 void mul_genNM_genML_accum(// output
                            double* restrict P, int P_strideelems0, int P_strideelems1,
@@ -189,7 +197,7 @@ void mul_genNM_genML_accum(// output
 #define mul_vec3t_gen33t(P,v,A,scale,ACCUM) mul_genNM_genML ## ACCUM(P,3,1, 1,3,3, v,3,1, A,1,3, scale)
 
 
-__attribute__((unused))
+MRCAL_UNUSED
 static inline void mul_vec6_sym66_scaled_strided(double* restrict v, int v_strideelems,
                                                  const double* restrict s,
                                                  const double scale)
@@ -203,7 +211,7 @@ static inline void mul_vec6_sym66_scaled_strided(double* restrict v, int v_strid
   v[5*v_strideelems] = (s[5]*t[0] + s[10]*t[1] + s[14]*t[2] + s[17]*t[3] + s[19]*t[4] + s[20]*v[5*v_strideelems]) * scale;
 }
 
-__attribute__((unused))
+MRCAL_UNUSED
 static inline void mul_genN6_sym66_scaled_strided(int n,
                                                   double* restrict v, int v_strideelems0, int v_strideelems1,
                                                   const double* restrict s,
@@ -214,3 +222,6 @@ static inline void mul_genN6_sym66_scaled_strided(int n,
                                     s,
                                     scale);
 }
+
+#undef MRCAL_UNUSED
+#undef MRCAL_HIDDEN
