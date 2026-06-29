@@ -312,7 +312,7 @@ static int LENSMODEL_SPLINED_STEREOGRAPHIC__lensmodel_num_params(const mrcal_LEN
 int mrcal_lensmodel_num_params(const mrcal_lensmodel_t* lensmodel)
 {
 #define CHECK_CONFIG_NPARAM_NOCONFIG(s,n) \
-    _Static_assert(n >= 0, "no-config implies known-at-compile-time param count");
+    static_assert(n >= 0, "no-config implies known-at-compile-time param count");
 
     switch(lensmodel->type)
     {
@@ -2674,8 +2674,8 @@ void project( // out
     if(!camera_at_identity)
     {
         // make sure I can pass mrcal_pose_t.r as an rt[] transformation
-        _Static_assert( offsetof(mrcal_pose_t, r) == 0,                   "mrcal_pose_t has expected structure");
-        _Static_assert( offsetof(mrcal_pose_t, t) == 3*sizeof(double),    "mrcal_pose_t has expected structure");
+        static_assert( offsetof(mrcal_pose_t, r) == 0,                   "mrcal_pose_t has expected structure");
+        static_assert( offsetof(mrcal_pose_t, t) == 3*sizeof(double),    "mrcal_pose_t has expected structure");
         mrcal_compose_rt( _joint_rt,
                           gg._d_rj_rc, gg._d_rj_rf,
                           gg._d_tj_rc, gg._d_tj_tf,
@@ -3458,8 +3458,8 @@ void mrcal_pack_solver_state_vector( // out, in
                                              lensmodel, problem_selections,
                                              Ncameras_intrinsics );
 
-    _Static_assert( offsetof(mrcal_pose_t, r) == 0,                   "mrcal_pose_t has expected structure");
-    _Static_assert( offsetof(mrcal_pose_t, t) == 3*sizeof(double),    "mrcal_pose_t has expected structure");
+    static_assert( offsetof(mrcal_pose_t, r) == 0,                   "mrcal_pose_t has expected structure");
+    static_assert( offsetof(mrcal_pose_t, t) == 3*sizeof(double),    "mrcal_pose_t has expected structure");
     if( problem_selections.do_optimize_extrinsics )
         for(int icam_extrinsics=0; icam_extrinsics < Ncameras_extrinsics; icam_extrinsics++)
         {
@@ -3708,9 +3708,9 @@ void mrcal_unpack_solver_state_vector( // out, in
 
     if( problem_selections.do_optimize_extrinsics )
     {
-        _Static_assert( offsetof(mrcal_pose_t, r) == 0,
+        static_assert( offsetof(mrcal_pose_t, r) == 0,
                        "mrcal_pose_t has expected structure");
-        _Static_assert( offsetof(mrcal_pose_t, t) == 3*sizeof(double),
+        static_assert( offsetof(mrcal_pose_t, t) == 3*sizeof(double),
                        "mrcal_pose_t has expected structure");
 
         mrcal_pose_t* rt_cam_ref = (mrcal_pose_t*)(&b[i_state]);
