@@ -6474,11 +6474,11 @@ mrcal_optimize( // out
 #if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
 #warning "triangulated-solve: this print does not include triangulated outliers"
 #endif
-                 ({MSG("Threw out some outliers. New count = %d/%d (%.1f%%). Going again",
-                       stats.Noutliers_board,
-                       Nmeasurements_board,
-                       (double)(stats.Noutliers_board * 100) / (double)Nmeasurements_board);
-                   true;}));
+                 (MSG("Threw out some outliers. New count = %d/%d (%.1f%%). Going again",
+                      stats.Noutliers_board,
+                      Nmeasurements_board,
+                      (double)(stats.Noutliers_board * 100) / (double)Nmeasurements_board),
+                   true));
 #if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
 #warning "triangulated-solve: the above print should deal with triangulated points too"
 #endif

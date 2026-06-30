@@ -1445,16 +1445,16 @@ int fill_c_observations_point_triangulated(// output. I fill in the given arrays
 }
 
 #define PROBLEM_SELECTIONS_SET_BIT(x) .x = x,
-#define CONSTRUCT_PROBLEM_SELECTIONS() ({                               \
+#define CONSTRUCT_PROBLEM_SELECTIONS() (                               \
     /* By default we optimize everything we can; these are default at <0 */                         \
-    if(do_optimize_intrinsics_core        < 0) do_optimize_intrinsics_core        = Ncameras_intrinsics>0; \
-    if(do_optimize_intrinsics_distortions < 0) do_optimize_intrinsics_distortions = Ncameras_intrinsics>0; \
-    if(do_optimize_extrinsics             < 0) do_optimize_extrinsics             = Ncameras_extrinsics>0; \
-    if(do_optimize_frames                 < 0) do_optimize_frames                 = Nframes            >0; \
-    if(do_optimize_calobject_warp         < 0) do_optimize_calobject_warp         = Nobservations_board>0; \
+    do_optimize_intrinsics_core        = do_optimize_intrinsics_core        >= 0 ? do_optimize_intrinsics_core        : (Ncameras_intrinsics>0), \
+    do_optimize_intrinsics_distortions = do_optimize_intrinsics_distortions >= 0 ? do_optimize_intrinsics_distortions : (Ncameras_intrinsics>0), \
+    do_optimize_extrinsics             = do_optimize_extrinsics             >= 0 ? do_optimize_extrinsics             : (Ncameras_extrinsics>0), \
+    do_optimize_frames                 = do_optimize_frames                 >= 0 ? do_optimize_frames                 : (Nframes            >0), \
+    do_optimize_calobject_warp         = do_optimize_calobject_warp         >= 0 ? do_optimize_calobject_warp         : (Nobservations_board>0), \
     /* stuff not in the above if doesn't have a <0 default; those are all 0 or 1 already */          \
-    (mrcal_problem_selections_t) { MRCAL_PROBLEM_SELECTIONS_LIST(PROBLEM_SELECTIONS_SET_BIT) }; \
-})
+    (mrcal_problem_selections_t) { MRCAL_PROBLEM_SELECTIONS_LIST(PROBLEM_SELECTIONS_SET_BIT) } \
+)
 
 // Handle legacy aliases. If they're not both defined and the new name isn't
 // defined, use the old name
@@ -1664,7 +1664,7 @@ PyObject* _optimize(optimizemode_t optimizemode,
     // args, not 1. That's why I have a __VA_ARGS__ here and why I instantiate a
     // separate dims[] (PyArray_SimpleNew is a macro too)
 #define SET_SIZE0_IF_NONE(x, type, ...)                                 \
-    ({                                                                  \
+    do {                                                                \
         if( IS_NULL(x) )                                                \
         {                                                               \
             if( x != NULL ) Py_DECREF(x);                               \
@@ -1672,7 +1672,7 @@ PyObject* _optimize(optimizemode_t optimizemode,
             x = (PyArrayObject*)PyArray_SimpleNew(sizeof(dims)/sizeof(dims[0]), \
                                                   dims, type);          \
         }                                                               \
-    })
+    } while(0)
 
     SET_SIZE0_IF_NONE(rt_cam_ref,      NPY_DOUBLE, 0,6);
 
