@@ -146,6 +146,13 @@ def invert_R(R):
 '''
     return nps.transpose(R)
 
+def compose_R(R0, R1):
+    r'''Simple reference implementation
+
+    b = R0 R1
+'''
+    return nps.matmult(R0,R1)
+
 def compose_Rt(Rt0, Rt1):
     r'''Simple reference implementation
 

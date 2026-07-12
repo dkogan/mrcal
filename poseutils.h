@@ -430,6 +430,33 @@ void mrcal_compose_Rt_full( // output
                            bool inverted0,
                            bool inverted1);
 
+// Compose two R rotations: this is just a matrix multiplication
+//
+// The input transformations are given in (3,3) arrays R_0 and R_1
+//
+// The result is returned in a (3,3) array R_out
+//
+// In-place operation is supported; the output array may be the same as either
+// of the input arrays to overwrite the input.
+#define mrcal_compose_R(           R_out,R_0,R_1) mrcal_compose_R_full(R_out,0,0,R_0,0,0,R_1,0,0,false,false)
+#define mrcal_compose_R_inverted0( R_out,R_0,R_1) mrcal_compose_R_full(R_out,0,0,R_0,0,0,R_1,0,0,true, false)
+#define mrcal_compose_R_inverted1( R_out,R_0,R_1) mrcal_compose_R_full(R_out,0,0,R_0,0,0,R_1,0,0,false,true )
+#define mrcal_compose_R_inverted01(R_out,R_0,R_1) mrcal_compose_R_full(R_out,0,0,R_0,0,0,R_1,0,0,true, true )
+void mrcal_compose_R_full( // output
+                           double* R_out,      // (3,3) array
+                           int R_out_stride0,  // in bytes. <= 0 means "contiguous"
+                           int R_out_stride1,  // in bytes. <= 0 means "contiguous"
+
+                           // input
+                           const double* R_0,  // (3,3) array
+                           int R_0_stride0,    // in bytes. <= 0 means "contiguous"
+                           int R_0_stride1,    // in bytes. <= 0 means "contiguous"
+                           const double* R_1,  // (3,3) array
+                           int R_1_stride0,    // in bytes. <= 0 means "contiguous"
+                           int R_1_stride1,    // in bytes. <= 0 means "contiguous"
+                           bool inverted0,
+                           bool inverted1);
+
 // Compose two rt transformations
 //
 // rt = rt0 * rt1  --->  rt(x) = rt0( rt1(x) )

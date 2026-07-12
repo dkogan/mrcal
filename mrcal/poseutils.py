@@ -625,6 +625,71 @@ An array of composed Rt transformations. Each broadcasted slice has shape (4,3)
     Rt1onwards = reduce( _poseutils_npsp._compose_Rt, Rt[1:] )
     return _poseutils_npsp._compose_Rt(Rt[0], Rt1onwards, out=out)
 
+def compose_R(*R, out=None, inverted0=False, inverted1=False):
+    r"""Compose R rotations
+
+SYNOPSIS
+
+    R10 = rotation_matrix10
+    R21 = rotation_matrix21
+    R32 = rotation_matrix32
+
+    print(R10.shape)
+    ===>
+    (3,3)
+
+    R30 = mrcal.compose_R( R32, R21, R10 )
+
+    print(x0.shape)
+    ===>
+    (3,)
+
+    print( nps.norm2( mrcal.rotate_point_R(R30, x0) -
+                      mrcal.rotate_point_R(R32,
+                        mrcal.rotate_point_R(R21,
+                          mrcal.rotate_point_R(R10, x0)))))
+    ===>
+    0
+
+Given 2 or more R rotation matrices, returns their composition. This is just a
+matrix multiplication.
+
+This function supports broadcasting fully, so we can compose lots of rotations
+at the same time.
+
+In-place operation is supported; the output array may be the same as either of
+the input arrays to overwrite the input.
+
+ARGUMENTS
+
+- *R: a list of rotations to compose. Usually we'll be composing two rotations,
+  but any number could be given here. Each broadcasted slice has shape (3,3).
+
+- inverted0,inverted1: optional booleans, defaulting to False. If True, the
+  opposite rotation is used for R0 and/or R1 respectively. inverted=True is only
+  supported when exactly two rotations are given
+
+- out: optional argument specifying the destination. By default, a new numpy
+  array is created and returned. To write the results into an existing (and
+  possibly non-contiguous) array, specify it with the 'out' kwarg. If 'out' is
+  given, we return the 'out' that was passed in. This is the standard behavior
+  provided by numpysane_pywrap.
+
+RETURNED VALUE
+
+An array of composed R rotations. Each broadcasted slice has shape (3,3)
+
+    """
+    if len(R) == 2:
+        return _poseutils_npsp._compose_R(*R, out=out, inverted0=inverted0, inverted1=inverted1)
+
+    if inverted0 or inverted1:
+        raise Exception("compose_R(..., inverted...=True) is supported only if exactly 2 inputs are given")
+
+    R1onwards = reduce( _poseutils_npsp._compose_R, R[1:] )
+    return _poseutils_npsp._compose_R(R[0], R1onwards, out=out)
+
+
 def compose_r(*r, get_gradients=False, out=None, inverted0=False, inverted1=False):
     r"""Compose angle-axis rotations
 

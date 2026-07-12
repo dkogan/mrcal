@@ -702,6 +702,36 @@ for that function for details. This internal function differs from compose_Rt():
 '''},
 )
 
+m.function( "_compose_R",
+            """Composes two R rotations
+
+This is an internal function. You probably want mrcal.compose_R(). See the docs
+for that function for details. This internal function differs from compose_R():
+
+- It supports exactly two arguments, while compose_R() can compose N
+  rotations
+""",
+
+            args_input       = ('R0', 'R1'),
+            prototype_input  = ((3,3,), (3,3,)),
+            prototype_output = (3,3),
+            extra_args = (("int", "inverted0", "false", "p"),
+                          ("int", "inverted1", "false", "p"),),
+
+            Ccode_slice_eval = \
+                {np.float64:
+                 r'''
+    mrcal_compose_R_full( (double*)data_slice__output,
+                           strides_slice__output[0], strides_slice__output[1],
+                           (const double*)data_slice__R0,
+                           strides_slice__R0[0], strides_slice__R0[1],
+                           (const double*)data_slice__R1,
+                           strides_slice__R1[0], strides_slice__R1[1],
+                           *inverted0, *inverted1);
+    return true;
+'''},
+)
+
 m.function( "_compose_r",
             """Compose two angle-axis rotations
 

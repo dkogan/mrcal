@@ -27,6 +27,7 @@ Functions to manipulate [[file:conventions.org::#pose-representation][rotations 
 - [[file:mrcal-python-api-reference.html#-invert_Rt][=mrcal.invert_Rt()=]]: Invert an Rt transformation
 - [[file:mrcal-python-api-reference.html#-invert_rt][=mrcal.invert_rt()=]]: Invert an rt transformation
 - [[file:mrcal-python-api-reference.html#-compose_r][=mrcal.compose_r()=]]: Compose Rodrigues rotations
+- [[file:mrcal-python-api-reference.html#-compose_R][=mrcal.compose_R()=]]: Compose R rotations. This is a matrix multiplication
 - [[file:mrcal-python-api-reference.html#-compose_Rt][=mrcal.compose_Rt()=]]: Compose Rt transformations
 - [[file:mrcal-python-api-reference.html#-compose_rt][=mrcal.compose_rt()=]]: Compose rt transformations
 - [[file:mrcal-python-api-reference.html#-compose_r_tinyr0_gradientr0][=mrcal.compose_r_tinyr0_gradientr0()=:]] Special-case rotation composition,

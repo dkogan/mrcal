@@ -24,6 +24,7 @@ from test_poseutils_helpers import \
     invert_rt,                     \
     invert_Rt,                     \
     invert_R,                      \
+    compose_R,                     \
     compose_Rt,                    \
     normalize_r,                   \
     normalize_rt,                  \
@@ -837,6 +838,57 @@ for iout,outname in ( (0, "Rt0"),
                    compose_Rt(invert_Rt(Rt0_ref), invert_Rt(Rt1_ref)),
                    msg=f'compose_Rt result written in-place to {outname}: inverted01')
 
+############ compose_R()
+
+R2 = mrcal.compose_R(R0_ref, R1_ref,
+                     out=out33)
+confirm_equal( R2,
+               compose_R(R0_ref, R1_ref),
+               msg='compose_R result')
+
+# in-place
+for iout,outname in ( (0, "R0"),
+                      (1, "R1"),):
+    R0_ref_copy = np.array(R0_ref)
+    R1_ref_copy = np.array(R1_ref)
+    out = (R0_ref_copy,R1_ref_copy)[iout]
+    R2 = mrcal.compose_R(R0_ref_copy, R1_ref_copy,
+                         out=out)
+    confirm_equal( R2,
+                   compose_R(R0_ref, R1_ref),
+                   msg=f'compose_R result written in-place to {outname}')
+
+    R0_ref_copy = np.array(R0_ref)
+    R1_ref_copy = np.array(R1_ref)
+    out = (R0_ref_copy,R1_ref_copy)[iout]
+    R2 = mrcal.compose_R(R0_ref_copy, R1_ref_copy,
+                         inverted0=True,
+                         out=out)
+    confirm_equal( R2,
+                   compose_R(invert_R(R0_ref), R1_ref),
+                   msg=f'compose_R result written in-place to {outname}: inverted0')
+
+    R0_ref_copy = np.array(R0_ref)
+    R1_ref_copy = np.array(R1_ref)
+    out = (R0_ref_copy,R1_ref_copy)[iout]
+    R2 = mrcal.compose_R(R0_ref_copy, R1_ref_copy,
+                         inverted1=True,
+                         out=out)
+    confirm_equal( R2,
+                   compose_R(R0_ref, invert_R(R1_ref)),
+                   msg=f'compose_R result written in-place to {outname}: inverted1')
+
+    R0_ref_copy = np.array(R0_ref)
+    R1_ref_copy = np.array(R1_ref)
+    out = (R0_ref_copy,R1_ref_copy)[iout]
+    R2 = mrcal.compose_R(R0_ref_copy, R1_ref_copy,
+                         inverted0=True,
+                         inverted1=True,
+                         out=out)
+    confirm_equal( R2,
+                   compose_R(invert_R(R0_ref), invert_R(R1_ref)),
+                   msg=f'compose_R result written in-place to {outname}: inverted01')
+
 
 ############ compose_rt()
 
@@ -1100,6 +1152,13 @@ Rt2 = mrcal.compose_Rt(Rt0_ref, Rt1_ref,Rt0_ref,
 confirm_equal( Rt2,
                compose_Rt(compose_Rt(Rt0_ref, Rt1_ref), Rt0_ref),
                msg='compose_Rt with 3 inputs')
+
+R2 = mrcal.compose_R(R0_ref, R1_ref,R0_ref,
+                     out=out33)
+confirm_equal( R2,
+               compose_R(compose_R(R0_ref, R1_ref), R0_ref),
+               msg='compose_R with 3 inputs')
+
 
 rt2 = mrcal.compose_rt(rt0_ref, rt1_ref,rt0_ref,
                        out=out6)

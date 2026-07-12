@@ -737,6 +737,45 @@ void mrcal_compose_Rt_full( // output
     }
 }
 
+
+// Compose two R rotations: this is just a matrix multiplication
+void mrcal_compose_R_full( // output
+                           double* R_out,      // (3,3) array
+                           int R_out_stride0,  // in bytes. <= 0 means "contiguous"
+                           int R_out_stride1,  // in bytes. <= 0 means "contiguous"
+
+                           // input
+                           const double* R_0,  // (3,3) array
+                           int R_0_stride0,    // in bytes. <= 0 means "contiguous"
+                           int R_0_stride1,    // in bytes. <= 0 means "contiguous"
+                           const double* R_1,  // (3,3) array
+                           int R_1_stride0,    // in bytes. <= 0 means "contiguous"
+                           int R_1_stride1,    // in bytes. <= 0 means "contiguous"
+                           bool inverted0,
+                           bool inverted1)
+{
+    init_stride_2D(R_out, 3,3);
+    init_stride_2D(R_0,   3,3);
+    init_stride_2D(R_1,   3,3);
+
+    if(!inverted0 && !inverted1)
+        mul_gen33_gen33_vout_full( R_out, R_out_stride0, R_out_stride1,
+                                   R_0,   R_0_stride0,   R_0_stride1,
+                                   R_1,   R_1_stride0,   R_1_stride1 );
+    else if(inverted0 && !inverted1)
+        mul_gen33t_gen33_vout_full( R_out, R_out_stride0, R_out_stride1,
+                                    R_0,   R_0_stride0,   R_0_stride1,
+                                    R_1,   R_1_stride0,   R_1_stride1 );
+    else if(!inverted0 && inverted1)
+        mul_gen33_gen33t_vout_full( R_out, R_out_stride0, R_out_stride1,
+                                    R_0,   R_0_stride0,   R_0_stride1,
+                                    R_1,   R_1_stride0,   R_1_stride1 );
+    else
+        mul_gen33t_gen33t_vout_full( R_out, R_out_stride0, R_out_stride1,
+                                     R_0,   R_0_stride0,   R_0_stride1,
+                                     R_1,   R_1_stride0,   R_1_stride1 );
+}
+
 // Compose two rt transformations. It is assumed that we're getting no gradients
 // at all or we're getting ALL the gradients: only dr_r0 is checked for NULL
 //
