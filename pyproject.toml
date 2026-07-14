@@ -1,0 +1,52 @@
+# Experimental pip-building thing for mrcal.
+#
+# Written 100% by Claude. Pip is heinous and stupid, and nobody should be using
+# it. This may or may not work for you. If it does not, let me know, and/or
+# better yet, send me a patch!
+
+[build-system]
+requires = []
+build-backend = "_mrcal_build_backend"
+backend-path = ["packaging"]
+
+[project]
+name = "mrcal"
+dynamic = ["version"]
+description = "Calibration and SFM library"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.8"
+dependencies = [
+    "numpy",
+    "numpysane>=0.35",
+    "scipy>=0.18",
+    "opencv-python-headless",
+    "gnuplotlib>=0.38",
+    "shapely",
+    "ipython",
+    "matplotlib",
+    "pyyaml",
+]
+
+[project.urls]
+Homepage = "http://mrcal.secretsauce.net"
+
+# ---------------------------------------------------------------------------
+# cibuildwheel — builds binary wheels for Linux (manylinux) and macOS.
+# Run locally:  pipx run cibuildwheel --platform linux   (or macos)
+# ---------------------------------------------------------------------------
+[tool.cibuildwheel]
+# Build for Python 3.9 – 3.13; skip musl (Alpine) — mrcal needs glibc
+build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
+skip  = "*-musllinux*"
+
+[tool.cibuildwheel.linux]
+# Standard manylinux_2_28 image (AlmaLinux); Python 3.9–3.13 pre-installed.
+# before-all installs C deps via dnf/EPEL and builds libdogleg from source.
+before-all = "bash {project}/packaging/build-deps-linux.sh"
+
+# Uncomment to persist the dnf package cache on the host so RPMs aren't re-downloaded each run.
+# container-engine = {name = "docker", create-args = ["--volume=/mnt/data/mrcal-dnf-cache:/var/cache/dnf"]}
+
+[tool.cibuildwheel.macos]
+archs      = ["x86_64", "arm64"]
+before-all = "bash {project}/packaging/build-deps-macos.sh"

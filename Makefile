@@ -222,6 +222,10 @@ test:
 	@echo "Which test set should we run? I know about '$(TESTS_ALL_TARGETS)'" > /dev/stderr; false
 .PHONY: test
 
+pip-packages:
+	docker -c 'cd $(CURDIR) && pipx run cibuildwheel'
+.PHONY: pip-packages
+
 include Makefile.doc
 
 include $(MRBUILD_MK)/Makefile.common.footer
