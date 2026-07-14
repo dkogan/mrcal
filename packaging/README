@@ -1,4 +1,6 @@
-These are sample package definitions for Redhat-based OSs.
+These are sample package definitions for Redhat-based OSs. And an experimental
+pip thing.
+
 Debian-based OSs already have mrcal in their repositories; the mrcal
 Debian git repo is here:
 
