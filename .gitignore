@@ -40,3 +40,5 @@ doc/out
 
 mrbuild
 mrbuild/
+
+*.1
