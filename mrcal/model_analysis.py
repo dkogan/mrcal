@@ -2233,7 +2233,7 @@ The scalar resolution in degrees/pixel
     lmax = (a+c)/2 + sqrt_discriminant
     lmin = (a+c)/2 - sqrt_discriminant
     # handle roundoff error
-    lmin[lmin < 1e-6] = 1e-6
+    lmin = np.clip(lmin, a_min=1e-6, a_max=None)
 
     # swap min/max since I took the reciprocal
     resolution_max_deg_pix = 1./np.sqrt(lmin) * 180./np.pi
