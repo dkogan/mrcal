@@ -3,7 +3,7 @@
 I provide packages for a number of Linux distros. These packages are the
 recommended method of installing mrcal. If you're interested in support for some
 other Linux distro or some other distribution method or even a non-Linux OS,
-send me a message. We can work something out.
+get in touch; I will help. Notes on specific systems below.
 
 * Installing from packages
 :PROPERTIES:
@@ -19,9 +19,11 @@ and the Python library can be installed with
 apt install mrcal libmrcal-dev python3-mrcal
 #+end_src
 
-The older distros will have older builds of mrcal. To get the most recent mrcal
-packages, you can use the mrcal APT repository. I currently distribute packages
-for
+Ubuntu/resolute (26.04 LTS) currently has the latest mrcal release.
+
+The older distros will have older releases of mrcal. To get the most recent
+mrcal packages, you can use the mrcal APT repository. I currently distribute
+packages for
 
 - Debian/trixie (13)
 - Debian/bookworm (12)
@@ -49,6 +51,22 @@ where =DISTRO= is one of
 Then, =apt update && apt install mrcal=. The chessboard corner finder, while not
 strictly required, is needed if you're doing chessboard-based calibrations. =apt
 install mrgingham=
+
+* Non-Debian releases
+** RPM-based distros
+There's a package definition in [[https://github.com/dkogan/mrcal/blob/master/packaging/rpmpackage.spec][=packaging/rpmpackage.spec=]]. This used to work,
+and with a small amount of effort, this can work again. If you'd like to see
+mrcal be a part of Fedora, or some other RPM-based system, please get in touch.
+
+** MacOS
+mrcal and everything it depends on can build and run with homebrew today. Some
+of the dependencies and mrcal itself are not actually in homebrew. If you'd like
+to see mrcal be a part of homebrew, please get in touch.
+
+** pip
+There's an experimental mostly-finished support for pip package building. This
+isn't yet done, and pip is heinous, so it hasn't yet been pushed to pypi. If
+you'd like to see mrcal be a part of pypi, please get in touch.
 
 * Building from source
 If you cannot use the packages for whatever reason, you must build from source.
