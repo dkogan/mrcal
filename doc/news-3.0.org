@@ -41,6 +41,8 @@ Added the mrcal-report-fov tool
 New [[file:mrcal-python-api-reference.html#-compose_R][=mrcal.compose_R()=]] and =mrcal_compose_R()= functions. This is just a matrix
 multiplication, but it's nice to have this explicitly available for consistency.
 
+No more Depends:matplotlib
+
 * Migration notes 2.4 -> 3.0
 
 * todo
