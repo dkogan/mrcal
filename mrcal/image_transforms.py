@@ -499,14 +499,48 @@ This array can be passed to mrcal.transform_image()
     mapxy = mrcal.project( v, lensmodel_from, intrinsics_data_from )
 
     if mask_valid_intrinsics_region_from:
+        valid_intrinsics_region = model_from.valid_intrinsics_region()
+        if valid_intrinsics_region is not None:
+            # a valid-intrinsics region is defined
+            if valid_intrinsics_region.size == 0:
+                # The region is defined and it's empty. All points are invalid
+                mapxy[...] = -1
+            else:
+                if False:
+                    # clear, but slow code
+                    import shapely
+                    if not hasattr(shapely, 'contains'):
+                        print("WARNING: mask_valid_intrinsics_region_from requires shapely >= 2.0. Continuing without masking the valid_intrinsics_region",
+                              file=sys.stderr)
+                    else:
+                        points    = shapely.points(*nps.clump(mapxy, n=2).T)
+                        polygon = shapely.Polygon(valid_intrinsics_region)
+                        shapely.prepare(polygon)
+                        is_inside = shapely.contains(polygon,
+                                                     points).reshape(mapxy.shape[:2])
 
-        # Using matplotlib to compute the out-of-bounds points. It doesn't
-        # support broadcasting, so I do that manually with a clump/reshape
-        from matplotlib.path import Path
-        region = Path(model_from.valid_intrinsics_region())
-        is_inside = region.contains_points(nps.clump(mapxy,n=2)).reshape(mapxy.shape[:2])
-        mapxy[ ~is_inside, :] = -1
+                else:
+                    # equivalent; much faster
+                    import cv2
+                    H,W = mapxy.shape[:2]
 
+                    mask = np.zeros((H,W), dtype=np.uint8)
+                    cv2.fillPoly(mask, [valid_intrinsics_region.astype(np.int32)], 1)
+                    qx = np.rint(mapxy[..., 0]).astype(np.int32)
+                    qy = np.rint(mapxy[..., 1]).astype(np.int32)
+
+                    inbounds = \
+                        (qx >= 0) * \
+                        (qx <  W) * \
+                        (qy >= 0) * \
+                        (qy <  H)
+
+                    is_inside = \
+                        inbounds * \
+                        mask[np.clip(qy, 0, H-1),
+                             np.clip(qx, 0, W-1)].astype(bool)
+
+                mapxy[~is_inside, :] = -1
 
     return mapxy.astype(np.float32)
 

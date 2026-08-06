@@ -51,8 +51,6 @@ Requires: python36-scipy >= 0.18.1
 Requires: python36-shapely
 Requires: python36
 Requires: python36-ipython-console
-# for image_transformation_map(), not for plotting
-Requires: python36-matplotlib
 # for mrcal-stereo --viz stereo
 Requires: python36-gl-image-display
 

@@ -23,7 +23,6 @@ dependencies = [
     "gnuplotlib>=0.38",
     "shapely",
     "ipython",
-    "matplotlib",
     "pyyaml",
 ]
 

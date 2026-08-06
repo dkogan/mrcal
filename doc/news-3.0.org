@@ -23,6 +23,8 @@ faster uncertainty computation:
   - MUCH slower than the mean-pcam, since it solves the linear problem (Nframes
     or Ncameras_extrinsics) more times than mean-pcam
 
+No more Depends:matplotlib
+
 * Migration notes 2.4 -> 3.0
 
 * todo

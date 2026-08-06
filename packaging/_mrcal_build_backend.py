@@ -68,7 +68,6 @@ def _metadata_text(version):
         f"Requires-Dist: gnuplotlib>=0.38\n"
         f"Requires-Dist: shapely\n"
         f"Requires-Dist: ipython\n"
-        f"Requires-Dist: matplotlib\n"
         f"Requires-Dist: pyyaml\n"
     )
 
