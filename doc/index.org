@@ -38,13 +38,25 @@ many assumptions common in other toolkits, and does things differently:
 - The calibration chessboard isn't assumed to be flat, with a parabolic
   deformation model available.
 
-And so on.
+And so on. The library is modular, and it is still possible to use traditional
+opencv models and/or traditional dense stereo for those that need it. Using the
+mrcal library to replace just one component of an existing pipeline is easy, and
+a common way to utilize mrcal.
 
 mrcal consists of
 
 - a C library for core functionality
 - a Python library for higher-level functions
 - pre-made commandline tools to handle common tasks
+
+* Getting mrcal
+mrcal is in Debian and Ubuntu, and for most people available with a single
+
+#+begin_src sh
+apt install mrcal
+#+end_src
+
+command. For more information, see the [[file:install.org]["installation, build instructions" page]].
 
 * Documentation index
 ** Overview, background
