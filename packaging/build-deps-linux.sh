@@ -14,7 +14,7 @@ set -ex
 dnf install -y --setopt=keepcache=1 epel-release
 dnf install -y --setopt=keepcache=1 \
     suitesparse-devel \
-    lapack-devel \
+    openblas-devel \
     libpng-devel \
     libjpeg-devel \
     chrpath \
@@ -25,6 +25,11 @@ dnf install -y --setopt=keepcache=1 \
     git \
     make \
     cmake
+
+# openblas-devel doesn't provide liblapack.so; create a symlink so -llapack resolves to openblas
+ln -sf /usr/lib64/libopenblas.so /usr/local/lib/liblapack.so
+ln -sf /usr/lib64/libopenblas.so /usr/local/lib/libblas.so
+ldconfig
 
 # re2c: EPEL 8 ships 0.14.3 (too old; needs >= 1.0 for flags:tags).  Build 3.1 from source.
 RE2C_VER=3.1
