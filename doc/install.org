@@ -63,6 +63,10 @@ mrcal and everything it depends on can build and run with homebrew today. Some
 of the dependencies and mrcal itself are not actually in homebrew. If you'd like
 to see mrcal be a part of homebrew, please get in touch.
 
+** Windows
+mrcal builds with clang today. MSVC builds are possible with small patches. If
+this is important to you, get in touch.
+
 ** pip
 There's an experimental mostly-finished support for pip package building. This
 isn't yet done, and pip is heinous, so it hasn't yet been pushed to pypi. If
@@ -70,9 +74,24 @@ you'd like to see mrcal be a part of pypi, please get in touch.
 
 * Building from source
 If you cannot use the packages for whatever reason, you must build from source.
-This isn't /difficult/, but requires you to obtain all the dependencies. They're
-listed in the =Build-Depends= section of the [[https://salsa.debian.org/science-team/mrcal/-/blob/master/debian/control][debian package definition]]. Most of
-these are available in most distros. Things that may not be:
+This is only recommended for developers; end users are not expected to be doing
+this. Since mrcal is in Debian, this can be done exactly like rebuilding every
+Debian package out there:
+
+#+begin_src sh
+apt source mrcal
+# OR  git clone https://salsa.debian.org/science-team/mrcal
+
+cd mrcal
+sudo apt build-dep .
+dpkg-buildpackage -us -uc -b
+sudo dpkg -i ../*mrcal*.deb
+#+end_src
+
+On non-Debian systems you have to get the dependencies manually, using the
+package definitions as a guideline. The dependencies are listed in the
+=Build-Depends= section of the [[https://salsa.debian.org/science-team/mrcal/-/blob/master/debian/control][debian package definition]]. Most of these are
+available in most distros. Things that may not be:
 
 - [[https://www.github.com/dkogan/mrbuild][=mrbuild=]]: the build system. If you can't get it from the package manager,
   just run =make=, and follow the printed message to get a local copy of
