@@ -28,6 +28,7 @@ RUNPATH (not RPATH), so LD_LIBRARY_PATH takes precedence.
 """
 
 import base64
+import glob
 import hashlib
 import os
 import re
@@ -35,9 +36,8 @@ import sys
 import zipfile
 import tempfile
 import subprocess
-from pathlib import Path
 
-SRC = Path(__file__).parent
+SRC = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 # ---------------------------------------------------------------------------
@@ -46,7 +46,7 @@ SRC = Path(__file__).parent
 
 def _version():
     """Upstream version from debian/changelog, e.g. '2.5.2'."""
-    with open(SRC / "debian" / "changelog") as f:
+    with open(f"{SRC}/debian/changelog") as f:
         first_line = f.readline()
     m = re.match(r"^\S+\s+\((\d+\.\d+(?:\.\d+)?)", first_line)
     return m.group(1) if m else "0.0.0"
@@ -76,38 +76,13 @@ def _metadata_text(version):
 # Wheel helpers
 # ---------------------------------------------------------------------------
 
-def _platform_tag():
-    import sysconfig
-    return sysconfig.get_platform().replace("-", "_").replace(".", "_")
-
-
-def _python_tag():
-    ver = "".join(str(v) for v in sys.version_info[:2])
-    # PEP 425 abbreviations: cpython→cp, pypy→pp
-    abbrev = {"cpython": "cp", "pypy": "pp", "ironpython": "ip", "jython": "jy"}
-    prefix = abbrev.get(sys.implementation.name, sys.implementation.name)
-    return f"{prefix}{ver}"                  # e.g. "cp313"
-
-
-def _ext_tag():
-    """Tag embedded in .so filenames, e.g. 'cpython-313'."""
-    impl = sys.implementation.name
-    ver  = "".join(str(v) for v in sys.version_info[:2])
-    return f"{impl}-{ver}"
-
-
 def _raw_wheel_tag():
-    py = _python_tag()
-    return f"{py}-{py}-{_platform_tag()}"
-
-
-def _raw_wheel_name(version):
-    return f"mrcal-{version}-{_raw_wheel_tag()}.whl"
-
-
-def _sha256_of(data: bytes) -> str:
-    digest = hashlib.sha256(data).digest()
-    return "sha256=" + base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
+    import sysconfig
+    ver    = "".join(str(v) for v in sys.version_info[:2])
+    abbrev = {"cpython": "cp", "pypy": "pp", "ironpython": "ip", "jython": "jy"}
+    py     = abbrev.get(sys.implementation.name, sys.implementation.name) + ver
+    plat   = sysconfig.get_platform().replace("-", "_").replace(".", "_")
+    return f"{py}-{py}-{plat}"
 
 
 def _wheel_header(version):
@@ -120,37 +95,49 @@ def _wheel_header(version):
     )
 
 
-def _build_raw_wheel(raw_wheel_path: Path, version: str):
-    pkg_dir  = SRC / "mrcal"
-    ext_tag  = _ext_tag()
+def _build_raw_wheel(raw_wheel_path, version):
+    pkg_dir   = f"{SRC}/mrcal"
+    impl      = sys.implementation.name
+    ver       = "".join(str(v) for v in sys.version_info[:2])
+    ext_tag   = f"{impl}-{ver}"
     dist_info = f"mrcal-{version}.dist-info"
     data_dir  = f"mrcal-{version}.data"
     records   = []
 
-    def add(zf, data: bytes, arcname: str):
+    def add(zf, data, arcname, mode=0o644):
         if isinstance(data, str):
             data = data.encode()
-        zf.writestr(arcname, data)
-        records.append((arcname, _sha256_of(data), len(data)))
+        info = zipfile.ZipInfo(arcname)
+        info.external_attr = mode << 16
+        zf.writestr(info, data, compress_type=zipfile.ZIP_DEFLATED)
+        digest = hashlib.sha256(data).digest()
+        sha    = "sha256=" + base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
+        records.append((arcname, sha, len(data)))
 
     with zipfile.ZipFile(raw_wheel_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
 
         # Package files from the build tree
-        for path in sorted(pkg_dir.rglob("*")):
-            if not path.is_file():
+        for path in sorted(glob.glob(f"{pkg_dir}/**/*", recursive=True)):
+            if not os.path.isfile(path):
                 continue
-            if "__pycache__" in path.parts or path.suffix == ".pyc":
+            if "__pycache__" in path or path.endswith(".pyc"):
                 continue
             # Only include .so files for the current Python version
-            if path.suffix == ".so" and ext_tag not in path.stem:
+            stem = os.path.splitext(os.path.basename(path))[0]
+            if path.endswith(".so") and ext_tag not in stem:
                 continue
-            arcname = "mrcal/" + str(path.relative_to(pkg_dir))
-            add(zf, path.read_bytes(), arcname)
+            arcname = "mrcal/" + os.path.relpath(path, pkg_dir)
+            add(zf, open(path, "rb").read(), arcname)
 
         # CLI scripts from the source root
-        for script in sorted(SRC.glob("mrcal-*")):
-            if script.is_file() and os.access(script, os.X_OK):
-                add(zf, script.read_bytes(), f"{data_dir}/scripts/{script.name}")
+        for script in sorted(glob.glob(f"{SRC}/mrcal-*")):
+            if os.path.isfile(script) and os.access(script, os.X_OK):
+                name = os.path.basename(script)
+                data = open(script, "rb").read()
+                # pip rewrites "#!python" to the venv interpreter path at install time
+                if data.startswith(b"#!"):
+                    data = b"#!python\n" + data[data.index(b"\n") + 1:]
+                add(zf, data, f"{data_dir}/scripts/{name}", mode=0o755)
 
         # dist-info
         add(zf, _metadata_text(version), f"{dist_info}/METADATA")
@@ -178,11 +165,11 @@ def get_requires_for_build_sdist(config_settings=None):
 
 def prepare_metadata_for_build_wheel(metadata_directory, config_settings=None):
     version   = _version()
-    dist_info = Path(metadata_directory) / f"mrcal-{version}.dist-info"
-    dist_info.mkdir(parents=True, exist_ok=True)
-    (dist_info / "METADATA").write_text(_metadata_text(version))
-    (dist_info / "WHEEL").write_text(_wheel_header(version))
-    return dist_info.name
+    dist_info = f"{metadata_directory}/mrcal-{version}.dist-info"
+    os.makedirs(dist_info, exist_ok=True)
+    with open(f"{dist_info}/METADATA", "w") as f: f.write(_metadata_text(version))
+    with open(f"{dist_info}/WHEEL",    "w") as f: f.write(_wheel_header(version))
+    return f"mrcal-{version}.dist-info"
 
 
 def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
@@ -203,30 +190,30 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
     import numpy
     env = os.environ.copy()
     numpy_inc = numpy.get_include()
-    existing = env.get("C_INCLUDE_PATH", "")
-    env["C_INCLUDE_PATH"] = numpy_inc + (":" + existing if existing else "")
+    env["C_INCLUDE_PATH"] = numpy_inc + (":" + env["C_INCLUDE_PATH"] if env.get("C_INCLUDE_PATH") else "")
 
     # On macOS, /usr/include is SIP-protected so mrbuild is installed under the
     # Homebrew prefix.  choose_mrbuild.mk only checks mrbuild/ (local) or
     # /usr/include/mrbuild/; create a temporary local symlink so make finds it.
     mrbuild_symlink = None
     if sys.platform == "darwin":
-        local_link = SRC / "mrbuild"
-        if not local_link.exists():
+        local_link = f"{SRC}/mrbuild"
+        if not os.path.exists(local_link):
             brew = subprocess.check_output(["brew", "--prefix"], text=True).strip()
-            candidate = Path(brew) / "include" / "mrbuild"
-            if candidate.is_dir():
-                local_link.symlink_to(candidate)
+            candidate = f"{brew}/include/mrbuild"
+            if os.path.isdir(candidate):
+                os.symlink(candidate, local_link)
                 mrbuild_symlink = local_link
 
     try:
         subprocess.check_call(make_cmd, cwd=SRC, env=env)
     finally:
-        if mrbuild_symlink and mrbuild_symlink.is_symlink():
-            mrbuild_symlink.unlink()
+        if mrbuild_symlink and os.path.islink(mrbuild_symlink):
+            os.unlink(mrbuild_symlink)
 
     with tempfile.TemporaryDirectory(prefix="mrcal-raw-wheel-") as tmp:
-        raw_wheel_path = Path(tmp) / _raw_wheel_name(version)
+        tag            = _raw_wheel_tag()
+        raw_wheel_path = f"{tmp}/mrcal-{version}-{tag}.whl"
 
         # 2. Pack raw wheel (extensions keep their $ORIGIN/.. RUNPATH for now;
         #    auditwheel will rewrite everything)
@@ -239,24 +226,22 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
             # Point DYLD_LIBRARY_PATH at the source tree so delocate's otool
             # resolution can find libmrcal (built there by make).
             lib_path_var = "DYLD_LIBRARY_PATH"
-            cmd = ["delocate-wheel", "-w", wheel_directory, str(raw_wheel_path)]
+            cmd = ["delocate-wheel", "-w", wheel_directory, raw_wheel_path]
         else:
             # Extensions use RUNPATH (not RPATH), so LD_LIBRARY_PATH takes
             # precedence and auditwheel's ldd finds libmrcal.so.5 in SRC.
             lib_path_var = "LD_LIBRARY_PATH"
-            cmd = ["auditwheel", "repair", str(raw_wheel_path), "-w", wheel_directory]
+            cmd = ["auditwheel", "repair", raw_wheel_path, "-w", wheel_directory]
 
-        env[lib_path_var] = (
-            str(SRC) + (":" + env[lib_path_var] if env.get(lib_path_var) else "")
-        )
+        env[lib_path_var] = SRC + (":" + env[lib_path_var] if env.get(lib_path_var) else "")
         subprocess.check_call(cmd, env=env)
 
     # 4. Return the repaired wheel filename.
     #    auditwheel renames to manylinux_*; delocate keeps the original name.
-    repaired = sorted(Path(wheel_directory).glob("mrcal-*.whl"))
+    repaired = sorted(glob.glob(f"{wheel_directory}/mrcal-*.whl"))
     if not repaired:
-        raise RuntimeError("wheel repair did not produce a wheel in " + wheel_directory)
-    return repaired[-1].name
+        raise RuntimeError(f"wheel repair did not produce a wheel in {wheel_directory}")
+    return os.path.basename(repaired[-1])
 
 
 def build_sdist(sdist_directory, config_settings=None):
