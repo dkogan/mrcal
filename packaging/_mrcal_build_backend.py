@@ -32,6 +32,7 @@ import glob
 import hashlib
 import os
 import re
+import shutil
 import sys
 import zipfile
 import tempfile
@@ -45,11 +46,14 @@ SRC = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # ---------------------------------------------------------------------------
 
 def _version():
-    """Upstream version from debian/changelog, e.g. '2.5.2'."""
-    with open(f"{SRC}/debian/changelog") as f:
-        first_line = f.readline()
-    m = re.match(r"^\S+\s+\((\d+\.\d+(?:\.\d+)?)", first_line)
-    return m.group(1) if m else "0.0.0"
+    VERSION_WHEEL_BASE = os.environ.get('VERSION_WHEEL_BASE', '').strip()
+    VERSION_WHEEL_POST = os.environ.get('VERSION_WHEEL_POST', '').strip()
+    print(f"{VERSION_WHEEL_BASE=} {VERSION_WHEEL_POST=}")
+    if not VERSION_WHEEL_BASE:
+        raise RuntimeError("VERSION_WHEEL_BASE is not set")
+    if not VERSION_WHEEL_POST:
+        raise RuntimeError("VERSION_WHEEL_POST is not set")
+    return f"{VERSION_WHEEL_BASE}.post{VERSION_WHEEL_POST}"
 
 
 def _metadata_text(version):
@@ -95,6 +99,37 @@ def _wheel_header(version):
     )
 
 
+_GNUPLOT_PATH_SETUP = """\
+def _mrcal_setup_gnuplot():
+    import os, glob
+    vendor     = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_vendor')
+    vendor_bin = os.path.join(vendor, 'bin')
+    if not os.path.isdir(vendor_bin):
+        return
+    import shutil
+    if shutil.which('gnuplot'):
+        return  # use system gnuplot with its own default terminal
+    os.environ['PATH'] = vendor_bin + os.pathsep + os.environ.get('PATH', '')
+    os.environ.setdefault('GNUTERM', 'x11')
+    vers = sorted(glob.glob(os.path.join(vendor, 'share', 'gnuplot', '*')))
+    if vers:
+        os.environ.setdefault('GNUPLOT_LIB', vers[-1])
+        gih = os.path.join(vers[-1], 'gnuplot.gih')
+        if os.path.exists(gih):
+            os.environ.setdefault('GNUPLOT_HELP', gih)
+        ps_dir = os.path.join(vers[-1], 'PostScript')
+        if os.path.isdir(ps_dir):
+            os.environ.setdefault('GNUPLOT_PS_DIR', ps_dir)
+    libexec = os.path.join(vendor, 'libexec', 'gnuplot')
+    if os.path.isdir(libexec):
+        vers = sorted(glob.glob(os.path.join(libexec, '*')))
+        if vers:
+            os.environ.setdefault('GNUPLOT_DRIVER_DIR', vers[-1])
+_mrcal_setup_gnuplot()
+del _mrcal_setup_gnuplot
+"""
+
+
 def _build_raw_wheel(raw_wheel_path, version):
     pkg_dir   = f"{SRC}/mrcal"
     impl      = sys.implementation.name
@@ -103,6 +138,8 @@ def _build_raw_wheel(raw_wheel_path, version):
     dist_info = f"mrcal-{version}.dist-info"
     data_dir  = f"mrcal-{version}.data"
     records   = []
+
+    gnuplot_bin = shutil.which("gnuplot")
 
     def add(zf, data, arcname, mode=0o644):
         if isinstance(data, str):
@@ -127,7 +164,34 @@ def _build_raw_wheel(raw_wheel_path, version):
             if path.endswith(".so") and ext_tag not in stem:
                 continue
             arcname = "mrcal/" + os.path.relpath(path, pkg_dir)
-            add(zf, open(path, "rb").read(), arcname)
+            data = open(path, "rb").read()
+            # Prepend PATH setup to __init__.py so the bundled gnuplot is found
+            if gnuplot_bin and path == f"{pkg_dir}/__init__.py":
+                data = _GNUPLOT_PATH_SETUP.encode() + data
+            add(zf, data, arcname)
+
+        # Bundled gnuplot — full installation tree so help, terminals, etc. work.
+        # auditwheel treats ELF files here like .so deps and bundles their libs.
+        if gnuplot_bin:
+            gnuplot_prefix = os.path.dirname(os.path.dirname(gnuplot_bin))
+
+            # Main binary
+            add(zf, open(gnuplot_bin, "rb").read(), "mrcal/_vendor/bin/gnuplot", mode=0o755)
+
+            # Data files: .gih help, terminal scripts, colour names, etc.
+            for src_dir, arc_prefix in [
+                (f"{gnuplot_prefix}/share/gnuplot",   "mrcal/_vendor/share/gnuplot"),
+                (f"{gnuplot_prefix}/share/man",        "mrcal/_vendor/share/man"),
+                (f"{gnuplot_prefix}/libexec/gnuplot",  "mrcal/_vendor/libexec/gnuplot"),
+            ]:
+                if not os.path.isdir(src_dir):
+                    continue
+                for path in sorted(glob.glob(f"{src_dir}/**/*", recursive=True)):
+                    if not os.path.isfile(path):
+                        continue
+                    arcname = arc_prefix + "/" + os.path.relpath(path, src_dir)
+                    mode = 0o755 if os.access(path, os.X_OK) else 0o644
+                    add(zf, open(path, "rb").read(), arcname, mode=mode)
 
         # CLI scripts from the source root
         for script in sorted(glob.glob(f"{SRC}/mrcal-*")):
@@ -158,9 +222,6 @@ def get_requires_for_build_wheel(config_settings=None):
     repair = "delocate" if sys.platform == "darwin" else "auditwheel"
     return ["numpysane", "numpy", repair]
 
-
-def get_requires_for_build_sdist(config_settings=None):
-    return []
 
 
 def prepare_metadata_for_build_wheel(metadata_directory, config_settings=None):

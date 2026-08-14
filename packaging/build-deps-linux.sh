@@ -17,6 +17,10 @@ dnf install -y --setopt=keepcache=1 \
     openblas-devel \
     libpng-devel \
     libjpeg-devel \
+    cairo-devel \
+    pango-devel \
+    libX11-devel \
+    libXt-devel \
     chrpath \
     pkgconf \
     binutils \
@@ -79,3 +83,21 @@ cp -a /tmp/libdogleg-staging/. /
 cp /usr/include/dogleg/dogleg.h /usr/local/include/
 ldconfig
 rm -rf libdogleg /tmp/libdogleg-staging
+
+# ---------------------------------------------------------------------------
+# gnuplot  (not in EPEL; build from source without X11/Qt to keep deps clean)
+# The build backend bundles the gnuplot binary + its shared lib deps into the
+# wheel so pip users get a working gnuplot without a separate system install.
+# ---------------------------------------------------------------------------
+GNUPLOT_VER=6.0.2
+curl -fsSL "https://sourceforge.net/projects/gnuplot/files/gnuplot/${GNUPLOT_VER}/gnuplot-${GNUPLOT_VER}.tar.gz/download" \
+    | tar xz -C /tmp
+cd /tmp/gnuplot-${GNUPLOT_VER}
+./configure --prefix=/usr/local \
+    --without-qt \
+    --without-lua \
+    --without-readline
+make -j"$(nproc)"
+make install
+cd /
+rm -rf /tmp/gnuplot-${GNUPLOT_VER}
