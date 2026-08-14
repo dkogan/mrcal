@@ -112,10 +112,10 @@ for i,model in enumerate(args.models):
     if th_centersx.size: print(f"{header}Mean FOV vertically:    {2.*np.mean(th_centersx):.2f}degrees")
     else:                print(f"{header}Mean FOV vertically:    undefined")
 
-    if th_centersx.size: print(f"{header}Mean FOV horizontally:  {2.*np.mean(th_centersy):.2f}degrees")
+    if th_centersy.size: print(f"{header}Mean FOV horizontally:  {2.*np.mean(th_centersy):.2f}degrees")
     else:                print(f"{header}Mean FOV horizontally:  undefined")
 
-    if th_centersx.size: print(f"{header}Mean FOV corner-corner: {2.*np.mean(th_corners):.2f}degrees")
+    if th_corners.size:  print(f"{header}Mean FOV corner-corner: {2.*np.mean(th_corners):.2f}degrees")
     else:                print(f"{header}Mean FOV corner-corner: undefined")
 
     if len(args.models) > 1 and i+1 != len(args.models):
