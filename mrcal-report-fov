@@ -72,7 +72,7 @@ for i,model in enumerate(args.models):
     lensmodel,intrinsics_data = model.intrinsics()
 
     if mrcal.lensmodel_metadata_and_config(lensmodel)['has_core']:
-        cxy = model.intrinsics()[1][2:4]
+        cxy = intrinsics_data[2:4]
     else:
         cxy = (np.array((W,H),dtype=float) - 1.)/2.
 
