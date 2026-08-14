@@ -14,7 +14,7 @@ set -ex
 # Non-interactive SSH sessions don't source the shell profile; set PATH explicitly.
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
-brew install suite-sparse openblas libpng libjpeg re2c
+brew install suite-sparse openblas libpng libjpeg re2c gnuplot
 
 BREW=$(brew --prefix)
 

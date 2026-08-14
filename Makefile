@@ -223,8 +223,11 @@ test:
 	@echo "Which test set should we run? I know about '$(TESTS_ALL_TARGETS)'" > /dev/stderr; false
 .PHONY: test
 
+# I find the most-recent wheel/VERSION.postX tag, and report X+1. If no tag
+# exists, report 0
+VERSION_WHEEL_POST_NEXT = $(shell v=$$( { echo -1; git tag -l "wheel/$(VERSION).post*" | sed 's/.*\.post//'; } | sort -nr | head -n1 ); echo $$((v+1));)
 pip-packages:
-	docker -c 'cd $(CURDIR) && pipx run cibuildwheel'
+	sg docker -c 'cd $(CURDIR) && VERSION_WHEEL_BASE=$(VERSION) VERSION_WHEEL_POST=$(VERSION_WHEEL_POST_NEXT) pipx run cibuildwheel'
 .PHONY: pip-packages
 
 include Makefile.doc
