@@ -21,44 +21,30 @@ if [ "$(uname)" = "Darwin" ]; then
     export PATH="$(dirname "${PYTHON3}"):${BREW}/opt/gnu-getopt/bin:${BREW}/bin:/usr/local/bin:$PATH"
     export CPATH="${BUILD_DEPS}/include:${BREW}/include${CPATH:+:$CPATH}"
     export LIBRARY_PATH="${BUILD_DEPS}/lib:${BREW}/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
+    export DYLD_LIBRARY_PATH="${BUILD_DEPS}/lib:${BREW}/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}"
+    export PKG_CONFIG_PATH="${BUILD_DEPS}/lib/pkgconfig:${BREW}/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
     export SWIG_FLAGS="-I${BREW}/include"
-    install_c_lib() { cp -a "$1${BUILD_DEPS}/". "${BUILD_DEPS}/"; }
 else
     NCPUS=$(nproc)
     export PATH="${BUILD_DEPS}/bin:${PATH}"
     export CPATH="${BUILD_DEPS}/include${CPATH:+:$CPATH}"
     export LIBRARY_PATH="${BUILD_DEPS}/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
-    install_c_lib() { cp -a "$1${BUILD_DEPS}/". "${BUILD_DEPS}/"; ldconfig; }
+    export PKG_CONFIG_PATH="${BUILD_DEPS}/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+    export SWIG_FLAGS="-I${BUILD_DEPS}/include"
 fi
 
-strip_staging() {
-    # Strip debug symbols from a staging tree before installing to BUILD_DEPS.
-    # Safe to run on text files: strip exits non-zero but we ignore it.
-    if [ "$(uname)" = "Darwin" ]; then
-        find "$1" ! -type l -type f -exec strip -x {} \; 2>/dev/null || true
-    else
-        find "$1" ! -type l -type f -exec strip --strip-debug {} \; 2>/dev/null || true
-    fi
-}
+# mrbuild computes PY3_MODULE_PATH via $(shell python3 ...).  With the
+# cibuildwheel Python first in PATH it resolves correctly.  Record it so the
+# build backend (which runs in a different isolated venv) can find the
+# installed extensions.
+PY3_MODULES=$("${PYTHON3}" -c 'import site; print(site.getsitepackages()[0])')
+printf '%s' "${PY3_MODULES}" > "${BUILD_DEPS}/py3-modules-path"
 
-# Use fixed paths for the Python extension staging so the build backend can
-# find them reliably. (The cibuildwheel build venv's platlib differs from the
-# isolated build-backend venv's platlib, so using sysconfig here would cause
-# the build backend to look in the wrong place.)
-GL_PYLIB=/tmp/gl-pylib
-MRG_PYLIB=/tmp/mrg-pylib
-
-INSTALL_ROOTS_GL="INSTALL_ROOT_PY3_MODULES=${GL_PYLIB}
-                  INSTALL_ROOT_LIB=${BUILD_DEPS}/lib
-                  INSTALL_ROOT_INCLUDE=${BUILD_DEPS}/include
-                  INSTALL_ROOT_BIN=${BUILD_DEPS}/bin
-                  INSTALL_ROOT_MAN=${BUILD_DEPS}/share/man"
-
-INSTALL_ROOTS_MRG="INSTALL_ROOT_PY3_MODULES=${MRG_PYLIB}
-                   INSTALL_ROOT_LIB=${BUILD_DEPS}/lib
-                   INSTALL_ROOT_INCLUDE=${BUILD_DEPS}/include
-                   INSTALL_ROOT_BIN=${BUILD_DEPS}/bin
-                   INSTALL_ROOT_MAN=${BUILD_DEPS}/share/man"
+INSTALL_ROOTS="INSTALL_ROOT_LIB=/lib
+               INSTALL_ROOT_INCLUDE=/include
+               INSTALL_ROOT_BIN=/bin
+               INSTALL_ROOT_MAN=/share/man
+               INSTALL_ROOT_PY3_MODULES=${PY3_MODULES}"
 
 # ---------------------------------------------------------------------------
 # GL_image_display
@@ -67,22 +53,20 @@ INSTALL_ROOTS_MRG="INSTALL_ROOT_PY3_MODULES=${MRG_PYLIB}
 NUMPY_INC=$("${PYTHON3}" -c 'import numpy; print(numpy.get_include())')
 ln -sf "${NUMPY_INC}/numpy" "${BUILD_DEPS}/include/numpy"
 
-GL_STAGING=/tmp/gl-py-staging
-rm -rf "$GL_STAGING" "$GL_PYLIB"
 make -C /tmp/GL_image_display -j"${NCPUS}"
-make -C /tmp/GL_image_display install DESTDIR="$GL_STAGING" ${INSTALL_ROOTS_GL}
-strip_staging "$GL_STAGING"
-install_c_lib "$GL_STAGING"
-# Python extension files were installed directly to GL_PYLIB (no DESTDIR prefix)
-cp -r "$GL_STAGING$GL_PYLIB/." "$GL_PYLIB/"
+make -C /tmp/GL_image_display install DESTDIR="${BUILD_DEPS}" ${INSTALL_ROOTS}
+if [ "$(uname)" != "Darwin" ]; then ldconfig; fi
+
+# ---------------------------------------------------------------------------
+# pyfltk — built against the same fltk that GL_image_display uses
+# ---------------------------------------------------------------------------
+"${PYTHON3}" -m pip install --no-binary pyfltk --no-deps \
+    --target="${BUILD_DEPS}${PY3_MODULES}" pyfltk
+if [ "$(uname)" != "Darwin" ]; then ldconfig; fi
 
 # ---------------------------------------------------------------------------
 # mrgingham
 # ---------------------------------------------------------------------------
-MRG_STAGING=/tmp/mrgingham-staging
-rm -rf "$MRG_STAGING" "$MRG_PYLIB"
 make -C /tmp/mrgingham -j"${NCPUS}"
-make -C /tmp/mrgingham install DESTDIR="$MRG_STAGING" ${INSTALL_ROOTS_MRG}
-strip_staging "$MRG_STAGING"
-install_c_lib "$MRG_STAGING"
-cp -r "$MRG_STAGING$MRG_PYLIB/." "$MRG_PYLIB/"
+make -C /tmp/mrgingham install DESTDIR="${BUILD_DEPS}" ${INSTALL_ROOTS}
+if [ "$(uname)" != "Darwin" ]; then ldconfig; fi

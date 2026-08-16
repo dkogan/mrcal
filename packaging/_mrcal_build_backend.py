@@ -72,7 +72,6 @@ def _metadata_text(version):
         f"Requires-Dist: opencv-python-headless\n"
         f"Requires-Dist: gnuplotlib>=0.38\n"
         f"Requires-Dist: shapely\n"
-        f"Requires-Dist: ipython\n"
         f"Requires-Dist: pyyaml\n"
         f"Requires-Dist: pyfltk\n"
     )
@@ -195,30 +194,30 @@ def _build_raw_wheel(raw_wheel_path, version, brew=None):
         # __init__.py); Python extension at wheel root for 'import mrgingham'.
         # auditwheel/delocate bundles OpenCV and other C lib deps.
         # Fixed paths set by before-build.sh — independent of any venv's platlib.
-        _mrg_staging = '/tmp/mrgingham-staging'
-        _mrg_bin_dir = _mrg_staging + BUILD_DEPS + '/bin'
+        _mrg_bin_dir = BUILD_DEPS + '/bin'
         if os.path.isdir(_mrg_bin_dir):
             for path in sorted(glob.glob(f'{_mrg_bin_dir}/mrgingham*')):
                 if os.path.isfile(path):
                     add(zf, open(path, 'rb').read(),
                         f'{data_dir}/scripts/{os.path.basename(path)}', mode=0o755)
-        _mrg_py_dir = '/tmp/mrg-pylib'
-        if os.path.isdir(_mrg_py_dir):
-            for path in sorted(glob.glob(f'{_mrg_py_dir}/mrgingham*')):
-                if os.path.isfile(path):
-                    mode = 0o755 if path.endswith('.so') else 0o644
-                    add(zf, open(path, 'rb').read(), os.path.basename(path), mode=mode)
 
-        # Bundled GL_image_display — Fl_Gl_Image_Widget.py + _Fl_Gl_Image_Widget.so
-        # placed at the wheel root so they land in site-packages alongside mrcal/
-        # and are importable as standalone modules.  auditwheel/delocate bundles
-        # their C library dependencies (libGL_image_display_fltk, libfltk, etc.)
-        _gl_py_dir = '/tmp/gl-pylib'
-        if os.path.isdir(_gl_py_dir):
-            for path in sorted(glob.glob(f'{_gl_py_dir}/Fl_Gl_Image_Widget*')):
-                if os.path.isfile(path):
-                    mode = 0o755 if path.endswith('.so') else 0o644
-                    add(zf, open(path, 'rb').read(), os.path.basename(path), mode=mode)
+        # Python extensions from GL_image_display and mrgingham, installed by
+        # before-build.sh into the cibuildwheel Python's site-packages under
+        # BUILD_DEPS.  The path is recorded in py3-modules-path because the
+        # build backend runs in a different isolated venv.
+        _py3_path_file = BUILD_DEPS + '/py3-modules-path'
+        if os.path.exists(_py3_path_file):
+            _py_dir = BUILD_DEPS + open(_py3_path_file).read().strip()
+            if os.path.isdir(_py_dir):
+                for path in sorted(glob.glob(f'{_py_dir}/**', recursive=True)):
+                    if not os.path.isfile(path): continue
+                    if '.dist-info' in path: continue
+                    rel = os.path.relpath(path, _py_dir)
+                    parts = rel.split(os.sep)
+                    if 'test' in parts: continue
+                    if path.endswith(('.cpp', '.h', '.c')): continue
+                    add(zf, open(path, 'rb').read(), rel,
+                        mode=os.stat(path).st_mode & 0o777)
 
         # CLI scripts from the source root
         for script in sorted(glob.glob(f"{SRC}/mrcal-*")):

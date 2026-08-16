@@ -42,7 +42,6 @@ dnf install -y --setopt=keepcache=1 \
     git \
     make \
     cmake \
-    fltk-devel \
     mesa-libGL-devel \
     mesa-libGLU-devel \
     libepoxy-devel \
@@ -63,6 +62,12 @@ cmake -S /tmp/re2c-${RE2C_VER} -B /tmp/re2c-build -DCMAKE_INSTALL_PREFIX=/usr/lo
 cmake --build /tmp/re2c-build -j"${NCPUS}"
 cmake --install /tmp/re2c-build
 rm -rf /tmp/re2c-${RE2C_VER} /tmp/re2c-build
+
+# ---------------------------------------------------------------------------
+# fltk 1.4  (EPEL only has 1.3; pyfltk 1.4 and GL_image_display require 1.4)
+# ---------------------------------------------------------------------------
+build_fltk
+ldconfig
 
 # ---------------------------------------------------------------------------
 # stb single-header image library (not in EPEL)
