@@ -7,7 +7,7 @@ MRBUILD_VER=1.19
 LIBDOGLEG_VER=0.18
 GNUPLOT_VER=6.0.2
 GL_IMAGE_DISPLAY_COMMIT=d1c2651
-MRGINGHAM_VER=1.27
+MRGINGHAM_COMMIT=a2ec919
 
 # All custom-built C dependencies install here.  The build scripts, before-build
 # hook, and Python build backend all reference this path so everything agrees.
@@ -58,8 +58,8 @@ clone_and_build_libdogleg() {
 
 clone_mrgingham() {
     rm -rf /tmp/mrgingham
-    git clone --depth=1 --branch "v${MRGINGHAM_VER}" \
-        https://github.com/dkogan/mrgingham /tmp/mrgingham
+    git clone https://github.com/dkogan/mrgingham /tmp/mrgingham
+    git -C /tmp/mrgingham checkout "${MRGINGHAM_COMMIT}"
     ln -sf "${BUILD_DEPS}/include/mrbuild" /tmp/mrgingham/mrbuild
 }
 
