@@ -104,15 +104,10 @@ def _wheel_header(version):
 _VENDOR_SETUP = """\
 def _mrcal_setup_vendor():
     import os, glob, shutil, sys
-    vendor     = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_vendor')
-    vendor_bin = os.path.join(vendor, 'bin')
-    # Always prepend vendor_bin so bundled binaries (gnuplot, mrgingham, etc.)
-    # are findable even if they are not installed system-wide.
-    if os.path.isdir(vendor_bin):
-        os.environ['PATH'] = vendor_bin + os.pathsep + os.environ.get('PATH', '')
-    # gnuplot-specific env vars: only needed when using the bundled gnuplot
-    # (i.e. no system gnuplot was available before we added vendor_bin).
-    if not shutil.which('gnuplot') or os.path.join(vendor_bin, 'gnuplot') == shutil.which('gnuplot'):
+    vendor = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_vendor')
+    # Set gnuplot env vars so the bundled data files (terminals, help, etc.)
+    # are found regardless of system gnuplot installation.
+    if shutil.which('gnuplot'):
         os.environ.setdefault('GNUTERM', 'qt' if sys.platform == 'darwin' else 'x11')
         vers = sorted(glob.glob(os.path.join(vendor, 'share', 'gnuplot', '*')))
         if vers:
@@ -169,7 +164,7 @@ def _build_raw_wheel(raw_wheel_path, version, brew=None):
                 continue
             arcname = "mrcal/" + os.path.relpath(path, pkg_dir)
             data = open(path, "rb").read()
-            # Prepend PATH setup to __init__.py so the bundled gnuplot is found
+            # Prepend gnuplot env-var setup to __init__.py so data files are found
             if gnuplot_bin and path == f"{pkg_dir}/__init__.py":
                 data = _VENDOR_SETUP.encode() + data
             add(zf, data, arcname)
@@ -179,8 +174,8 @@ def _build_raw_wheel(raw_wheel_path, version, brew=None):
         if gnuplot_bin:
             gnuplot_prefix = os.path.dirname(os.path.dirname(gnuplot_bin))
 
-            # Main binary
-            add(zf, open(gnuplot_bin, "rb").read(), "mrcal/_vendor/bin/gnuplot", mode=0o755)
+            # Main binary — installed to {venv}/bin/ by pip via the data/scripts mechanism
+            add(zf, open(gnuplot_bin, "rb").read(), f"{data_dir}/scripts/gnuplot", mode=0o755)
 
             # Data files: .gih help, terminal scripts, colour names, etc.
             for src_dir, arc_prefix in [
@@ -206,7 +201,7 @@ def _build_raw_wheel(raw_wheel_path, version, brew=None):
             for path in sorted(glob.glob(f'{_mrg_bin_dir}/mrgingham*')):
                 if os.path.isfile(path):
                     add(zf, open(path, 'rb').read(),
-                        f'mrcal/_vendor/bin/{os.path.basename(path)}', mode=0o755)
+                        f'{data_dir}/scripts/{os.path.basename(path)}', mode=0o755)
         _mrg_py_dir = '/tmp/mrg-pylib'
         if os.path.isdir(_mrg_py_dir):
             for path in sorted(glob.glob(f'{_mrg_py_dir}/mrgingham*')):
