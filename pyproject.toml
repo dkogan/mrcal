@@ -35,8 +35,8 @@ Homepage = "http://mrcal.secretsauce.net"
 # Run locally:  pipx run cibuildwheel --platform linux   (or macos)
 # ---------------------------------------------------------------------------
 [tool.cibuildwheel]
-# Build for Python 3.9 – 3.13; skip musl (Alpine) — mrcal needs glibc
-build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
+# Build for Python 3.12 – 3.14; skip musl (Alpine) — mrcal needs glibc
+build = "cp312-* cp313-* cp314-*"
 skip  = "*-musllinux*"
 
 [tool.cibuildwheel.linux]
