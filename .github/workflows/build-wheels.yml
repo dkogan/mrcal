@@ -1,0 +1,52 @@
+# This is to allow building pip wheels in github. Because apparently that's how
+# everybody does it, and it's barely possible otherwise. Or something. All this
+# pip stuff was written 100% by Claude. It is a terrible system, and I strongly
+# recommend you use the Debian packages instead
+
+name: Build wheels
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_base:
+        description: 'Wheel version base (e.g. 2.5.2)'
+        required: true
+      version_post:
+        description: 'Wheel post-release number (e.g. 0)'
+        required: true
+        default: '0'
+
+jobs:
+  build-linux:
+    name: Build Linux wheels
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.23.3
+        env:
+          VERSION_WHEEL_BASE: ${{ inputs.version_base }}
+          VERSION_WHEEL_POST: ${{ inputs.version_post }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-linux
+          path: wheelhouse/*.whl
+
+  build-macos:
+    name: Build macOS wheels
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.23.3
+        env:
+          VERSION_WHEEL_BASE: ${{ inputs.version_base }}
+          VERSION_WHEEL_POST: ${{ inputs.version_post }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-macos
+          path: wheelhouse/*.whl
