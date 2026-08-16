@@ -73,6 +73,7 @@ def _metadata_text(version):
         f"Requires-Dist: shapely\n"
         f"Requires-Dist: ipython\n"
         f"Requires-Dist: pyyaml\n"
+        f"Requires-Dist: pyfltk\n"
     )
 
 
@@ -99,34 +100,35 @@ def _wheel_header(version):
     )
 
 
-_GNUPLOT_PATH_SETUP = """\
-def _mrcal_setup_gnuplot():
-    import os, glob
+_VENDOR_SETUP = """\
+def _mrcal_setup_vendor():
+    import os, glob, shutil, sys
     vendor     = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_vendor')
     vendor_bin = os.path.join(vendor, 'bin')
-    if not os.path.isdir(vendor_bin):
-        return
-    import shutil
-    if shutil.which('gnuplot'):
-        return  # use system gnuplot with its own default terminal
-    os.environ['PATH'] = vendor_bin + os.pathsep + os.environ.get('PATH', '')
-    os.environ.setdefault('GNUTERM', 'qt' if sys.platform == 'darwin' else 'x11')
-    vers = sorted(glob.glob(os.path.join(vendor, 'share', 'gnuplot', '*')))
-    if vers:
-        os.environ.setdefault('GNUPLOT_LIB', vers[-1])
-        gih = os.path.join(vers[-1], 'gnuplot.gih')
-        if os.path.exists(gih):
-            os.environ.setdefault('GNUPLOT_HELP', gih)
-        ps_dir = os.path.join(vers[-1], 'PostScript')
-        if os.path.isdir(ps_dir):
-            os.environ.setdefault('GNUPLOT_PS_DIR', ps_dir)
-    libexec = os.path.join(vendor, 'libexec', 'gnuplot')
-    if os.path.isdir(libexec):
-        vers = sorted(glob.glob(os.path.join(libexec, '*')))
+    # Always prepend vendor_bin so bundled binaries (gnuplot, mrgingham, etc.)
+    # are findable even if they are not installed system-wide.
+    if os.path.isdir(vendor_bin):
+        os.environ['PATH'] = vendor_bin + os.pathsep + os.environ.get('PATH', '')
+    # gnuplot-specific env vars: only needed when using the bundled gnuplot
+    # (i.e. no system gnuplot was available before we added vendor_bin).
+    if not shutil.which('gnuplot') or os.path.join(vendor_bin, 'gnuplot') == shutil.which('gnuplot'):
+        os.environ.setdefault('GNUTERM', 'qt' if sys.platform == 'darwin' else 'x11')
+        vers = sorted(glob.glob(os.path.join(vendor, 'share', 'gnuplot', '*')))
         if vers:
-            os.environ.setdefault('GNUPLOT_DRIVER_DIR', vers[-1])
-_mrcal_setup_gnuplot()
-del _mrcal_setup_gnuplot
+            os.environ.setdefault('GNUPLOT_LIB', vers[-1])
+            gih = os.path.join(vers[-1], 'gnuplot.gih')
+            if os.path.exists(gih):
+                os.environ.setdefault('GNUPLOT_HELP', gih)
+            ps_dir = os.path.join(vers[-1], 'PostScript')
+            if os.path.isdir(ps_dir):
+                os.environ.setdefault('GNUPLOT_PS_DIR', ps_dir)
+        libexec = os.path.join(vendor, 'libexec', 'gnuplot')
+        if os.path.isdir(libexec):
+            vers = sorted(glob.glob(os.path.join(libexec, '*')))
+            if vers:
+                os.environ.setdefault('GNUPLOT_DRIVER_DIR', vers[-1])
+_mrcal_setup_vendor()
+del _mrcal_setup_vendor
 """
 
 
@@ -168,7 +170,7 @@ def _build_raw_wheel(raw_wheel_path, version, brew=None):
             data = open(path, "rb").read()
             # Prepend PATH setup to __init__.py so the bundled gnuplot is found
             if gnuplot_bin and path == f"{pkg_dir}/__init__.py":
-                data = _GNUPLOT_PATH_SETUP.encode() + data
+                data = _VENDOR_SETUP.encode() + data
             add(zf, data, arcname)
 
         # Bundled gnuplot — full installation tree so help, terminals, etc. work.
@@ -193,6 +195,41 @@ def _build_raw_wheel(raw_wheel_path, version, brew=None):
                     arcname = arc_prefix + "/" + os.path.relpath(path, src_dir)
                     mode = 0o755 if os.access(path, os.X_OK) else 0o644
                     add(zf, open(path, "rb").read(), arcname, mode=mode)
+
+        # Bundled mrgingham — binaries to mrcal/_vendor/bin/ (PATH is set in
+        # __init__.py); Python extension at wheel root for 'import mrgingham'.
+        # auditwheel/delocate bundles OpenCV and other C lib deps.
+        _mrg_staging = '/tmp/mrgingham-staging'
+        if sys.platform == 'darwin':
+            import subprocess as _sp
+            _brew = _sp.check_output(['brew', '--prefix'], text=True).strip()
+            _mrg_bin_dir = _mrg_staging + _brew + '/bin'
+        else:
+            _mrg_bin_dir = _mrg_staging + '/usr/local/bin'
+        if os.path.isdir(_mrg_bin_dir):
+            for path in sorted(glob.glob(f'{_mrg_bin_dir}/mrgingham*')):
+                if os.path.isfile(path):
+                    add(zf, open(path, 'rb').read(),
+                        f'mrcal/_vendor/bin/{os.path.basename(path)}', mode=0o755)
+        import sysconfig as _sc2
+        _mrg_py_dir = _mrg_staging + _sc2.get_path('platlib')  # platlib is absolute
+        if os.path.isdir(_mrg_py_dir):
+            for path in sorted(glob.glob(f'{_mrg_py_dir}/mrgingham*')):
+                if os.path.isfile(path):
+                    mode = 0o755 if path.endswith('.so') else 0o644
+                    add(zf, open(path, 'rb').read(), os.path.basename(path), mode=mode)
+
+        # Bundled GL_image_display — Fl_Gl_Image_Widget.py + _Fl_Gl_Image_Widget.so
+        # placed at the wheel root so they land in site-packages alongside mrcal/
+        # and are importable as standalone modules.  auditwheel/delocate bundles
+        # their C library dependencies (libGL_image_display_fltk, libfltk, etc.)
+        import sysconfig as _sc
+        _gl_staging = os.path.join('/tmp/gl-py-staging', _sc.get_path('platlib').lstrip('/'))
+        if os.path.isdir(_gl_staging):
+            for path in sorted(glob.glob(f'{_gl_staging}/Fl_Gl_Image_Widget*')):
+                if os.path.isfile(path):
+                    mode = 0o755 if path.endswith('.so') else 0o644
+                    add(zf, open(path, 'rb').read(), os.path.basename(path), mode=mode)
 
         # CLI scripts from the source root
         for script in sorted(glob.glob(f"{SRC}/mrcal-*")):

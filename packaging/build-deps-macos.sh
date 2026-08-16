@@ -17,7 +17,8 @@ source "$(dirname "$0")/build-deps-common.sh"
 # Non-interactive SSH sessions don't source the shell profile; set PATH explicitly.
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
-brew install suite-sparse openblas libpng libjpeg re2c cpanminus
+brew install suite-sparse openblas libpng libjpeg re2c cpanminus \
+    fltk libepoxy swig opencv
 cpanm --notest List::MoreUtils
 
 BREW=$(brew --prefix)
@@ -57,3 +58,10 @@ install_stb "${BREW}/include"
 # gnuplot  (build from source without Qt/lua/readline to keep deps clean)
 # ---------------------------------------------------------------------------
 build_gnuplot "${BREW}" --without-qt
+
+# ---------------------------------------------------------------------------
+# GL_image_display  (not in Homebrew; build from source per Python version
+# in before-build hook — clone the source here so before-build can just 'make')
+# ---------------------------------------------------------------------------
+clone_gl_image_display "${BREW}/include/mrbuild"
+clone_mrgingham "${BREW}/include/mrbuild"
