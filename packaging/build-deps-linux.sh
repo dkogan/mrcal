@@ -13,6 +13,16 @@ set -ex
 NCPUS=$(nproc)
 source "$(dirname "$0")/build-deps-common.sh"
 
+mkdir -p "${BUILD_DEPS}/include" "${BUILD_DEPS}/lib" "${BUILD_DEPS}/bin"
+
+# Make BUILD_DEPS visible to everything that follows in this script.
+export PATH="${BUILD_DEPS}/bin:${PATH}"
+export CPATH="${BUILD_DEPS}/include${CPATH:+:$CPATH}"
+export LIBRARY_PATH="${BUILD_DEPS}/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
+
+# Make BUILD_DEPS/lib visible to the dynamic linker (needed for auditwheel ldd).
+echo "${BUILD_DEPS}/lib" > /etc/ld.so.conf.d/mrcal-build-deps.conf
+
 # EPEL provides SuiteSparse, re2c, etc.
 dnf install -y --setopt=keepcache=1 epel-release
 dnf install -y --setopt=keepcache=1 \
@@ -54,26 +64,26 @@ cmake --build /tmp/re2c-build -j"${NCPUS}"
 cmake --install /tmp/re2c-build
 rm -rf /tmp/re2c-${RE2C_VER} /tmp/re2c-build
 
-# stb single-header image library (not in EPEL; headers only needed —
-# USE_LOCAL_STB_IMPLEMENTATION=1 compiles stb into libmrcal, no libstb.so needed)
-install_stb /usr/local/include /usr/local/lib
+# ---------------------------------------------------------------------------
+# stb single-header image library (not in EPEL)
+# ---------------------------------------------------------------------------
+install_stb
 
 # ---------------------------------------------------------------------------
 # mrbuild  (Makefile library; not in EPEL)
 # ---------------------------------------------------------------------------
-install_mrbuild /usr/include /usr/bin
+install_mrbuild
 
 # ---------------------------------------------------------------------------
 # libdogleg  (not in any RPM repo; build from source)
 # ---------------------------------------------------------------------------
-clone_and_build_libdogleg ""
+clone_and_build_libdogleg
 
-# mrbuild requires a non-empty DESTDIR
 make -C libdogleg install DESTDIR=/tmp/libdogleg-staging \
-    INSTALL_ROOT_LIB=/usr/local/lib         \
-    INSTALL_ROOT_INCLUDE=/usr/local/include \
-    INSTALL_ROOT_BIN=/usr/local/bin
-cp -a /tmp/libdogleg-staging/. /
+    INSTALL_ROOT_LIB="${BUILD_DEPS}/lib"         \
+    INSTALL_ROOT_INCLUDE="${BUILD_DEPS}/include" \
+    INSTALL_ROOT_BIN="${BUILD_DEPS}/bin"
+cp -a /tmp/libdogleg-staging"${BUILD_DEPS}"/. "${BUILD_DEPS}"/
 ldconfig
 rm -rf libdogleg /tmp/libdogleg-staging
 
@@ -85,8 +95,8 @@ rm -rf libdogleg /tmp/libdogleg-staging
 build_gnuplot /usr/local --without-qt
 
 # ---------------------------------------------------------------------------
-# GL_image_display  (not in EPEL; build from source per Python version in
-# before-build hook — clone the source here so before-build can just 'make')
+# GL_image_display and mrgingham — cloned here; built per Python version in
+# the before-build hook so the Python extension links against the right ABI.
 # ---------------------------------------------------------------------------
-clone_gl_image_display ""
-clone_mrgingham ""
+clone_gl_image_display
+clone_mrgingham

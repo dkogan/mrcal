@@ -9,24 +9,30 @@ GNUPLOT_VER=6.0.2
 GL_IMAGE_DISPLAY_COMMIT=d1c2651
 MRGINGHAM_VER=1.27
 
+# All custom-built C dependencies install here.  The build scripts, before-build
+# hook, and Python build backend all reference this path so everything agrees.
+BUILD_DEPS="${HOME}/build-deps"
+
 install_mrbuild() {
-    local include_dir=$1  # e.g. /usr/include or ${BREW}/include
-    local bin_dir=$2      # e.g. /usr/bin or ${BREW}/bin
+    mkdir -p "${BUILD_DEPS}/include" "${BUILD_DEPS}/bin"
     curl -fsSL "https://github.com/dkogan/mrbuild/archive/refs/tags/v${MRBUILD_VER}.tar.gz" | tar xz -C /tmp
-    mkdir -p "${include_dir}/mrbuild"
-    cp /tmp/mrbuild-${MRBUILD_VER}/Makefile.common.* "${include_dir}/mrbuild/"
-    find /tmp/mrbuild-${MRBUILD_VER} -maxdepth 1 -name '*.mk' -exec cp {} "${include_dir}/mrbuild/" \;
-    [ -d /tmp/mrbuild-${MRBUILD_VER}/bin ] && cp /tmp/mrbuild-${MRBUILD_VER}/bin/* "${bin_dir}/"
+    mkdir -p "${BUILD_DEPS}/include/mrbuild"
+    cp /tmp/mrbuild-${MRBUILD_VER}/Makefile.common.* "${BUILD_DEPS}/include/mrbuild/"
+    find /tmp/mrbuild-${MRBUILD_VER} -maxdepth 1 -name '*.mk' -exec cp {} "${BUILD_DEPS}/include/mrbuild/" \;
+    if [ -d /tmp/mrbuild-${MRBUILD_VER}/bin ]; then
+        cp /tmp/mrbuild-${MRBUILD_VER}/bin/* "${BUILD_DEPS}/bin/"
+        mkdir -p "${BUILD_DEPS}/include/mrbuild/bin"
+        cp /tmp/mrbuild-${MRBUILD_VER}/bin/* "${BUILD_DEPS}/include/mrbuild/bin/"
+    fi
     rm -rf /tmp/mrbuild-${MRBUILD_VER}
 }
 
 install_stb() {
-    local include_dir=$1  # e.g. /usr/local/include or ${BREW}/include
-    local lib_dir=$2      # e.g. /usr/local/lib or ${BREW}/lib
+    mkdir -p "${BUILD_DEPS}/include" "${BUILD_DEPS}/lib"
     git clone --depth=1 https://github.com/nothings/stb /tmp/stb
-    mkdir -p "${include_dir}/stb"
-    cp /tmp/stb/*.h "${include_dir}/stb/"
-    # Compile a shared libstb so callers can link with -lstb
+    mkdir -p "${BUILD_DEPS}/include/stb"
+    cp /tmp/stb/*.h "${BUILD_DEPS}/include/stb/"
+    # Compile a shared libstb so dependents (GL_image_display) can link -lstb
     cat > /tmp/stb_impl.c << 'EOF'
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -34,46 +40,34 @@ install_stb() {
 #include "stb/stb_image_write.h"
 EOF
     if [ "$(uname)" = "Darwin" ]; then
-        cc -dynamiclib -fPIC -I"${include_dir}" -o "${lib_dir}/libstb.dylib" /tmp/stb_impl.c
+        cc -dynamiclib -fPIC -I"${BUILD_DEPS}/include" -o "${BUILD_DEPS}/lib/libstb.dylib" /tmp/stb_impl.c
     else
-        cc -shared -fPIC -I"${include_dir}" -o "${lib_dir}/libstb.so" /tmp/stb_impl.c
-        ldconfig
+        cc -shared -fPIC -I"${BUILD_DEPS}/include" -o "${BUILD_DEPS}/lib/libstb.so" /tmp/stb_impl.c
     fi
     rm -rf /tmp/stb /tmp/stb_impl.c
 }
 
-# Clone and build libdogleg, leaving the staging tree at /tmp/libdogleg-staging.
-# Caller is responsible for copying from staging and cleaning up.
+# Clone and build libdogleg in the current directory.
+# Caller installs from there and cleans up.
 clone_and_build_libdogleg() {
-    local mrbuild_link=$1  # path to symlink as libdogleg/mrbuild (macOS); empty on Linux
     rm -rf libdogleg /tmp/libdogleg-staging
     git clone --depth=1 --branch "v${LIBDOGLEG_VER}" https://github.com/dkogan/libdogleg
-    if [ -n "${mrbuild_link}" ]; then
-        ln -sf "${mrbuild_link}" libdogleg/mrbuild
-    fi
+    ln -sf "${BUILD_DEPS}/include/mrbuild" libdogleg/mrbuild
     make -C libdogleg -j"${NCPUS}"
 }
 
-# Clone GL_image_display source to /tmp/GL_image_display for per-Python builds
-# in the before-build hook.  Does not build; callers do that.
 clone_mrgingham() {
-    local mrbuild_link=$1  # path to symlink as mrbuild (macOS); empty on Linux
     rm -rf /tmp/mrgingham
     git clone --depth=1 --branch "v${MRGINGHAM_VER}" \
         https://github.com/dkogan/mrgingham /tmp/mrgingham
-    if [ -n "${mrbuild_link}" ]; then
-        ln -sf "${mrbuild_link}" /tmp/mrgingham/mrbuild
-    fi
+    ln -sf "${BUILD_DEPS}/include/mrbuild" /tmp/mrgingham/mrbuild
 }
 
 clone_gl_image_display() {
-    local mrbuild_link=$1  # path to symlink as mrbuild (macOS); empty on Linux
     rm -rf /tmp/GL_image_display
     git clone https://github.com/dkogan/GL_image_display /tmp/GL_image_display
     git -C /tmp/GL_image_display checkout "${GL_IMAGE_DISPLAY_COMMIT}"
-    if [ -n "${mrbuild_link}" ]; then
-        ln -sf "${mrbuild_link}" /tmp/GL_image_display/mrbuild
-    fi
+    ln -sf "${BUILD_DEPS}/include/mrbuild" /tmp/GL_image_display/mrbuild
 }
 
 build_gnuplot() {
