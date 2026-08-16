@@ -11,7 +11,6 @@ BUILD_DEPS="${HOME}/build-deps"
 # PATH which would mask the cibuildwheel Python with Homebrew's externally-
 # managed one).
 PYTHON3=$(command -v python3)
-PY_PLATLIB=$("${PYTHON3}" -c "import sysconfig; print(sysconfig.get_path('platlib'))")
 
 if [ "$(uname)" = "Darwin" ]; then
     NCPUS=$(sysctl -n hw.ncpu)
@@ -42,11 +41,24 @@ strip_staging() {
     fi
 }
 
-INSTALL_ROOTS="INSTALL_ROOT_PY3_MODULES=${PY_PLATLIB}
-               INSTALL_ROOT_LIB=${BUILD_DEPS}/lib
-               INSTALL_ROOT_INCLUDE=${BUILD_DEPS}/include
-               INSTALL_ROOT_BIN=${BUILD_DEPS}/bin
-               INSTALL_ROOT_MAN=${BUILD_DEPS}/share/man"
+# Use fixed paths for the Python extension staging so the build backend can
+# find them reliably. (The cibuildwheel build venv's platlib differs from the
+# isolated build-backend venv's platlib, so using sysconfig here would cause
+# the build backend to look in the wrong place.)
+GL_PYLIB=/tmp/gl-pylib
+MRG_PYLIB=/tmp/mrg-pylib
+
+INSTALL_ROOTS_GL="INSTALL_ROOT_PY3_MODULES=${GL_PYLIB}
+                  INSTALL_ROOT_LIB=${BUILD_DEPS}/lib
+                  INSTALL_ROOT_INCLUDE=${BUILD_DEPS}/include
+                  INSTALL_ROOT_BIN=${BUILD_DEPS}/bin
+                  INSTALL_ROOT_MAN=${BUILD_DEPS}/share/man"
+
+INSTALL_ROOTS_MRG="INSTALL_ROOT_PY3_MODULES=${MRG_PYLIB}
+                   INSTALL_ROOT_LIB=${BUILD_DEPS}/lib
+                   INSTALL_ROOT_INCLUDE=${BUILD_DEPS}/include
+                   INSTALL_ROOT_BIN=${BUILD_DEPS}/bin
+                   INSTALL_ROOT_MAN=${BUILD_DEPS}/share/man"
 
 # ---------------------------------------------------------------------------
 # GL_image_display
@@ -56,18 +68,21 @@ NUMPY_INC=$("${PYTHON3}" -c 'import numpy; print(numpy.get_include())')
 ln -sf "${NUMPY_INC}/numpy" "${BUILD_DEPS}/include/numpy"
 
 GL_STAGING=/tmp/gl-py-staging
-rm -rf "$GL_STAGING"
+rm -rf "$GL_STAGING" "$GL_PYLIB"
 make -C /tmp/GL_image_display -j"${NCPUS}"
-make -C /tmp/GL_image_display install DESTDIR="$GL_STAGING" ${INSTALL_ROOTS}
+make -C /tmp/GL_image_display install DESTDIR="$GL_STAGING" ${INSTALL_ROOTS_GL}
 strip_staging "$GL_STAGING"
 install_c_lib "$GL_STAGING"
+# Python extension files were installed directly to GL_PYLIB (no DESTDIR prefix)
+cp -r "$GL_STAGING$GL_PYLIB/." "$GL_PYLIB/"
 
 # ---------------------------------------------------------------------------
 # mrgingham
 # ---------------------------------------------------------------------------
 MRG_STAGING=/tmp/mrgingham-staging
-rm -rf "$MRG_STAGING"
+rm -rf "$MRG_STAGING" "$MRG_PYLIB"
 make -C /tmp/mrgingham -j"${NCPUS}"
-make -C /tmp/mrgingham install DESTDIR="$MRG_STAGING" ${INSTALL_ROOTS}
+make -C /tmp/mrgingham install DESTDIR="$MRG_STAGING" ${INSTALL_ROOTS_MRG}
 strip_staging "$MRG_STAGING"
 install_c_lib "$MRG_STAGING"
+cp -r "$MRG_STAGING$MRG_PYLIB/." "$MRG_PYLIB/"
