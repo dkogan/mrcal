@@ -5,11 +5,14 @@
 # platforms). before-all already cloned the sources and installed C build deps.
 set -ex
 
-PY_PLATLIB=$(python3 -c "import sysconfig; print(sysconfig.get_path('platlib'))")
+# Capture the cibuildwheel Python before PATH is modified (macOS adds brew to PATH,
+# which would mask the cibuildwheel Python with Homebrew's externally-managed one).
+PYTHON3=$(command -v python3)
+PY_PLATLIB=$("${PYTHON3}" -c "import sysconfig; print(sysconfig.get_path('platlib'))")
 
 if [ "$(uname)" = "Darwin" ]; then
     NCPUS=$(sysctl -n hw.ncpu)
-    export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+    export PATH="$(dirname "${PYTHON3}"):/opt/homebrew/bin:/usr/local/bin:$PATH"
     BREW=$(brew --prefix)
     export CPATH="${BREW}/include${CPATH:+:$CPATH}"
     export LIBRARY_PATH="${BREW}/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
@@ -37,12 +40,14 @@ INSTALL_ROOTS="INSTALL_ROOT_PY3_MODULES=${PY_PLATLIB}
 # ---------------------------------------------------------------------------
 # GL_image_display
 # ---------------------------------------------------------------------------
-export C_INCLUDE_PATH="$(python3 -c 'import numpy; print(numpy.get_include())')${C_INCLUDE_PATH:+:$C_INCLUDE_PATH}"
+"${PYTHON3}" -m pip install numpy --quiet
+NUMPY_INC=$("${PYTHON3}" -c 'import numpy; print(numpy.get_include())')
+ln -sf "${NUMPY_INC}/numpy" "${INCLUDE_ROOT}/numpy"
 
 GL_STAGING=/tmp/gl-py-staging
 rm -rf "$GL_STAGING"
-make -C /tmp/GL_image_display -j"${NCPUS}" ${SWIG_FLAGS:+SWIG_FLAGS="$SWIG_FLAGS"}
-make -C /tmp/GL_image_display install DESTDIR="$GL_STAGING" ${INSTALL_ROOTS} ${SWIG_FLAGS:+SWIG_FLAGS="$SWIG_FLAGS"}
+make -C /tmp/GL_image_display -j"${NCPUS}"
+make -C /tmp/GL_image_display install DESTDIR="$GL_STAGING" ${INSTALL_ROOTS}
 install_c_lib "$GL_STAGING"
 
 # ---------------------------------------------------------------------------
@@ -52,3 +57,4 @@ MRG_STAGING=/tmp/mrgingham-staging
 rm -rf "$MRG_STAGING"
 make -C /tmp/mrgingham -j"${NCPUS}"
 make -C /tmp/mrgingham install DESTDIR="$MRG_STAGING" ${INSTALL_ROOTS}
+install_c_lib "$MRG_STAGING"

@@ -18,7 +18,7 @@ source "$(dirname "$0")/build-deps-common.sh"
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 brew install suite-sparse openblas libpng libjpeg re2c cpanminus \
-    fltk freeglut libepoxy swig opencv
+    fltk freeglut libepoxy swig opencv boost mesa-glu
 cpanm --notest List::MoreUtils
 
 BREW=$(brew --prefix)
@@ -52,7 +52,7 @@ rm -rf libdogleg /tmp/libdogleg-staging
 # ---------------------------------------------------------------------------
 # stb single-header image library (not in Homebrew; headers only)
 # ---------------------------------------------------------------------------
-install_stb "${BREW}/include"
+install_stb "${BREW}/include" "${BREW}/lib"
 
 # ---------------------------------------------------------------------------
 # gnuplot  (build from source without Qt/lua/readline to keep deps clean)

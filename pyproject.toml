@@ -5,7 +5,7 @@
 # better yet, send me a patch!
 
 [build-system]
-requires = []
+requires = ["numpy"]
 build-backend = "_mrcal_build_backend"
 backend-path = ["packaging"]
 
