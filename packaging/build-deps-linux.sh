@@ -86,6 +86,7 @@ make -C libdogleg install DESTDIR=/tmp/libdogleg-staging \
 cp -a /tmp/libdogleg-staging"${BUILD_DEPS}"/. "${BUILD_DEPS}"/
 ldconfig
 rm -rf libdogleg /tmp/libdogleg-staging
+strip_installed
 
 # ---------------------------------------------------------------------------
 # gnuplot  (not in EPEL; build from source without X11/Qt to keep deps clean)
