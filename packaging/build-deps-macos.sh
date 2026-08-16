@@ -22,7 +22,8 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 # the current-OS ones, giving us libs with minos=13.0.
 export MACOSX_DEPLOYMENT_TARGET=13.0
 
-brew install suite-sparse openblas libpng libjpeg re2c
+brew install suite-sparse openblas libpng libjpeg re2c cpanminus
+cpanm --notest List::MoreUtils
 
 BREW=$(brew --prefix)
 
