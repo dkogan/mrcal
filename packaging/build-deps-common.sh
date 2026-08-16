@@ -8,6 +8,7 @@ LIBDOGLEG_VER=0.18
 GNUPLOT_VER=6.0.2
 GL_IMAGE_DISPLAY_COMMIT=d1c2651
 MRGINGHAM_VER=1.27
+OPENCV_VER=4.11.0
 
 # All custom-built C dependencies install here.  The build scripts, before-build
 # hook, and Python build backend all reference this path so everything agrees.
@@ -83,6 +84,50 @@ clone_gl_image_display() {
     git clone https://github.com/dkogan/GL_image_display /tmp/GL_image_display
     git -C /tmp/GL_image_display checkout "${GL_IMAGE_DISPLAY_COMMIT}"
     ln -sf "${BUILD_DEPS}/include/mrbuild" /tmp/GL_image_display/mrbuild
+}
+
+build_opencv() {
+    curl -fsSL "https://github.com/opencv/opencv/archive/refs/tags/${OPENCV_VER}.tar.gz" \
+        | tar xz -C /tmp
+    local build_dir=/tmp/opencv-build
+    rm -rf "$build_dir"
+    local cmake_args=(
+        -DCMAKE_INSTALL_PREFIX="${BUILD_DEPS}"
+        -DCMAKE_BUILD_TYPE=Release
+        # Only the modules mrgingham actually needs
+        -DBUILD_LIST=core,imgproc,imgcodecs,features2d,flann,calib3d
+        # No heavyweight optional backends
+        -DWITH_VTK=OFF
+        -DWITH_CERES=OFF
+        -DWITH_OPENVINO=OFF
+        -DWITH_CUDA=OFF
+        -DWITH_OPENCL=OFF
+        -DWITH_QT=OFF
+        -DWITH_GTK=OFF
+        -DWITH_FFMPEG=OFF
+        -DWITH_GSTREAMER=OFF
+        -DBUILD_TESTS=OFF
+        -DBUILD_PERF_TESTS=OFF
+        -DBUILD_EXAMPLES=OFF
+        -DBUILD_opencv_python3=OFF
+        -DBUILD_opencv_python2=OFF
+        -DBUILD_SHARED_LIBS=ON
+        # OpenCV 4 defaults to include/opencv4/; flatten to include/ so that
+        # #include <opencv2/...> works with a plain -I${BUILD_DEPS}/include.
+        -DOPENCV_INCLUDE_INSTALL_PATH=include
+    )
+    if [ "$(uname)" = "Darwin" ]; then
+        cmake_args+=(
+            -DCMAKE_PREFIX_PATH="${BREW}"
+            -DCMAKE_OSX_ARCHITECTURES=arm64
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0
+        )
+    fi
+    cmake -S /tmp/opencv-${OPENCV_VER} -B "$build_dir" "${cmake_args[@]}"
+    cmake --build "$build_dir" -j"${NCPUS}"
+    cmake --install "$build_dir"
+    rm -rf /tmp/opencv-${OPENCV_VER} "$build_dir"
+    strip_installed
 }
 
 build_gnuplot() {
