@@ -46,6 +46,7 @@ make -C libdogleg install DESTDIR=/tmp/libdogleg-staging \
     INSTALL_ROOT_MAN="${BUILD_DEPS}/share/man"
 cp -a /tmp/libdogleg-staging"${BUILD_DEPS}"/. "${BUILD_DEPS}"/
 rm -rf libdogleg /tmp/libdogleg-staging
+strip_installed
 
 # ---------------------------------------------------------------------------
 # stb single-header image library (not in Homebrew; headers only)

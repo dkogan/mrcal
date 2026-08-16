@@ -13,6 +13,21 @@ MRGINGHAM_COMMIT=a2ec919
 # hook, and Python build backend all reference this path so everything agrees.
 BUILD_DEPS="${HOME}/build-deps"
 
+strip_installed() {
+    # Strip debug symbols from libs and executables installed to BUILD_DEPS.
+    if [ "$(uname)" = "Darwin" ]; then
+        find "${BUILD_DEPS}/lib" ! -type l -type f \
+            -exec strip -x {} \; 2>/dev/null || true
+        find "${BUILD_DEPS}/bin" -maxdepth 1 ! -type l -type f \
+            -exec strip {} \; 2>/dev/null || true
+    else
+        find "${BUILD_DEPS}/lib" ! -type l -type f \
+            -exec strip --strip-debug {} \; 2>/dev/null || true
+        find "${BUILD_DEPS}/bin" -maxdepth 1 ! -type l -type f \
+            -exec strip {} \; 2>/dev/null || true
+    fi
+}
+
 install_mrbuild() {
     mkdir -p "${BUILD_DEPS}/include" "${BUILD_DEPS}/bin"
     curl -fsSL "https://github.com/dkogan/mrbuild/archive/refs/tags/v${MRBUILD_VER}.tar.gz" | tar xz -C /tmp
@@ -82,6 +97,7 @@ build_gnuplot() {
         "$@"
     make ${LRELEASE:+LRELEASE="$LRELEASE"} -j"${NCPUS}"
     make install ${LRELEASE:+LRELEASE="$LRELEASE"}
+    strip "${prefix}/bin/gnuplot" 2>/dev/null || true
     cd /
     rm -rf /tmp/gnuplot-${GNUPLOT_VER}
 }

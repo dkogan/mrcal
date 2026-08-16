@@ -32,6 +32,16 @@ else
     install_c_lib() { cp -a "$1${BUILD_DEPS}/". "${BUILD_DEPS}/"; ldconfig; }
 fi
 
+strip_staging() {
+    # Strip debug symbols from a staging tree before installing to BUILD_DEPS.
+    # Safe to run on text files: strip exits non-zero but we ignore it.
+    if [ "$(uname)" = "Darwin" ]; then
+        find "$1" ! -type l -type f -exec strip -x {} \; 2>/dev/null || true
+    else
+        find "$1" ! -type l -type f -exec strip --strip-debug {} \; 2>/dev/null || true
+    fi
+}
+
 INSTALL_ROOTS="INSTALL_ROOT_PY3_MODULES=${PY_PLATLIB}
                INSTALL_ROOT_LIB=${BUILD_DEPS}/lib
                INSTALL_ROOT_INCLUDE=${BUILD_DEPS}/include
@@ -49,6 +59,7 @@ GL_STAGING=/tmp/gl-py-staging
 rm -rf "$GL_STAGING"
 make -C /tmp/GL_image_display -j"${NCPUS}"
 make -C /tmp/GL_image_display install DESTDIR="$GL_STAGING" ${INSTALL_ROOTS}
+strip_staging "$GL_STAGING"
 install_c_lib "$GL_STAGING"
 
 # ---------------------------------------------------------------------------
@@ -58,4 +69,5 @@ MRG_STAGING=/tmp/mrgingham-staging
 rm -rf "$MRG_STAGING"
 make -C /tmp/mrgingham -j"${NCPUS}"
 make -C /tmp/mrgingham install DESTDIR="$MRG_STAGING" ${INSTALL_ROOTS}
+strip_staging "$MRG_STAGING"
 install_c_lib "$MRG_STAGING"

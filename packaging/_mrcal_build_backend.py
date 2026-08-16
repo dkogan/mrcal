@@ -317,6 +317,13 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
         if mrbuild_symlink and os.path.islink(mrbuild_symlink):
             os.unlink(mrbuild_symlink)
 
+    # Strip debug symbols from built shared libraries before packing the wheel.
+    strip_cmd = ['strip', '-x'] if sys.platform == 'darwin' else ['strip', '--strip-debug']
+    for pattern in ['*.so', '*.so.*', '*.dylib']:
+        for f in glob.glob(f'{SRC}/**/{pattern}', recursive=True):
+            if not os.path.islink(f):
+                subprocess.run(strip_cmd + [f], check=False, stderr=subprocess.DEVNULL)
+
     with tempfile.TemporaryDirectory(prefix="mrcal-raw-wheel-") as tmp:
         tag            = _raw_wheel_tag()
         raw_wheel_path = f"{tmp}/mrcal-{version}-{tag}.whl"
