@@ -56,7 +56,7 @@ install_stb
 # ---------------------------------------------------------------------------
 # gnuplot  (build from source with Qt terminal; without lua/readline)
 # ---------------------------------------------------------------------------
-build_gnuplot "${BREW}"
+build_gnuplot "${BREW}" CXXFLAGS="-std=c++17"
 
 # ---------------------------------------------------------------------------
 # GL_image_display and mrgingham — cloned here; built per Python version in
