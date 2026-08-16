@@ -199,6 +199,7 @@ def _build_raw_wheel(raw_wheel_path, version, brew=None):
         # Bundled mrgingham — binaries to mrcal/_vendor/bin/ (PATH is set in
         # __init__.py); Python extension at wheel root for 'import mrgingham'.
         # auditwheel/delocate bundles OpenCV and other C lib deps.
+        # Fixed paths set by before-build.sh — independent of any venv's platlib.
         _mrg_staging = '/tmp/mrgingham-staging'
         _mrg_bin_dir = _mrg_staging + BUILD_DEPS + '/bin'
         if os.path.isdir(_mrg_bin_dir):
@@ -206,8 +207,7 @@ def _build_raw_wheel(raw_wheel_path, version, brew=None):
                 if os.path.isfile(path):
                     add(zf, open(path, 'rb').read(),
                         f'mrcal/_vendor/bin/{os.path.basename(path)}', mode=0o755)
-        import sysconfig as _sc2
-        _mrg_py_dir = _mrg_staging + _sc2.get_path('platlib')  # platlib is absolute
+        _mrg_py_dir = '/tmp/mrg-pylib'
         if os.path.isdir(_mrg_py_dir):
             for path in sorted(glob.glob(f'{_mrg_py_dir}/mrgingham*')):
                 if os.path.isfile(path):
@@ -218,10 +218,9 @@ def _build_raw_wheel(raw_wheel_path, version, brew=None):
         # placed at the wheel root so they land in site-packages alongside mrcal/
         # and are importable as standalone modules.  auditwheel/delocate bundles
         # their C library dependencies (libGL_image_display_fltk, libfltk, etc.)
-        import sysconfig as _sc
-        _gl_staging = os.path.join('/tmp/gl-py-staging', _sc.get_path('platlib').lstrip('/'))
-        if os.path.isdir(_gl_staging):
-            for path in sorted(glob.glob(f'{_gl_staging}/Fl_Gl_Image_Widget*')):
+        _gl_py_dir = '/tmp/gl-pylib'
+        if os.path.isdir(_gl_py_dir):
+            for path in sorted(glob.glob(f'{_gl_py_dir}/Fl_Gl_Image_Widget*')):
                 if os.path.isfile(path):
                     mode = 0o755 if path.endswith('.so') else 0o644
                     add(zf, open(path, 'rb').read(), os.path.basename(path), mode=mode)

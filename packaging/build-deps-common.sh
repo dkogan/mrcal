@@ -95,7 +95,7 @@ build_opencv() {
         -DCMAKE_INSTALL_PREFIX="${BUILD_DEPS}"
         -DCMAKE_BUILD_TYPE=Release
         # Only the modules mrgingham actually needs
-        -DBUILD_LIST=core,imgproc,imgcodecs,features2d,flann,calib3d
+        -DBUILD_LIST=core,imgproc,imgcodecs,highgui,features2d,flann,calib3d
         # No heavyweight optional backends
         -DWITH_VTK=OFF
         -DWITH_CERES=OFF
