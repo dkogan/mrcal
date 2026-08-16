@@ -17,11 +17,6 @@ source "$(dirname "$0")/build-deps-common.sh"
 # Non-interactive SSH sessions don't source the shell profile; set PATH explicitly.
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
-# Target macOS 13 so the wheel works on Ventura and later.
-# HOMEBREW_BOTTLE_TAG makes brew download the arm64_ventura bottles instead of
-# the current-OS ones, giving us libs with minos=13.0.
-export MACOSX_DEPLOYMENT_TARGET=13.0
-
 brew install suite-sparse openblas libpng libjpeg re2c cpanminus
 cpanm --notest List::MoreUtils
 
