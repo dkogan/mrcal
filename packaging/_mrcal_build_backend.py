@@ -110,7 +110,7 @@ def _mrcal_setup_gnuplot():
     if shutil.which('gnuplot'):
         return  # use system gnuplot with its own default terminal
     os.environ['PATH'] = vendor_bin + os.pathsep + os.environ.get('PATH', '')
-    os.environ.setdefault('GNUTERM', 'x11')
+    os.environ.setdefault('GNUTERM', 'qt' if sys.platform == 'darwin' else 'x11')
     vers = sorted(glob.glob(os.path.join(vendor, 'share', 'gnuplot', '*')))
     if vers:
         os.environ.setdefault('GNUPLOT_LIB', vers[-1])
@@ -130,7 +130,7 @@ del _mrcal_setup_gnuplot
 """
 
 
-def _build_raw_wheel(raw_wheel_path, version):
+def _build_raw_wheel(raw_wheel_path, version, brew=None):
     pkg_dir   = f"{SRC}/mrcal"
     impl      = sys.implementation.name
     ver       = "".join(str(v) for v in sys.version_info[:2])
@@ -139,7 +139,8 @@ def _build_raw_wheel(raw_wheel_path, version):
     data_dir  = f"mrcal-{version}.data"
     records   = []
 
-    gnuplot_bin = shutil.which("gnuplot")
+    gnuplot_bin = shutil.which("gnuplot") or \
+        (os.path.join(brew, "bin", "gnuplot") if brew else None)
 
     def add(zf, data, arcname, mode=0o644):
         if isinstance(data, str):
@@ -237,14 +238,6 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
     version = _version()
     ncpus   = os.cpu_count() or 4
 
-    # 1. Build (clean first to avoid stale objects from a prior host build)
-    subprocess.check_call(["make", "clean"], cwd=SRC)
-    # USE_LOCAL_STB_IMPLEMENTATION: compile stb into libmrcal rather than
-    # linking against an external libstb.so (not available on all platforms).
-    make_cmd = ["make", f"-j{ncpus}"]
-    if sys.platform != "darwin":
-        make_cmd.append("USE_LOCAL_STB_IMPLEMENTATION=1")
-
     # numpy headers are installed into the isolated build venv but make runs
     # outside it; add numpy's include dir via C_INCLUDE_PATH so GCC finds
     # numpy/arrayobject.h without any Makefile changes.
@@ -258,13 +251,29 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
     # /usr/include/mrbuild/; create a temporary local symlink so make finds it.
     mrbuild_symlink = None
     if sys.platform == "darwin":
+        brew_bin = next((p for p in ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"] if os.path.exists(p)), "brew")
+        brew = subprocess.check_output([brew_bin, "--prefix"], text=True).strip()
+        # Homebrew headers/libs are not in the default compiler search path
+        env["CPATH"]        = f"{brew}/include" + (":" + env["CPATH"]        if env.get("CPATH")        else "")
+        env["LIBRARY_PATH"] = f"{brew}/lib"     + (":" + env["LIBRARY_PATH"] if env.get("LIBRARY_PATH") else "")
+        # mrbuild now respects ARCHFLAGS to override the arch flags it gets
+        # from Python's sysconfig (which is universal2 for Python.org builds).
+        import platform
+        env.setdefault("ARCHFLAGS", f"-arch {platform.machine()}")
+        # choose_mrbuild.mk checks mrbuild/ (local) or /usr/include/mrbuild/;
+        # /usr/include is SIP-protected so create a temporary local symlink.
         local_link = f"{SRC}/mrbuild"
         if not os.path.exists(local_link):
-            brew = subprocess.check_output(["brew", "--prefix"], text=True).strip()
             candidate = f"{brew}/include/mrbuild"
             if os.path.isdir(candidate):
                 os.symlink(candidate, local_link)
                 mrbuild_symlink = local_link
+
+    # USE_LOCAL_STB_IMPLEMENTATION: compile stb into libmrcal rather than
+    # linking against an external libstb.so (not available on all platforms).
+    make_cmd = ["make", f"-j{ncpus}"]
+    if sys.platform != "darwin":
+        make_cmd.append("USE_LOCAL_STB_IMPLEMENTATION=1")
 
     try:
         subprocess.check_call(make_cmd, cwd=SRC, env=env)
@@ -278,7 +287,8 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
 
         # 2. Pack raw wheel (extensions keep their $ORIGIN/.. RUNPATH for now;
         #    auditwheel will rewrite everything)
-        _build_raw_wheel(raw_wheel_path, version)
+        _build_raw_wheel(raw_wheel_path, version,
+                         brew=brew if sys.platform == "darwin" else None)
 
         # 3. Repair: bundle libmrcal + all transitive C deps into the wheel
         env = os.environ.copy()
@@ -288,13 +298,20 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
             # resolution can find libmrcal (built there by make).
             lib_path_var = "DYLD_LIBRARY_PATH"
             cmd = ["delocate-wheel", "-w", wheel_directory, raw_wheel_path]
+            # Ensure MACOSX_DEPLOYMENT_TARGET is set so delocate accepts the
+            # bundled libs (which were built for the current OS if using the
+            # local Homebrew).  On CI the runner sets this; locally we detect it.
+            import platform
+            mac_ver = ".".join(platform.mac_ver()[0].split(".")[:2])
+            env["MACOSX_DEPLOYMENT_TARGET"] = mac_ver
         else:
             # Extensions use RUNPATH (not RPATH), so LD_LIBRARY_PATH takes
             # precedence and auditwheel's ldd finds libmrcal.so.5 in SRC.
             lib_path_var = "LD_LIBRARY_PATH"
             cmd = ["auditwheel", "repair", raw_wheel_path, "-w", wheel_directory]
 
-        env[lib_path_var] = SRC + (":" + env[lib_path_var] if env.get(lib_path_var) else "")
+        lib_dirs = [SRC] + ([f"{brew}/lib"] if sys.platform == "darwin" else [])
+        env[lib_path_var] = ":".join(lib_dirs + ([env[lib_path_var]] if env.get(lib_path_var) else []))
         subprocess.check_call(cmd, env=env)
 
     # 4. Return the repaired wheel filename.
