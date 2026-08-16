@@ -42,6 +42,7 @@ skip  = "*-musllinux*"
 # Standard manylinux_2_28 image (AlmaLinux); Python 3.9–3.13 pre-installed.
 # before-all installs C deps via dnf/EPEL and builds libdogleg from source.
 before-all = "bash {project}/packaging/build-deps-linux.sh"
+environment-pass = ["VERSION_WHEEL_BASE", "VERSION_WHEEL_POST"]
 
 # Uncomment to persist the dnf package cache on the host so RPMs aren't re-downloaded each run.
 # container-engine = {name = "docker", create-args = ["--volume=/mnt/data/mrcal-dnf-cache:/var/cache/dnf"]}
