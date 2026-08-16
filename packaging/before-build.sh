@@ -5,44 +5,44 @@
 # platforms). before-all already cloned the sources and installed C build deps.
 set -ex
 
-# Capture the cibuildwheel Python before PATH is modified (macOS adds brew to PATH,
-# which would mask the cibuildwheel Python with Homebrew's externally-managed one).
+BUILD_DEPS="${HOME}/build-deps"
+
+# Capture the cibuildwheel Python before PATH is modified (macOS adds brew to
+# PATH which would mask the cibuildwheel Python with Homebrew's externally-
+# managed one).
 PYTHON3=$(command -v python3)
 PY_PLATLIB=$("${PYTHON3}" -c "import sysconfig; print(sysconfig.get_path('platlib'))")
 
 if [ "$(uname)" = "Darwin" ]; then
     NCPUS=$(sysctl -n hw.ncpu)
-    export PATH="$(dirname "${PYTHON3}"):/opt/homebrew/bin:/usr/local/bin:$PATH"
     BREW=$(brew --prefix)
-    export CPATH="${BREW}/include${CPATH:+:$CPATH}"
-    export LIBRARY_PATH="${BREW}/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
+    # Put cibuildwheel Python first so mrbuild's python3 calls use it, then
+    # brew tools, then the rest of PATH.
+    export PATH="$(dirname "${PYTHON3}"):${BREW}/bin:/usr/local/bin:$PATH"
+    export CPATH="${BUILD_DEPS}/include:${BREW}/include${CPATH:+:$CPATH}"
+    export LIBRARY_PATH="${BUILD_DEPS}/lib:${BREW}/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
     export SWIG_FLAGS="-I${BREW}/include"
-    LIB_ROOT="${BREW}/lib"
-    INCLUDE_ROOT="${BREW}/include"
-    BIN_ROOT="${BREW}/bin"
-    MAN_ROOT="${BREW}/share/man"
-    install_c_lib() { cp -a "$1${BREW}/". "${BREW}/"; }
+    install_c_lib() { cp -a "$1${BUILD_DEPS}/". "${BUILD_DEPS}/"; }
 else
     NCPUS=$(nproc)
-    LIB_ROOT=/usr/local/lib
-    INCLUDE_ROOT=/usr/local/include
-    BIN_ROOT=/usr/local/bin
-    MAN_ROOT=/usr/local/share/man
-    install_c_lib() { cp -a "$1/usr/local/". /usr/local/; ldconfig; }
+    export PATH="${BUILD_DEPS}/bin:${PATH}"
+    export CPATH="${BUILD_DEPS}/include${CPATH:+:$CPATH}"
+    export LIBRARY_PATH="${BUILD_DEPS}/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
+    install_c_lib() { cp -a "$1${BUILD_DEPS}/". "${BUILD_DEPS}/"; ldconfig; }
 fi
 
 INSTALL_ROOTS="INSTALL_ROOT_PY3_MODULES=${PY_PLATLIB}
-               INSTALL_ROOT_LIB=${LIB_ROOT}
-               INSTALL_ROOT_INCLUDE=${INCLUDE_ROOT}
-               INSTALL_ROOT_BIN=${BIN_ROOT}
-               INSTALL_ROOT_MAN=${MAN_ROOT}"
+               INSTALL_ROOT_LIB=${BUILD_DEPS}/lib
+               INSTALL_ROOT_INCLUDE=${BUILD_DEPS}/include
+               INSTALL_ROOT_BIN=${BUILD_DEPS}/bin
+               INSTALL_ROOT_MAN=${BUILD_DEPS}/share/man"
 
 # ---------------------------------------------------------------------------
 # GL_image_display
 # ---------------------------------------------------------------------------
-"${PYTHON3}" -m pip install numpy --quiet
+"${PYTHON3}" -m pip install numpy setuptools --quiet
 NUMPY_INC=$("${PYTHON3}" -c 'import numpy; print(numpy.get_include())')
-ln -sf "${NUMPY_INC}/numpy" "${INCLUDE_ROOT}/numpy"
+ln -sf "${NUMPY_INC}/numpy" "${BUILD_DEPS}/include/numpy"
 
 GL_STAGING=/tmp/gl-py-staging
 rm -rf "$GL_STAGING"

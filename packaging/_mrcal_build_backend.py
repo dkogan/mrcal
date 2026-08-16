@@ -39,6 +39,7 @@ import tempfile
 import subprocess
 
 SRC = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BUILD_DEPS = os.path.expanduser('~/build-deps')
 
 
 # ---------------------------------------------------------------------------
@@ -200,12 +201,7 @@ def _build_raw_wheel(raw_wheel_path, version, brew=None):
         # __init__.py); Python extension at wheel root for 'import mrgingham'.
         # auditwheel/delocate bundles OpenCV and other C lib deps.
         _mrg_staging = '/tmp/mrgingham-staging'
-        if sys.platform == 'darwin':
-            import subprocess as _sp
-            _brew = _sp.check_output(['brew', '--prefix'], text=True).strip()
-            _mrg_bin_dir = _mrg_staging + _brew + '/bin'
-        else:
-            _mrg_bin_dir = _mrg_staging + '/usr/local/bin'
+        _mrg_bin_dir = _mrg_staging + BUILD_DEPS + '/bin'
         if os.path.isdir(_mrg_bin_dir):
             for path in sorted(glob.glob(f'{_mrg_bin_dir}/mrgingham*')):
                 if os.path.isfile(path):
@@ -283,28 +279,31 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
     numpy_inc = numpy.get_include()
     env["C_INCLUDE_PATH"] = numpy_inc + (":" + env["C_INCLUDE_PATH"] if env.get("C_INCLUDE_PATH") else "")
 
-    # On macOS, /usr/include is SIP-protected so mrbuild is installed under the
-    # Homebrew prefix.  choose_mrbuild.mk only checks mrbuild/ (local) or
-    # /usr/include/mrbuild/; create a temporary local symlink so make finds it.
+    # All custom C deps live in BUILD_DEPS; add to compiler/linker search paths.
+    env["CPATH"]        = BUILD_DEPS + "/include" + (":" + env["CPATH"]        if env.get("CPATH")        else "")
+    env["LIBRARY_PATH"] = BUILD_DEPS + "/lib"     + (":" + env["LIBRARY_PATH"] if env.get("LIBRARY_PATH") else "")
+
     mrbuild_symlink = None
     if sys.platform == "darwin":
         brew_bin = next((p for p in ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"] if os.path.exists(p)), "brew")
         brew = subprocess.check_output([brew_bin, "--prefix"], text=True).strip()
-        # Homebrew headers/libs are not in the default compiler search path
-        env["CPATH"]        = f"{brew}/include" + (":" + env["CPATH"]        if env.get("CPATH")        else "")
-        env["LIBRARY_PATH"] = f"{brew}/lib"     + (":" + env["LIBRARY_PATH"] if env.get("LIBRARY_PATH") else "")
-        # mrbuild now respects ARCHFLAGS to override the arch flags it gets
-        # from Python's sysconfig (which is universal2 for Python.org builds).
+        # Homebrew headers/libs (FLTK, OpenCV, etc.) are not in the default
+        # compiler search path on macOS.
+        env["CPATH"]        = f"{brew}/include:" + env["CPATH"]
+        env["LIBRARY_PATH"] = f"{brew}/lib:"     + env["LIBRARY_PATH"]
+        # mrbuild respects ARCHFLAGS to override the arch flags it gets from
+        # Python's sysconfig (which is universal2 for Python.org builds).
         import platform
         env.setdefault("ARCHFLAGS", f"-arch {platform.machine()}")
-        # choose_mrbuild.mk checks mrbuild/ (local) or /usr/include/mrbuild/;
-        # /usr/include is SIP-protected so create a temporary local symlink.
-        local_link = f"{SRC}/mrbuild"
-        if not os.path.exists(local_link):
-            candidate = f"{brew}/include/mrbuild"
-            if os.path.isdir(candidate):
-                os.symlink(candidate, local_link)
-                mrbuild_symlink = local_link
+
+    # choose_mrbuild.mk checks mrbuild/ (local) or /usr/include/mrbuild/.
+    # BUILD_DEPS is neither, so create a temporary local symlink.
+    local_link = f"{SRC}/mrbuild"
+    if not os.path.exists(local_link):
+        candidate = f"{BUILD_DEPS}/include/mrbuild"
+        if os.path.isdir(candidate):
+            os.symlink(candidate, local_link)
+            mrbuild_symlink = local_link
 
     # USE_LOCAL_STB_IMPLEMENTATION: compile stb into libmrcal rather than
     # linking against an external libstb.so (not available on all platforms).
@@ -347,7 +346,7 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
             lib_path_var = "LD_LIBRARY_PATH"
             cmd = ["auditwheel", "repair", raw_wheel_path, "-w", wheel_directory]
 
-        lib_dirs = [SRC] + ([f"{brew}/lib"] if sys.platform == "darwin" else [])
+        lib_dirs = [SRC, f"{BUILD_DEPS}/lib"] + ([f"{brew}/lib"] if sys.platform == "darwin" else [])
         env[lib_path_var] = ":".join(lib_dirs + ([env[lib_path_var]] if env.get(lib_path_var) else []))
         subprocess.check_call(cmd, env=env)
 

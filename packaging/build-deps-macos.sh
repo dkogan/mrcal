@@ -23,36 +23,34 @@ cpanm --notest List::MoreUtils
 
 BREW=$(brew --prefix)
 
+mkdir -p "${BUILD_DEPS}/include" "${BUILD_DEPS}/lib" "${BUILD_DEPS}/bin"
+
+# Make BUILD_DEPS and Homebrew visible to everything that follows.
+export CPATH="${BUILD_DEPS}/include:${BREW}/include${CPATH:+:$CPATH}"
+export LIBRARY_PATH="${BUILD_DEPS}/lib:${BREW}/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
+
 # ---------------------------------------------------------------------------
 # mrbuild  (not in Homebrew)
-# choose_mrbuild.mk checks for mrbuild/ (local) or /usr/include/mrbuild/;
-# /usr/include is SIP-protected on macOS, so install under the Homebrew prefix.
-# _mrcal_build_backend.py creates a local mrbuild/ symlink before calling make.
 # ---------------------------------------------------------------------------
-install_mrbuild "${BREW}/include" "${BREW}/bin"
+install_mrbuild
 
 # ---------------------------------------------------------------------------
 # libdogleg  (not in Homebrew; build from source)
 # ---------------------------------------------------------------------------
-# Homebrew headers/libs are not in the default compiler search path on macOS.
-export CPATH="${BREW}/include${CPATH:+:$CPATH}"
-export LIBRARY_PATH="${BREW}/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
-
-clone_and_build_libdogleg "${BREW}/include/mrbuild"
+clone_and_build_libdogleg
 
 make -C libdogleg install DESTDIR=/tmp/libdogleg-staging \
-    INSTALL_ROOT_LIB="${BREW}/lib"            \
-    INSTALL_ROOT_INCLUDE="${BREW}/include"    \
-    INSTALL_ROOT_BIN="${BREW}/bin"            \
-    INSTALL_ROOT_MAN="${BREW}/share/man"
-cp -a /tmp/libdogleg-staging${BREW}/. ${BREW}/
-
+    INSTALL_ROOT_LIB="${BUILD_DEPS}/lib"         \
+    INSTALL_ROOT_INCLUDE="${BUILD_DEPS}/include" \
+    INSTALL_ROOT_BIN="${BUILD_DEPS}/bin"         \
+    INSTALL_ROOT_MAN="${BUILD_DEPS}/share/man"
+cp -a /tmp/libdogleg-staging"${BUILD_DEPS}"/. "${BUILD_DEPS}"/
 rm -rf libdogleg /tmp/libdogleg-staging
 
 # ---------------------------------------------------------------------------
 # stb single-header image library (not in Homebrew; headers only)
 # ---------------------------------------------------------------------------
-install_stb "${BREW}/include" "${BREW}/lib"
+install_stb
 
 # ---------------------------------------------------------------------------
 # gnuplot  (build from source without Qt/lua/readline to keep deps clean)
@@ -60,8 +58,8 @@ install_stb "${BREW}/include" "${BREW}/lib"
 build_gnuplot "${BREW}" --without-qt
 
 # ---------------------------------------------------------------------------
-# GL_image_display  (not in Homebrew; build from source per Python version
-# in before-build hook — clone the source here so before-build can just 'make')
+# GL_image_display and mrgingham — cloned here; built per Python version in
+# the before-build hook so the Python extension links against the right ABI.
 # ---------------------------------------------------------------------------
-clone_gl_image_display "${BREW}/include/mrbuild"
-clone_mrgingham "${BREW}/include/mrbuild"
+clone_gl_image_display
+clone_mrgingham
