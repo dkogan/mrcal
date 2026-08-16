@@ -13,6 +13,7 @@ if [ "$(uname)" = "Darwin" ]; then
     BREW=$(brew --prefix)
     export CPATH="${BREW}/include${CPATH:+:$CPATH}"
     export LIBRARY_PATH="${BREW}/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
+    export SWIG_FLAGS="-I${BREW}/include"
     LIB_ROOT="${BREW}/lib"
     INCLUDE_ROOT="${BREW}/include"
     BIN_ROOT="${BREW}/bin"
@@ -38,8 +39,8 @@ INSTALL_ROOTS="INSTALL_ROOT_PY3_MODULES=${PY_PLATLIB}
 # ---------------------------------------------------------------------------
 GL_STAGING=/tmp/gl-py-staging
 rm -rf "$GL_STAGING"
-make -C /tmp/GL_image_display -j"${NCPUS}"
-make -C /tmp/GL_image_display install DESTDIR="$GL_STAGING" ${INSTALL_ROOTS}
+make -C /tmp/GL_image_display -j"${NCPUS}" ${SWIG_FLAGS:+SWIG_FLAGS="$SWIG_FLAGS"}
+make -C /tmp/GL_image_display install DESTDIR="$GL_STAGING" ${INSTALL_ROOTS} ${SWIG_FLAGS:+SWIG_FLAGS="$SWIG_FLAGS"}
 install_c_lib "$GL_STAGING"
 
 # ---------------------------------------------------------------------------
