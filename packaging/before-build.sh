@@ -17,8 +17,9 @@ if [ "$(uname)" = "Darwin" ]; then
     NCPUS=$(sysctl -n hw.ncpu)
     BREW=$(brew --prefix)
     # Put cibuildwheel Python first so mrbuild's python3 calls use it, then
+    # GNU getopt (keg-only; needed for mrgingham man-page generation), then
     # brew tools, then the rest of PATH.
-    export PATH="$(dirname "${PYTHON3}"):${BREW}/bin:/usr/local/bin:$PATH"
+    export PATH="$(dirname "${PYTHON3}"):${BREW}/opt/gnu-getopt/bin:${BREW}/bin:/usr/local/bin:$PATH"
     export CPATH="${BUILD_DEPS}/include:${BREW}/include${CPATH:+:$CPATH}"
     export LIBRARY_PATH="${BUILD_DEPS}/lib:${BREW}/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
     export SWIG_FLAGS="-I${BREW}/include"

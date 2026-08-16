@@ -18,7 +18,7 @@ source "$(dirname "$0")/build-deps-common.sh"
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 brew install suite-sparse openblas libpng libjpeg re2c cpanminus \
-    fltk freeglut libepoxy swig opencv boost mesa-glu
+    fltk freeglut libepoxy swig opencv boost mesa-glu gnu-getopt
 cpanm --notest List::MoreUtils
 
 BREW=$(brew --prefix)
