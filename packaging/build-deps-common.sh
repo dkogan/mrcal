@@ -6,7 +6,7 @@
 MRBUILD_VER=1.19
 LIBDOGLEG_VER=0.18
 GNUPLOT_VER=6.0.2
-GL_IMAGE_DISPLAY_VER=0.24
+GL_IMAGE_DISPLAY_COMMIT=bbf4721
 MRGINGHAM_VER=1.26
 
 install_mrbuild() {
@@ -34,7 +34,9 @@ clone_and_build_libdogleg() {
     local mrbuild_link=$1  # path to symlink as libdogleg/mrbuild (macOS); empty on Linux
     rm -rf libdogleg /tmp/libdogleg-staging
     git clone --depth=1 --branch "v${LIBDOGLEG_VER}" https://github.com/dkogan/libdogleg
-    [ -n "${mrbuild_link}" ] && ln -sf "${mrbuild_link}" libdogleg/mrbuild
+    if [ -n "${mrbuild_link}" ]; then
+        ln -sf "${mrbuild_link}" libdogleg/mrbuild
+    fi
     make -C libdogleg -j"${NCPUS}"
 }
 
@@ -45,15 +47,19 @@ clone_mrgingham() {
     rm -rf /tmp/mrgingham
     git clone --depth=1 --branch "upstream/${MRGINGHAM_VER}" \
         https://salsa.debian.org/science-team/mrgingham /tmp/mrgingham
-    [ -n "${mrbuild_link}" ] && ln -sf "${mrbuild_link}" /tmp/mrgingham/mrbuild
+    if [ -n "${mrbuild_link}" ]; then
+        ln -sf "${mrbuild_link}" /tmp/mrgingham/mrbuild
+    fi
 }
 
 clone_gl_image_display() {
     local mrbuild_link=$1  # path to symlink as mrbuild (macOS); empty on Linux
     rm -rf /tmp/GL_image_display
-    git clone --depth=1 --branch "v${GL_IMAGE_DISPLAY_VER}" \
-        https://github.com/dkogan/GL_image_display /tmp/GL_image_display
-    [ -n "${mrbuild_link}" ] && ln -sf "${mrbuild_link}" /tmp/GL_image_display/mrbuild
+    git clone https://github.com/dkogan/GL_image_display /tmp/GL_image_display
+    git -C /tmp/GL_image_display checkout "${GL_IMAGE_DISPLAY_COMMIT}"
+    if [ -n "${mrbuild_link}" ]; then
+        ln -sf "${mrbuild_link}" /tmp/GL_image_display/mrbuild
+    fi
 }
 
 build_gnuplot() {
