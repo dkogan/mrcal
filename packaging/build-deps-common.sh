@@ -6,6 +6,8 @@
 MRBUILD_VER=1.19
 LIBDOGLEG_VER=0.18
 GNUPLOT_VER=6.0.2
+GL_IMAGE_DISPLAY_VER=0.24
+MRGINGHAM_VER=1.26
 
 install_mrbuild() {
     local include_dir=$1  # e.g. /usr/include or ${BREW}/include
@@ -34,6 +36,24 @@ clone_and_build_libdogleg() {
     git clone --depth=1 --branch "v${LIBDOGLEG_VER}" https://github.com/dkogan/libdogleg
     [ -n "${mrbuild_link}" ] && ln -sf "${mrbuild_link}" libdogleg/mrbuild
     make -C libdogleg -j"${NCPUS}"
+}
+
+# Clone GL_image_display source to /tmp/GL_image_display for per-Python builds
+# in the before-build hook.  Does not build; callers do that.
+clone_mrgingham() {
+    local mrbuild_link=$1  # path to symlink as mrbuild (macOS); empty on Linux
+    rm -rf /tmp/mrgingham
+    git clone --depth=1 --branch "upstream/${MRGINGHAM_VER}" \
+        https://salsa.debian.org/science-team/mrgingham /tmp/mrgingham
+    [ -n "${mrbuild_link}" ] && ln -sf "${mrbuild_link}" /tmp/mrgingham/mrbuild
+}
+
+clone_gl_image_display() {
+    local mrbuild_link=$1  # path to symlink as mrbuild (macOS); empty on Linux
+    rm -rf /tmp/GL_image_display
+    git clone --depth=1 --branch "v${GL_IMAGE_DISPLAY_VER}" \
+        https://github.com/dkogan/GL_image_display /tmp/GL_image_display
+    [ -n "${mrbuild_link}" ] && ln -sf "${mrbuild_link}" /tmp/GL_image_display/mrbuild
 }
 
 build_gnuplot() {

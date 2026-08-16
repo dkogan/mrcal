@@ -31,7 +31,14 @@ dnf install -y --setopt=keepcache=1 \
     perl-List-MoreUtils \
     git \
     make \
-    cmake
+    cmake \
+    fltk-devel \
+    mesa-libGL-devel \
+    mesa-libGLU-devel \
+    libepoxy-devel \
+    freeglut-devel \
+    swig \
+    opencv-devel
 
 # openblas-devel doesn't provide liblapack.so; create a symlink so -llapack resolves to openblas
 ln -sf /usr/lib64/libopenblas.so /usr/local/lib/liblapack.so
@@ -75,3 +82,10 @@ rm -rf libdogleg /tmp/libdogleg-staging
 # wheel so pip users get a working gnuplot without a separate system install.
 # ---------------------------------------------------------------------------
 build_gnuplot /usr/local --without-qt
+
+# ---------------------------------------------------------------------------
+# GL_image_display  (not in EPEL; build from source per Python version in
+# before-build hook — clone the source here so before-build can just 'make')
+# ---------------------------------------------------------------------------
+clone_gl_image_display ""
+clone_mrgingham ""
