@@ -5,8 +5,9 @@
 
 MRBUILD_VER=1.19
 LIBDOGLEG_VER=0.18
+FLTK_VER=1.4.5
 GNUPLOT_VER=6.0.2
-GL_IMAGE_DISPLAY_COMMIT=d1c2651
+GL_IMAGE_DISPLAY_COMMIT=0f01d51
 MRGINGHAM_VER=1.27
 OPENCV_VER=4.11.0
 
@@ -41,6 +42,28 @@ install_mrbuild() {
         cp /tmp/mrbuild-${MRBUILD_VER}/bin/* "${BUILD_DEPS}/include/mrbuild/bin/"
     fi
     rm -rf /tmp/mrbuild-${MRBUILD_VER}
+}
+
+build_fltk() {
+    curl -fsSL "https://github.com/fltk/fltk/releases/download/release-${FLTK_VER}/fltk-${FLTK_VER}-source.tar.gz" \
+        | tar xz -C /tmp
+    local build_dir=/tmp/fltk-build
+    rm -rf "$build_dir"
+    cmake -S /tmp/fltk-${FLTK_VER} -B "$build_dir" \
+        -DCMAKE_INSTALL_PREFIX="${BUILD_DEPS}" \
+        -DCMAKE_INSTALL_LIBDIR=lib \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DFLTK_BUILD_SHARED_LIBS=ON \
+        -DFLTK_BUILD_TEST=OFF \
+        -DFLTK_BUILD_EXAMPLES=OFF \
+        -DOPTION_BUILD_GL=ON \
+        -DOPTION_USE_SYSTEM_LIBJPEG=ON \
+        -DOPTION_USE_SYSTEM_LIBPNG=ON \
+        -DOPTION_USE_SYSTEM_ZLIB=ON
+    cmake --build "$build_dir" -j"${NCPUS}"
+    cmake --install "$build_dir"
+    rm -rf /tmp/fltk-${FLTK_VER} "$build_dir"
+    strip_installed
 }
 
 install_stb() {
@@ -128,6 +151,21 @@ build_opencv() {
     cmake --install "$build_dir"
     rm -rf /tmp/opencv-${OPENCV_VER} "$build_dir"
     strip_installed
+    # OpenCV 4.11 + CMake 4.x have a compatibility bug in OpenCVGenPkgconfig.cmake,
+    # so we generate opencv4.pc manually.
+    mkdir -p "${BUILD_DEPS}/lib/pkgconfig"
+    cat > "${BUILD_DEPS}/lib/pkgconfig/opencv4.pc" << EOF
+prefix=${BUILD_DEPS}
+exec_prefix=\${prefix}
+libdir=\${exec_prefix}/lib
+includedir=\${prefix}/include
+
+Name: OpenCV
+Description: Open Source Computer Vision Library
+Version: ${OPENCV_VER}
+Libs: -L\${libdir} -lopencv_calib3d -lopencv_features2d -lopencv_flann -lopencv_highgui -lopencv_imgcodecs -lopencv_imgproc -lopencv_core
+Cflags: -I\${includedir}
+EOF
 }
 
 build_gnuplot() {
