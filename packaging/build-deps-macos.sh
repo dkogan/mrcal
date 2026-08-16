@@ -11,10 +11,18 @@
 # Called by cibuildwheel's before-all hook on macOS.
 set -ex
 
+NCPUS=$(sysctl -n hw.ncpu)
+source "$(dirname "$0")/build-deps-common.sh"
+
 # Non-interactive SSH sessions don't source the shell profile; set PATH explicitly.
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
-brew install suite-sparse openblas libpng libjpeg re2c gnuplot
+# Target macOS 13 so the wheel works on Ventura and later.
+# HOMEBREW_BOTTLE_TAG makes brew download the arm64_ventura bottles instead of
+# the current-OS ones, giving us libs with minos=13.0.
+export MACOSX_DEPLOYMENT_TARGET=13.0
+
+brew install suite-sparse openblas libpng libjpeg re2c
 
 BREW=$(brew --prefix)
 
@@ -24,15 +32,7 @@ BREW=$(brew --prefix)
 # /usr/include is SIP-protected on macOS, so install under the Homebrew prefix.
 # _mrcal_build_backend.py creates a local mrbuild/ symlink before calling make.
 # ---------------------------------------------------------------------------
-V=1.16
-curl -fsSL "https://github.com/dkogan/mrbuild/archive/refs/tags/v${V}.tar.gz" | tar xz -C /tmp
-mkdir -p "${BREW}/include/mrbuild"
-cp /tmp/mrbuild-${V}/Makefile.common.* "${BREW}/include/mrbuild/"
-find /tmp/mrbuild-${V} -maxdepth 1 -name '*.mk' -exec cp {} "${BREW}/include/mrbuild/" \;
-if [ -d /tmp/mrbuild-${V}/bin ]; then
-    cp /tmp/mrbuild-${V}/bin/* "${BREW}/bin/"
-fi
-rm -rf /tmp/mrbuild-${V}
+install_mrbuild "${BREW}/include" "${BREW}/bin"
 
 # ---------------------------------------------------------------------------
 # libdogleg  (not in Homebrew; build from source)
@@ -41,23 +41,23 @@ rm -rf /tmp/mrbuild-${V}
 export CPATH="${BREW}/include${CPATH:+:$CPATH}"
 export LIBRARY_PATH="${BREW}/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
 
-LIBDOGLEG_VER=0.18
-
-rm -rf libdogleg /tmp/libdogleg-staging
-git clone --depth=1 --branch "v${LIBDOGLEG_VER}" https://github.com/dkogan/libdogleg
-# mrbuild/ symlink must exist in libdogleg's dir so its Makefile can find mrbuild
-ln -sf "${BREW}/include/mrbuild" libdogleg/mrbuild
-make -C libdogleg -j"$(sysctl -n hw.ncpu)"
+clone_and_build_libdogleg "${BREW}/include/mrbuild"
 
 make -C libdogleg install DESTDIR=/tmp/libdogleg-staging \
-    INSTALL_ROOT_LIB="${BREW}/lib"         \
-    INSTALL_ROOT_INCLUDE="${BREW}/include" \
-    INSTALL_ROOT_BIN="${BREW}/bin"
-
-# mrbuild staging puts headers in usr/include/dogleg/ and libs in usr/lib64/
-# regardless of INSTALL_ROOT_*; copy manually to the Homebrew prefix.
-cp /tmp/libdogleg-staging/usr/include/dogleg/dogleg.h "${BREW}/include/"
-cp -P /tmp/libdogleg-staging/usr/lib64/libdogleg.* "${BREW}/lib/" 2>/dev/null || \
-    cp -P /tmp/libdogleg-staging/usr/lib/libdogleg.* "${BREW}/lib/"
+    INSTALL_ROOT_LIB="${BREW}/lib"            \
+    INSTALL_ROOT_INCLUDE="${BREW}/include"    \
+    INSTALL_ROOT_BIN="${BREW}/bin"            \
+    INSTALL_ROOT_MAN="${BREW}/share/man"
+cp -a /tmp/libdogleg-staging${BREW}/. ${BREW}/
 
 rm -rf libdogleg /tmp/libdogleg-staging
+
+# ---------------------------------------------------------------------------
+# stb single-header image library (not in Homebrew; headers only)
+# ---------------------------------------------------------------------------
+install_stb "${BREW}/include"
+
+# ---------------------------------------------------------------------------
+# gnuplot  (build from source without Qt/lua/readline to keep deps clean)
+# ---------------------------------------------------------------------------
+build_gnuplot "${BREW}" --without-qt
