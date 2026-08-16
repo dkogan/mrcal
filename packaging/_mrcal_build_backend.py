@@ -185,7 +185,6 @@ def _build_raw_wheel(raw_wheel_path, version, brew=None):
             # Data files: .gih help, terminal scripts, colour names, etc.
             for src_dir, arc_prefix in [
                 (f"{gnuplot_prefix}/share/gnuplot",   "mrcal/_vendor/share/gnuplot"),
-                (f"{gnuplot_prefix}/share/man",        "mrcal/_vendor/share/man"),
                 (f"{gnuplot_prefix}/libexec/gnuplot",  "mrcal/_vendor/libexec/gnuplot"),
             ]:
                 if not os.path.isdir(src_dir):
