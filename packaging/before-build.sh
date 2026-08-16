@@ -37,6 +37,8 @@ INSTALL_ROOTS="INSTALL_ROOT_PY3_MODULES=${PY_PLATLIB}
 # ---------------------------------------------------------------------------
 # GL_image_display
 # ---------------------------------------------------------------------------
+export C_INCLUDE_PATH="$(python3 -c 'import numpy; print(numpy.get_include())')${C_INCLUDE_PATH:+:$C_INCLUDE_PATH}"
+
 GL_STAGING=/tmp/gl-py-staging
 rm -rf "$GL_STAGING"
 make -C /tmp/GL_image_display -j"${NCPUS}" ${SWIG_FLAGS:+SWIG_FLAGS="$SWIG_FLAGS"}
