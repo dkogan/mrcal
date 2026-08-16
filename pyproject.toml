@@ -51,7 +51,7 @@ manylinux-x86_64-image = "manylinux_2_28"
 # container-engine = {name = "docker", create-args = ["--volume=/mnt/data/mrcal-dnf-cache:/var/cache/dnf"]}
 
 [tool.cibuildwheel.macos]
-archs      = ["x86_64", "arm64"]
+archs      = ["arm64"]
 before-all   = "bash {project}/packaging/build-deps-macos.sh"
 before-build = "bash {project}/packaging/before-build.sh"
 environment = {MACOSX_DEPLOYMENT_TARGET = "14.0"}
