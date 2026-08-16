@@ -225,7 +225,10 @@ test:
 # I find the most-recent wheel/VERSION.postX tag, and report X+1. If no tag
 # exists, report 0
 VERSION_WHEEL_POST_NEXT = $(shell v=$$( { echo -1; git tag -l "wheel/$(VERSION).post*" | sed 's/.*\.post//'; } | sort -nr | head -n1 ); echo $$((v+1));)
+# I require VERSION_USE_LATEST_TAG for the base version. The -gGITHASH versions
+# I'd get otherwise aren't legal for pypi
 pip-packages:
+	$(if $(VERSION_USE_LATEST_TAG),,$(error pip-package builder erquires VERSION_USE_LATEST_TAG))
 	sg docker -c 'cd $(CURDIR) && VERSION_WHEEL_BASE=$(VERSION) VERSION_WHEEL_POST=$(VERSION_WHEEL_POST_NEXT) pipx run cibuildwheel'
 .PHONY: pip-packages
 
