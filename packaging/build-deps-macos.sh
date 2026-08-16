@@ -18,7 +18,7 @@ source "$(dirname "$0")/build-deps-common.sh"
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 brew install suite-sparse openblas libpng libjpeg re2c cpanminus \
-    fltk freeglut libepoxy swig opencv boost mesa-glu gnu-getopt
+    fltk freeglut libepoxy swig opencv boost mesa-glu gnu-getopt qt
 cpanm --notest List::MoreUtils
 
 BREW=$(brew --prefix)
@@ -54,9 +54,9 @@ strip_installed
 install_stb
 
 # ---------------------------------------------------------------------------
-# gnuplot  (build from source without Qt/lua/readline to keep deps clean)
+# gnuplot  (build from source with Qt terminal; without lua/readline)
 # ---------------------------------------------------------------------------
-build_gnuplot "${BREW}" --without-qt
+build_gnuplot "${BREW}"
 
 # ---------------------------------------------------------------------------
 # GL_image_display and mrgingham — cloned here; built per Python version in
