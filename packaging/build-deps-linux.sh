@@ -38,7 +38,8 @@ dnf install -y --setopt=keepcache=1 \
     libepoxy-devel \
     freeglut-devel \
     swig \
-    opencv-devel
+    opencv-devel \
+    boost-devel
 
 # openblas-devel doesn't provide liblapack.so; create a symlink so -llapack resolves to openblas
 ln -sf /usr/lib64/libopenblas.so /usr/local/lib/liblapack.so
@@ -55,7 +56,7 @@ rm -rf /tmp/re2c-${RE2C_VER} /tmp/re2c-build
 
 # stb single-header image library (not in EPEL; headers only needed —
 # USE_LOCAL_STB_IMPLEMENTATION=1 compiles stb into libmrcal, no libstb.so needed)
-install_stb /usr/local/include
+install_stb /usr/local/include /usr/local/lib
 
 # ---------------------------------------------------------------------------
 # mrbuild  (Makefile library; not in EPEL)

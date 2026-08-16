@@ -6,8 +6,8 @@
 MRBUILD_VER=1.19
 LIBDOGLEG_VER=0.18
 GNUPLOT_VER=6.0.2
-GL_IMAGE_DISPLAY_COMMIT=bbf4721
-MRGINGHAM_VER=1.26
+GL_IMAGE_DISPLAY_COMMIT=d1c2651
+MRGINGHAM_VER=1.27
 
 install_mrbuild() {
     local include_dir=$1  # e.g. /usr/include or ${BREW}/include
@@ -22,10 +22,24 @@ install_mrbuild() {
 
 install_stb() {
     local include_dir=$1  # e.g. /usr/local/include or ${BREW}/include
+    local lib_dir=$2      # e.g. /usr/local/lib or ${BREW}/lib
     git clone --depth=1 https://github.com/nothings/stb /tmp/stb
     mkdir -p "${include_dir}/stb"
     cp /tmp/stb/*.h "${include_dir}/stb/"
-    rm -rf /tmp/stb
+    # Compile a shared libstb so callers can link with -lstb
+    cat > /tmp/stb_impl.c << 'EOF'
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb/stb_image.h"
+#include "stb/stb_image_write.h"
+EOF
+    if [ "$(uname)" = "Darwin" ]; then
+        cc -dynamiclib -fPIC -I"${include_dir}" -o "${lib_dir}/libstb.dylib" /tmp/stb_impl.c
+    else
+        cc -shared -fPIC -I"${include_dir}" -o "${lib_dir}/libstb.so" /tmp/stb_impl.c
+        ldconfig
+    fi
+    rm -rf /tmp/stb /tmp/stb_impl.c
 }
 
 # Clone and build libdogleg, leaving the staging tree at /tmp/libdogleg-staging.
@@ -45,8 +59,8 @@ clone_and_build_libdogleg() {
 clone_mrgingham() {
     local mrbuild_link=$1  # path to symlink as mrbuild (macOS); empty on Linux
     rm -rf /tmp/mrgingham
-    git clone --depth=1 --branch "upstream/${MRGINGHAM_VER}" \
-        https://salsa.debian.org/science-team/mrgingham /tmp/mrgingham
+    git clone --depth=1 --branch "v${MRGINGHAM_VER}" \
+        https://github.com/dkogan/mrgingham /tmp/mrgingham
     if [ -n "${mrbuild_link}" ]; then
         ln -sf "${mrbuild_link}" /tmp/mrgingham/mrbuild
     fi
