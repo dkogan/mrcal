@@ -1,8 +1,9 @@
-These are sample package definitions for Redhat-based OSs. And an experimental
-pip thing.
+These are sample package definitions for Redhat-based OSs. And a pip thing. The
+pip stuff was written 100% by Claude. It is a terrible system, and I strongly
+recommend you use the Debian packages instead
 
-Debian-based OSs already have mrcal in their repositories; the mrcal
-Debian git repo is here:
+Debian-based OSs already have mrcal in their repositories; the mrcal Debian git
+repo is here:
 
 https://salsa.debian.org/science-team/mrcal
 
