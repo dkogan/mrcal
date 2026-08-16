@@ -18,7 +18,7 @@ source "$(dirname "$0")/build-deps-common.sh"
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 brew install suite-sparse openblas libpng libjpeg re2c cpanminus \
-    fltk freeglut libepoxy swig opencv boost mesa-glu gnu-getopt qt
+    fltk freeglut libepoxy swig boost mesa-glu gnu-getopt qt cmake
 cpanm --notest List::MoreUtils
 
 BREW=$(brew --prefix)
@@ -52,6 +52,11 @@ strip_installed
 # stb single-header image library (not in Homebrew; headers only)
 # ---------------------------------------------------------------------------
 install_stb
+
+# ---------------------------------------------------------------------------
+# OpenCV  (minimal build — only the modules mrgingham needs)
+# ---------------------------------------------------------------------------
+build_opencv
 
 # ---------------------------------------------------------------------------
 # gnuplot  (build from source with Qt terminal; without lua/readline)
