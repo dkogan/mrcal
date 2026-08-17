@@ -18,7 +18,7 @@ source "$(dirname "$0")/build-deps-common.sh"
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 brew install suite-sparse openblas libpng libjpeg re2c cpanminus \
-    freeglut libepoxy swig boost mesa-glu gnu-getopt cmake \
+    fltk freeglut libepoxy swig boost mesa-glu gnu-getopt cmake \
     qt cairo pango
 cpanm --notest List::MoreUtils
 
@@ -70,4 +70,37 @@ build_gnuplot "${BREW}" CXXFLAGS="-std=c++17"
 # the before-build hook so the Python extension links against the right ABI.
 # ---------------------------------------------------------------------------
 clone_gl_image_display
+
+# On macOS, use system OpenGL/GLUT frameworks instead of Homebrew Mesa/freeglut,
+# eliminating libGL/libgallium/libLLVM from the wheel.
+# glutInitContextFlags/Version/Profile are freeglut extensions absent from
+# Apple's GLUT; guard them so the system framework is sufficient.
+sed -i '' \
+    -e 's/-lGLU -lGL /-framework OpenGL /g' \
+    -e 's/-lglut/-framework GLUT/g' \
+    /tmp/GL_image_display/Makefile
+python3 -c "
+import os
+fixes = {
+    '/tmp/GL_image_display/GL_image_display.c': [
+        # glutInitContextFlags/Version/Profile are freeglut extensions
+        ('glutInitContextFlags(GLUT_FORWARD_COMPATIBLE);',
+         '#ifndef __APPLE__\n    glutInitContextFlags(GLUT_FORWARD_COMPATIBLE);'),
+        ('glutInitContextProfile(GLUT_CORE_PROFILE);',
+         'glutInitContextProfile(GLUT_CORE_PROFILE);\n#endif'),
+    ],
+    '/tmp/GL_image_display/GL_image_display-test-glut.c': [
+        # glutExit() is a freeglut extension; use exit(0) on macOS
+        ('glutExit()', 'exit(0)'),
+    ],
+}
+for path, replacements in fixes.items():
+    with open(path) as f:
+        s = f.read()
+    for old, new in replacements:
+        s = s.replace(old, new)
+    with open(path, 'w') as f:
+        f.write(s)
+"
+
 clone_mrgingham
