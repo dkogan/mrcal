@@ -173,8 +173,17 @@ def _build_raw_wheel(raw_wheel_path, version, brew=None):
         if gnuplot_bin:
             gnuplot_prefix = os.path.dirname(os.path.dirname(gnuplot_bin))
 
-            # Main binary — installed to {venv}/bin/ by pip via the data/scripts mechanism
-            add(zf, open(gnuplot_bin, "rb").read(), f"{data_dir}/scripts/gnuplot", mode=0o755)
+            # Main binary at mrcal/_vendor/bin/ so delocate/auditwheel compute
+            # RPATH relative to mrcal/.dylibs correctly after pip installs.
+            add(zf, open(gnuplot_bin, "rb").read(), "mrcal/_vendor/bin/gnuplot", mode=0o755)
+            wrapper = (
+                '#!python\n'
+                'import os, sys, importlib.util\n'
+                '_s = importlib.util.find_spec("mrcal")\n'
+                '_real = os.path.join(os.path.dirname(_s.origin), "_vendor", "bin", "gnuplot")\n'
+                'os.execv(_real, sys.argv)\n'
+            )
+            add(zf, wrapper, f"{data_dir}/scripts/gnuplot", mode=0o755)
 
             # Data files: .gih help, terminal scripts, colour names, etc.
             for src_dir, arc_prefix in [
@@ -194,12 +203,25 @@ def _build_raw_wheel(raw_wheel_path, version, brew=None):
         # __init__.py); Python extension at wheel root for 'import mrgingham'.
         # auditwheel/delocate bundles OpenCV and other C lib deps.
         # Fixed paths set by before-build.sh — independent of any venv's platlib.
+        # mrgingham binaries go into mrcal/_vendor/bin/ so that
+        # delocate/auditwheel compute RPATH relative to mrcal/.dylibs|mrcal.libs
+        # correctly after pip installs the wheel.  A Python exec-wrapper is placed
+        # in data/scripts/ so pip creates a venv/bin/ entry point.
         _mrg_bin_dir = BUILD_DEPS + '/bin'
         if os.path.isdir(_mrg_bin_dir):
             for path in sorted(glob.glob(f'{_mrg_bin_dir}/mrgingham*')):
                 if os.path.isfile(path):
+                    name = os.path.basename(path)
                     add(zf, open(path, 'rb').read(),
-                        f'{data_dir}/scripts/{os.path.basename(path)}', mode=0o755)
+                        f'mrcal/_vendor/bin/{name}', mode=0o755)
+                    wrapper = (
+                        f'#!python\n'
+                        f'import os, sys, importlib.util\n'
+                        f'_s = importlib.util.find_spec("mrcal")\n'
+                        f'_real = os.path.join(os.path.dirname(_s.origin), "_vendor", "bin", "{name}")\n'
+                        f'os.execv(_real, sys.argv)\n'
+                    )
+                    add(zf, wrapper, f'{data_dir}/scripts/{name}', mode=0o755)
 
         # Python extensions from GL_image_display and mrgingham, installed by
         # before-build.sh into the cibuildwheel Python's site-packages under

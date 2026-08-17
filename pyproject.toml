@@ -22,7 +22,6 @@ dependencies = [
     "opencv-python-headless",
     "gnuplotlib>=0.38",
     "shapely",
-    "ipython",
     "pyyaml",
     "pyfltk",
 ]
