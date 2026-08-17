@@ -18,7 +18,8 @@ source "$(dirname "$0")/build-deps-common.sh"
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 brew install suite-sparse openblas libpng libjpeg re2c cpanminus \
-    fltk freeglut libepoxy swig boost mesa-glu gnu-getopt qt cmake
+    freeglut libepoxy swig boost mesa-glu gnu-getopt cmake \
+    qt cairo pango
 cpanm --notest List::MoreUtils
 
 BREW=$(brew --prefix)
@@ -59,8 +60,9 @@ install_stb
 build_opencv
 
 # ---------------------------------------------------------------------------
-# gnuplot  (build from source with Qt terminal; without lua/readline)
+# gnuplot  (build from source with Qt and cairo terminals; without lua/readline)
 # ---------------------------------------------------------------------------
+export PATH="${BREW}/opt/qt/bin:${PATH}"
 build_gnuplot "${BREW}" CXXFLAGS="-std=c++17"
 
 # ---------------------------------------------------------------------------
