@@ -29,6 +29,8 @@ else
     export PATH="${BUILD_DEPS}/bin:${PATH}"
     export CPATH="${BUILD_DEPS}/include${CPATH:+:$CPATH}"
     export LIBRARY_PATH="${BUILD_DEPS}/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
+    export LD_LIBRARY_PATH="${BUILD_DEPS}/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    export LDFLAGS="${LDFLAGS:+$LDFLAGS }-Wl,-rpath=${BUILD_DEPS}/lib"
     export PKG_CONFIG_PATH="${BUILD_DEPS}/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
     export SWIG_FLAGS="-I${BUILD_DEPS}/include"
 fi
