@@ -47,7 +47,6 @@ dnf install -y --setopt=keepcache=1 \
     libepoxy-devel \
     freeglut-devel \
     swig \
-    opencv-devel \
     boost-devel
 
 # openblas-devel doesn't provide liblapack.so; create a symlink so -llapack resolves to openblas
@@ -99,6 +98,13 @@ strip_installed
 # wheel so pip users get a working gnuplot without a separate system install.
 # ---------------------------------------------------------------------------
 build_gnuplot /usr/local --without-qt
+
+# ---------------------------------------------------------------------------
+# OpenCV  (minimal build — only the modules mrgingham needs; full EPEL build
+# has ~50 modules that would all get bundled by auditwheel)
+# ---------------------------------------------------------------------------
+build_opencv
+ldconfig
 
 # ---------------------------------------------------------------------------
 # GL_image_display and mrgingham — cloned here; built per Python version in
