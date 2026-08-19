@@ -27,7 +27,7 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "http://mrcal.secretsauce.net"
+Homepage = "https://mrcal.secretsauce.net"
 
 # ---------------------------------------------------------------------------
 # cibuildwheel — builds binary wheels for Linux (manylinux) and macOS.
