@@ -10,6 +10,7 @@ GNUPLOT_VER=6.0.2
 GL_IMAGE_DISPLAY_COMMIT=dbd3eb0
 MRGINGHAM_VER=1.27
 OPENCV_VER=4.11.0
+RE2C_VER=3.1
 
 # All custom-built C dependencies install here.  The build scripts, before-build
 # hook, and Python build backend all reference this path so everything agrees.
@@ -31,16 +32,10 @@ strip_installed() {
 }
 
 install_mrbuild() {
-    mkdir -p "${BUILD_DEPS}/include" "${BUILD_DEPS}/bin"
     curl -fsSL "https://github.com/dkogan/mrbuild/archive/refs/tags/v${MRBUILD_VER}.tar.gz" | tar xz -C /tmp
     mkdir -p "${BUILD_DEPS}/include/mrbuild"
     cp /tmp/mrbuild-${MRBUILD_VER}/Makefile.common.* "${BUILD_DEPS}/include/mrbuild/"
-    find /tmp/mrbuild-${MRBUILD_VER} -maxdepth 1 -name '*.mk' -exec cp {} "${BUILD_DEPS}/include/mrbuild/" \;
-    if [ -d /tmp/mrbuild-${MRBUILD_VER}/bin ]; then
-        cp /tmp/mrbuild-${MRBUILD_VER}/bin/* "${BUILD_DEPS}/bin/"
-        mkdir -p "${BUILD_DEPS}/include/mrbuild/bin"
-        cp /tmp/mrbuild-${MRBUILD_VER}/bin/* "${BUILD_DEPS}/include/mrbuild/bin/"
-    fi
+    cp /tmp/mrbuild-${MRBUILD_VER}/bin/*             "${BUILD_DEPS}/bin/"
     rm -rf /tmp/mrbuild-${MRBUILD_VER}
 }
 
@@ -63,11 +58,9 @@ build_fltk() {
     cmake --build "$build_dir" -j"${NCPUS}"
     cmake --install "$build_dir"
     rm -rf /tmp/fltk-${FLTK_VER} "$build_dir"
-    strip_installed
 }
 
 install_stb() {
-    mkdir -p "${BUILD_DEPS}/include" "${BUILD_DEPS}/lib"
     git clone --depth=1 https://github.com/nothings/stb /tmp/stb
     mkdir -p "${BUILD_DEPS}/include/stb"
     cp /tmp/stb/*.h "${BUILD_DEPS}/include/stb/"
@@ -86,24 +79,27 @@ EOF
     rm -rf /tmp/stb /tmp/stb_impl.c
 }
 
-# Clone and build libdogleg in the current directory.
-# Caller installs from there and cleans up.
-clone_and_build_libdogleg() {
-    rm -rf libdogleg /tmp/libdogleg-staging
+build_libdogleg() {
     git clone --depth=1 --branch "v${LIBDOGLEG_VER}" https://github.com/dkogan/libdogleg
     ln -sf "${BUILD_DEPS}/include/mrbuild" libdogleg/mrbuild
     make -C libdogleg -j"${NCPUS}"
+
+    DESTDIR=${BUILD_DEPS} make -C libdogleg install  \
+        INSTALL_ROOT_LIB="${BUILD_DEPS}/lib"         \
+        INSTALL_ROOT_INCLUDE="${BUILD_DEPS}/include" \
+        INSTALL_ROOT_BIN="${BUILD_DEPS}/bin"         \
+        INSTALL_ROOT_MAN="${BUILD_DEPS}/share/man"
+    rm -rf libdogleg
+    if [ "$(uname)" != "Darwin" ]; then ldconfig; fi
 }
 
 clone_mrgingham() {
-    rm -rf /tmp/mrgingham
     git clone --depth=1 --branch "v${MRGINGHAM_VER}" \
         https://github.com/dkogan/mrgingham /tmp/mrgingham
     ln -sf "${BUILD_DEPS}/include/mrbuild" /tmp/mrgingham/mrbuild
 }
 
 clone_gl_image_display() {
-    rm -rf /tmp/GL_image_display
     git clone https://github.com/dkogan/GL_image_display /tmp/GL_image_display
     git -C /tmp/GL_image_display checkout "${GL_IMAGE_DISPLAY_COMMIT}"
     ln -sf "${BUILD_DEPS}/include/mrbuild" /tmp/GL_image_display/mrbuild
@@ -150,7 +146,7 @@ build_opencv() {
     cmake --build "$build_dir" -j"${NCPUS}"
     cmake --install "$build_dir"
     rm -rf /tmp/opencv-${OPENCV_VER} "$build_dir"
-    strip_installed
+
     # OpenCV 4.11 + CMake 4.x have a compatibility bug in OpenCVGenPkgconfig.cmake,
     # so we generate opencv4.pc manually.
     mkdir -p "${BUILD_DEPS}/lib/pkgconfig"
@@ -166,6 +162,8 @@ Version: ${OPENCV_VER}
 Libs: -L\${libdir} -lopencv_calib3d -lopencv_features2d -lopencv_flann -lopencv_highgui -lopencv_imgcodecs -lopencv_imgproc -lopencv_core
 Cflags: -I\${includedir}
 EOF
+
+    if [ "$(uname)" != "Darwin" ]; then ldconfig; fi
 }
 
 build_gnuplot() {
@@ -181,6 +179,14 @@ build_gnuplot() {
     make ${LRELEASE:+LRELEASE="$LRELEASE"} -j"${NCPUS}"
     make install ${LRELEASE:+LRELEASE="$LRELEASE"}
     strip "${prefix}/bin/gnuplot" 2>/dev/null || true
-    cd /
     rm -rf /tmp/gnuplot-${GNUPLOT_VER}
+}
+
+build_re2c() {
+    # re2c: EPEL 8 ships 0.14.3 (too old; needs >= 1.0 for flags:tags).  Build 3.1 from source.
+    curl -fsSL "https://github.com/skvadrik/re2c/releases/download/${RE2C_VER}/re2c-${RE2C_VER}.tar.xz" | tar xJ -C /tmp
+    cmake -S /tmp/re2c-${RE2C_VER} -B /tmp/re2c-build -DCMAKE_INSTALL_PREFIX=${BUILD_DEPS} -DCMAKE_BUILD_TYPE=Release
+    cmake --build /tmp/re2c-build -j"${NCPUS}"
+    cmake --install /tmp/re2c-build
+    rm -rf /tmp/re2c-${RE2C_VER} /tmp/re2c-build
 }
