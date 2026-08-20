@@ -181,6 +181,7 @@ build_gnuplot() {
     make ${LRELEASE:+LRELEASE="$LRELEASE"} -j"${NCPUS}"
     make install ${LRELEASE:+LRELEASE="$LRELEASE"}
     strip "${prefix}/bin/gnuplot" 2>/dev/null || true
+    cd /tmp
     rm -rf /tmp/gnuplot-${GNUPLOT_VER}
 }
 
