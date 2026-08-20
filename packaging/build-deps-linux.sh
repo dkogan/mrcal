@@ -50,8 +50,8 @@ dnf install -y --setopt=keepcache=1 \
     boost-devel
 
 # openblas-devel doesn't provide liblapack.so; create a symlink so -llapack resolves to openblas
-ln -sf /usr/lib64/libopenblas.so ${BUILD_DEPS}/liblapack.so
-ln -sf /usr/lib64/libopenblas.so ${BUILD_DEPS}/libblas.so
+ln -sf /usr/lib64/libopenblas.so /usr/lib64/liblapack.so
+ln -sf /usr/lib64/libopenblas.so /usr/lib64/libblas.so
 ldconfig
 
 build_re2c
