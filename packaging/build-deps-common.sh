@@ -116,8 +116,7 @@ build_opencv() {
     local cmake_args=(
         -DCMAKE_INSTALL_PREFIX="${BUILD_DEPS}"
         -DCMAKE_BUILD_TYPE=Release
-        # Only the modules mrgingham actually needs
-        -DBUILD_LIST=core,imgproc,imgcodecs,highgui,features2d,flann,calib3d
+        -DBUILD_LIST=core,imgproc,imgcodecs,features2d,highgui
         # No heavyweight optional backends
         -DWITH_VTK=OFF
         -DWITH_CERES=OFF
@@ -162,7 +161,7 @@ includedir=\${prefix}/include
 Name: OpenCV
 Description: Open Source Computer Vision Library
 Version: ${OPENCV_VER}
-Libs: -L\${libdir} -lopencv_calib3d -lopencv_features2d -lopencv_flann -lopencv_highgui -lopencv_imgcodecs -lopencv_imgproc -lopencv_core
+Libs: -L\${libdir} -lopencv_features2d -lopencv_imgcodecs -lopencv_imgproc -lopencv_core -lopencv_highgui
 Cflags: -I\${includedir}
 EOF
 
