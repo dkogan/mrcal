@@ -35,10 +35,10 @@ strip_installed() {
 
 install_mrbuild() {
     curl -fsSL "https://github.com/dkogan/mrbuild/archive/refs/tags/v${MRBUILD_VER}.tar.gz" | tar xz -C /tmp
+    mv /tmp/mrbuild-${MRBUILD_VER} /tmp/mrbuild
     mkdir -p "${BUILD_DEPS}/include/mrbuild"
-    cp /tmp/mrbuild-${MRBUILD_VER}/Makefile.common.* "${BUILD_DEPS}/include/mrbuild/"
-    cp /tmp/mrbuild-${MRBUILD_VER}/bin/*             "${BUILD_DEPS}/bin/"
-    rm -rf /tmp/mrbuild-${MRBUILD_VER}
+    cp /tmp/mrbuild/Makefile.common.* "${BUILD_DEPS}/include/mrbuild/"
+    cp /tmp/mrbuild/bin/*             "${BUILD_DEPS}/bin/"
 }
 
 build_fltk() {
@@ -82,29 +82,30 @@ EOF
 }
 
 build_libdogleg() {
-    git clone --depth=1 --branch "v${LIBDOGLEG_VER}" https://github.com/dkogan/libdogleg
-    ln -sf "${BUILD_DEPS}/include/mrbuild" libdogleg/mrbuild
-    make -C libdogleg -j"${NCPUS}"
+    git clone --depth=1 --branch "v${LIBDOGLEG_VER}" https://github.com/dkogan/libdogleg /tmp/libdogleg
+    ln -sf /tmp/mrbuild /tmp/libdogleg/mrbuild
+    make -C /tmp/libdogleg -j"${NCPUS}"
 
-    DESTDIR=${BUILD_DEPS} make -C libdogleg install  \
-        INSTALL_ROOT_LIB="${BUILD_DEPS}/lib"         \
-        INSTALL_ROOT_INCLUDE="${BUILD_DEPS}/include" \
-        INSTALL_ROOT_BIN="${BUILD_DEPS}/bin"         \
-        INSTALL_ROOT_MAN="${BUILD_DEPS}/share/man"
-    rm -rf libdogleg
+    DESTDIR=${BUILD_DEPS}           \
+    INSTALL_ROOT_LIB="/lib"         \
+    INSTALL_ROOT_INCLUDE="/include" \
+    INSTALL_ROOT_BIN="/bin"         \
+    INSTALL_ROOT_MAN="/share/man"   \
+      make -C /tmp/libdogleg install
+    rm -rf /tmp/libdogleg
     if [ "$(uname)" != "Darwin" ]; then ldconfig; fi
 }
 
 clone_mrgingham() {
     git clone --depth=1 --branch "v${MRGINGHAM_VER}" \
         https://github.com/dkogan/mrgingham /tmp/mrgingham
-    ln -sf "${BUILD_DEPS}/include/mrbuild" /tmp/mrgingham/mrbuild
+    ln -sf /tmp/mrbuild /tmp/mrgingham/mrbuild
 }
 
 clone_gl_image_display() {
     git clone https://github.com/dkogan/GL_image_display /tmp/GL_image_display
     git -C /tmp/GL_image_display checkout "${GL_IMAGE_DISPLAY_COMMIT}"
-    ln -sf "${BUILD_DEPS}/include/mrbuild" /tmp/GL_image_display/mrbuild
+    ln -sf /tmp/mrbuild /tmp/GL_image_display/mrbuild
 }
 
 build_opencv() {
