@@ -13,14 +13,15 @@ set -ex
 NCPUS=$(nproc)
 source "$(dirname "$0")/build-deps-common.sh"
 
-mkdir -p "${BUILD_DEPS}/include" "${BUILD_DEPS}/lib" "${BUILD_DEPS}/bin"
+mkdir -p "${BUILD_DEPS}/include" "${BUILD_DEPS}/lib" "${BUILD_DEPS}/lib64" "${BUILD_DEPS}/bin"
 
 export PATH="${BUILD_DEPS}/bin:$PATH"
 export CPATH="${BUILD_DEPS}/include"
-export LIBRARY_PATH="${BUILD_DEPS}/lib"
+export LIBRARY_PATH="${BUILD_DEPS}/lib:${BUILD_DEPS}/lib64"
 
 # Make BUILD_DEPS/lib visible to the dynamic linker (needed for auditwheel ldd).
-echo "${BUILD_DEPS}/lib" > /etc/ld.so.conf.d/mrcal-build-deps.conf
+echo "${BUILD_DEPS}/lib"    > /etc/ld.so.conf.d/mrcal-build-deps.conf
+echo "${BUILD_DEPS}/lib64" >> /etc/ld.so.conf.d/mrcal-build-deps.conf
 
 # EPEL provides SuiteSparse, re2c, etc.
 dnf install -y --setopt=keepcache=1 epel-release

@@ -26,6 +26,8 @@ strip_installed() {
     else
         find "${BUILD_DEPS}/lib" ! -type l -type f \
             -exec strip --strip-debug {} \; 2>/dev/null || true
+        find "${BUILD_DEPS}/lib64" ! -type l -type f \
+            -exec strip --strip-debug {} \; 2>/dev/null || true
         find "${BUILD_DEPS}/bin" -maxdepth 1 ! -type l -type f \
             -exec strip {} \; 2>/dev/null || true
     fi

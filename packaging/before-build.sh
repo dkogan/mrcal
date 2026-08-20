@@ -19,18 +19,18 @@ if [ "$(uname)" = "Darwin" ]; then
     # GNU getopt (keg-only; needed for mrgingham man-page generation), then
     # brew tools, then the rest of PATH.
     export PATH="$(dirname "${PYTHON3}"):${BREW}/opt/gnu-getopt/bin:${BREW}/bin:/usr/local/bin:$PATH"
-    export CPATH="${BUILD_DEPS}/include:${BREW}/include${CPATH:+:$CPATH}"
-    export LIBRARY_PATH="${BUILD_DEPS}/lib:${BREW}/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
-    export DYLD_LIBRARY_PATH="${BUILD_DEPS}/lib:${BREW}/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}"
-    export PKG_CONFIG_PATH="${BUILD_DEPS}/lib/pkgconfig:${BREW}/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+    export CPATH="${BUILD_DEPS}/include:${BREW}/include"
+    export LIBRARY_PATH="${BUILD_DEPS}/lib:${BREW}/lib"
+    export DYLD_LIBRARY_PATH="${BUILD_DEPS}/lib:${BREW}/lib"
+    export PKG_CONFIG_PATH="${BUILD_DEPS}/lib/pkgconfig:${BREW}/lib/pkgconfig"
     export SWIG_FLAGS="-I${BREW}/include"
 else
     NCPUS=$(nproc)
     export PATH="${BUILD_DEPS}/bin:${PATH}"
-    export CPATH="${BUILD_DEPS}/include${CPATH:+:$CPATH}"
-    export LIBRARY_PATH="${BUILD_DEPS}/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
-    export LD_LIBRARY_PATH="${BUILD_DEPS}/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-    export PKG_CONFIG_PATH="${BUILD_DEPS}/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+    export CPATH="${BUILD_DEPS}/include"
+    export LIBRARY_PATH="${BUILD_DEPS}/lib:${BUILD_DEPS}/lib64"
+    export LD_LIBRARY_PATH="${BUILD_DEPS}/lib:${BUILD_DEPS}/lib64"
+    export PKG_CONFIG_PATH="${BUILD_DEPS}/lib/pkgconfig:${BUILD_DEPS}/lib64/pkgconfig"
     export SWIG_FLAGS="-I${BUILD_DEPS}/include"
 fi
 
@@ -68,6 +68,6 @@ if [ "$(uname)" != "Darwin" ]; then ldconfig; fi
 # ---------------------------------------------------------------------------
 # mrgingham
 # ---------------------------------------------------------------------------
-LDFLAGS="-Wl,-rpath=${BUILD_DEPS}/lib" make -C /tmp/mrgingham -j"${NCPUS}"
+LDFLAGS="-Wl,-rpath=${BUILD_DEPS}/lib -Wl,-rpath=${BUILD_DEPS}/lib64" make -C /tmp/mrgingham -j"${NCPUS}"
 make -C /tmp/mrgingham install DESTDIR="${BUILD_DEPS}" ${INSTALL_ROOTS}
 if [ "$(uname)" != "Darwin" ]; then ldconfig; fi
