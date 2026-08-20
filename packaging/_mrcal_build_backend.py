@@ -296,6 +296,8 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
     # All custom C deps live in BUILD_DEPS; add to compiler/linker search paths.
     env["CPATH"]        = BUILD_DEPS + "/include" + (":" + env["CPATH"]        if env.get("CPATH")        else "")
     env["LIBRARY_PATH"] = BUILD_DEPS + "/lib"     + (":" + env["LIBRARY_PATH"] if env.get("LIBRARY_PATH") else "")
+    env["PATH"]         = BUILD_DEPS + "/bin"     + (":" + env["PATH"]         if env.get("PATH")        else "")
+
 
     mrbuild_symlink = None
     if sys.platform == "darwin":
