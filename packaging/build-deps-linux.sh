@@ -47,7 +47,8 @@ dnf install -y --setopt=keepcache=1 \
     libepoxy-devel \
     freeglut-devel \
     swig \
-    boost-devel
+    boost-devel \
+    mawk
 
 # openblas-devel doesn't provide liblapack.so; create a symlink so -llapack resolves to openblas
 ln -sf /usr/lib64/libopenblas.so /usr/lib64/liblapack.so
@@ -65,11 +66,7 @@ build_opencv
 
 build_gnuplot ${BUILD_DEPS} --without-qt
 
-
-# ---------------------------------------------------------------------------
-# GL_image_display and mrgingham — cloned here; built per Python version in
-# the before-build hook so the Python extension links against the right ABI.
-# ---------------------------------------------------------------------------
+install_vnlog
 clone_gl_image_display
 clone_mrgingham
 

@@ -69,7 +69,6 @@ def _metadata_text(version):
         f"Requires-Dist: numpy\n"
         f"Requires-Dist: numpysane>=0.35\n"
         f"Requires-Dist: scipy>=0.18\n"
-        f"Requires-Dist: opencv-python-headless\n"
         f"Requires-Dist: gnuplotlib>=0.38\n"
         f"Requires-Dist: shapely\n"
         f"Requires-Dist: pyyaml\n"
@@ -138,6 +137,8 @@ def _build_raw_wheel(raw_wheel_path, version, brew=None):
 
     gnuplot_bin = shutil.which("gnuplot") or \
         (os.path.join(brew, "bin", "gnuplot") if brew else None)
+    mawk_bin = shutil.which("mawk") or \
+        (os.path.join(brew, "bin", "mawk") if brew else None)
 
     def add(zf, data, arcname, mode=0o644):
         if isinstance(data, str):
@@ -199,6 +200,48 @@ def _build_raw_wheel(raw_wheel_path, version, brew=None):
                     mode = 0o755 if os.access(path, os.X_OK) else 0o644
                     add(zf, open(path, "rb").read(), arcname, mode=mode)
 
+        # Bundled mawk — needed by mrgingham at runtime.
+        if mawk_bin and os.path.isfile(mawk_bin):
+            add(zf, open(mawk_bin, "rb").read(), "mrcal/_vendor/bin/mawk", mode=0o755)
+            wrapper = (
+                '#!python\n'
+                'import os, sys, importlib.util\n'
+                '_s = importlib.util.find_spec("mrcal")\n'
+                '_real = os.path.join(os.path.dirname(_s.origin), "_vendor", "bin", "mawk")\n'
+                'os.execv(_real, sys.argv)\n'
+            )
+            add(zf, wrapper, f"{data_dir}/scripts/mawk", mode=0o755)
+
+        # Bundled vnlog — scripts (vnl-*) and Perl modules needed by mrgingham.
+        # Scripts get exec-wrappers in data/scripts/ so pip installs them to
+        # venv/bin/, making them findable by mrgingham and users alike.
+        # Wrappers set PERL5LIB so the Perl scripts find their modules.
+        _vnlog_bin_dir = BUILD_DEPS + '/bin'
+        _vnlog_perl_dir = BUILD_DEPS + '/lib/perl5'
+        if os.path.isdir(_vnlog_perl_dir):
+            for path in sorted(glob.glob(f'{_vnlog_perl_dir}/**', recursive=True)):
+                if not os.path.isfile(path): continue
+                rel = os.path.relpath(path, _vnlog_perl_dir)
+                add(zf, open(path, 'rb').read(),
+                    f'mrcal/_vendor/lib/perl5/{rel}', mode=0o644)
+        if os.path.isdir(_vnlog_bin_dir):
+            for path in sorted(glob.glob(f'{_vnlog_bin_dir}/vnl-*')):
+                if not os.path.isfile(path): continue
+                name = os.path.basename(path)
+                add(zf, open(path, 'rb').read(),
+                    f'mrcal/_vendor/bin/{name}', mode=0o755)
+                wrapper = (
+                    f'#!python\n'
+                    f'import os, sys, importlib.util\n'
+                    f'_s = importlib.util.find_spec("mrcal")\n'
+                    f'_v = os.path.join(os.path.dirname(_s.origin), "_vendor")\n'
+                    f'_pl = os.path.join(_v, "lib", "perl5")\n'
+                    f'if os.path.isdir(_pl):\n'
+                    f'    os.environ["PERL5LIB"] = _pl + (":" + os.environ["PERL5LIB"] if os.environ.get("PERL5LIB") else "")\n'
+                    f'os.execv(os.path.join(_v, "bin", "{name}"), sys.argv)\n'
+                )
+                add(zf, wrapper, f'{data_dir}/scripts/{name}', mode=0o755)
+
         # Bundled mrgingham — binaries to mrcal/_vendor/bin/ (PATH is set in
         # __init__.py); Python extension at wheel root for 'import mrgingham'.
         # auditwheel/delocate bundles OpenCV and other C lib deps.
@@ -218,8 +261,11 @@ def _build_raw_wheel(raw_wheel_path, version, brew=None):
                         f'#!python\n'
                         f'import os, sys, importlib.util\n'
                         f'_s = importlib.util.find_spec("mrcal")\n'
-                        f'_real = os.path.join(os.path.dirname(_s.origin), "_vendor", "bin", "{name}")\n'
-                        f'os.execv(_real, sys.argv)\n'
+                        f'_v = os.path.join(os.path.dirname(_s.origin), "_vendor")\n'
+                        f'_pl = os.path.join(_v, "lib", "perl5")\n'
+                        f'if os.path.isdir(_pl):\n'
+                        f'    os.environ["PERL5LIB"] = _pl + (":" + os.environ["PERL5LIB"] if os.environ.get("PERL5LIB") else "")\n'
+                        f'os.execv(os.path.join(_v, "bin", "{name}"), sys.argv)\n'
                     )
                     add(zf, wrapper, f'{data_dir}/scripts/{name}', mode=0o755)
 
@@ -296,7 +342,7 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
     # All custom C deps live in BUILD_DEPS; add to compiler/linker search paths.
     env["CPATH"]        = BUILD_DEPS + "/include" + (":" + env["CPATH"]        if env.get("CPATH")        else "")
     env["LIBRARY_PATH"] = BUILD_DEPS + "/lib"     + (":" + env["LIBRARY_PATH"] if env.get("LIBRARY_PATH") else "")
-    env["PATH"]         = BUILD_DEPS + "/bin"     + (":" + env["PATH"]         if env.get("PATH")        else "")
+    env["PATH"]         = os.path.dirname(sys.executable) + ":" + BUILD_DEPS + "/bin" + (":" + env["PATH"] if env.get("PATH") else "")
 
 
     mrbuild_symlink = None

@@ -19,7 +19,6 @@ dependencies = [
     "numpy",
     "numpysane>=0.35",
     "scipy>=0.18",
-    "opencv-python-headless",
     "gnuplotlib>=0.38",
     "shapely",
     "pyyaml",
