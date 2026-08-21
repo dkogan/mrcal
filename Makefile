@@ -228,7 +228,7 @@ VERSION_WHEEL_POST_NEXT = $(shell v=$$( { echo -1; git tag -l "wheel/$(VERSION).
 # I require VERSION_USE_LATEST_TAG for the base version. The -gGITHASH versions
 # I'd get otherwise aren't legal for pypi
 pip-packages:
-	$(if $(VERSION_USE_LATEST_TAG),,$(error pip-package builder requires VERSION_USE_LATEST_TAG))
+	$(if $(VERSION_USE_LATEST_TAG),,$(error pip-package builder requires VERSION_USE_LATEST_TAG=1))
 	sg docker -c 'cd $(CURDIR) && VERSION_WHEEL_BASE=$(VERSION) VERSION_WHEEL_POST=$(VERSION_WHEEL_POST_NEXT) pipx run cibuildwheel'
 .PHONY: pip-packages
 
