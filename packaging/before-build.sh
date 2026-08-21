@@ -49,14 +49,14 @@ INSTALL_ROOTS="INSTALL_ROOT_LIB=/lib
                INSTALL_ROOT_MAN=/share/man
                INSTALL_ROOT_PY3_MODULES=${PY3_MODULES}"
 
+"${PYTHON3}" -m pip install numpy setuptools --quiet
+
 # ---------------------------------------------------------------------------
 # OpenCV Python bindings — C++ libs built once in before-all; Python module
 # compiled here per Python version against the kept source + build tree.
 # ---------------------------------------------------------------------------
 build_opencv_python "${PYTHON3}" "${BUILD_DEPS}${PY3_MODULES}"
 if [ "$(uname)" != "Darwin" ]; then ldconfig; fi
-
-"${PYTHON3}" -m pip install numpy setuptools --quiet
 NUMPY_INC=$("${PYTHON3}" -c 'import numpy; print(numpy.get_include())')
 ln -sf "${NUMPY_INC}/numpy" "${BUILD_DEPS}/include/numpy"
 

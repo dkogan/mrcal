@@ -187,12 +187,36 @@ build_opencv_python() {
     # Reuses the source + build tree left by build_opencv().
     local python3="$1"
     local install_dir="$2"   # e.g. BUILD_DEPS + PY3_MODULES
+
+    # Derive include/library paths from the interpreter so cmake finds them
+    # even in non-standard cibuildwheel layouts.
+    local python_include
+    python_include=$("${python3}" -c 'import sysconfig; print(sysconfig.get_path("include"))')
+    local python_lib
+    python_lib=$("${python3}" -c '
+import sysconfig, os, glob, sys
+libdir = sysconfig.get_config_var("LIBDIR") or ""
+maj, min_ = sys.version_info[:2]
+for pat in [f"libpython{maj}.{min_}.so*", f"libpython{maj}.{min_}m.so*",
+            f"libpython{maj}.{min_}.a",   f"libpython{maj}.{min_}m.a"]:
+    hits = sorted(glob.glob(os.path.join(libdir, pat)))
+    if hits:
+        print(hits[0])
+        break
+else:
+    print("")
+')
+
     local cmake_args=(
         -DPYTHON3_EXECUTABLE="${python3}"
+        -DPYTHON3_INCLUDE_DIR="${python_include}"
+        # Re-enable python_bindings_generator which was excluded by the original BUILD_LIST
+        -DBUILD_LIST=core,imgproc,imgcodecs,features2d,highgui,python_bindings_generator
         -DBUILD_opencv_python3=ON
         -DBUILD_opencv_python2=OFF
         -DOPENCV_PYTHON3_INSTALL_PATH="${install_dir}"
     )
+    [ -n "${python_lib}" ] && cmake_args+=(-DPYTHON3_LIBRARY="${python_lib}")
     if [ "$(uname)" = "Darwin" ]; then
         cmake_args+=(
             -DCMAKE_OSX_ARCHITECTURES=arm64
