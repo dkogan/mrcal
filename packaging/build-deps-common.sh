@@ -8,8 +8,6 @@ LIBDOGLEG_VER=0.18
 FLTK_VER=1.4.5
 GNUPLOT_VER=6.0.2
 GL_IMAGE_DISPLAY_COMMIT=dbd3eb0
-MRGINGHAM_VER=1.27
-OPENCV_VER=4.11.0
 RE2C_VER=3.1
 
 # All custom-built C dependencies install here.  The build scripts, before-build
@@ -96,12 +94,6 @@ build_libdogleg() {
     if [ "$(uname)" != "Darwin" ]; then ldconfig; fi
 }
 
-clone_mrgingham() {
-    git clone --depth=1 --branch "v${MRGINGHAM_VER}" \
-        https://github.com/dkogan/mrgingham /tmp/mrgingham
-    ln -sf /tmp/mrbuild /tmp/mrgingham/mrbuild
-}
-
 install_vnlog() {
     rm -rf /tmp/vnlog
     git clone --depth=1 https://github.com/dkogan/vnlog /tmp/vnlog
@@ -120,112 +112,6 @@ clone_gl_image_display() {
     git clone https://github.com/dkogan/GL_image_display /tmp/GL_image_display
     git -C /tmp/GL_image_display checkout "${GL_IMAGE_DISPLAY_COMMIT}"
     ln -sf /tmp/mrbuild /tmp/GL_image_display/mrbuild
-}
-
-build_opencv() {
-    curl -fsSL "https://github.com/opencv/opencv/archive/refs/tags/${OPENCV_VER}.tar.gz" \
-        | tar xz -C /tmp
-    local build_dir=/tmp/opencv-build
-    rm -rf "$build_dir"
-    local cmake_args=(
-        -DCMAKE_INSTALL_PREFIX="${BUILD_DEPS}"
-        -DCMAKE_BUILD_TYPE=Release
-        -DBUILD_LIST=core,imgproc,imgcodecs,features2d,highgui
-        # No heavyweight optional backends
-        -DWITH_VTK=OFF
-        -DWITH_CERES=OFF
-        -DWITH_OPENVINO=OFF
-        -DWITH_CUDA=OFF
-        -DWITH_OPENCL=OFF
-        -DWITH_QT=OFF
-        -DWITH_GTK=OFF
-        -DWITH_FFMPEG=OFF
-        -DWITH_GSTREAMER=OFF
-        -DBUILD_TESTS=OFF
-        -DBUILD_PERF_TESTS=OFF
-        -DBUILD_EXAMPLES=OFF
-        -DBUILD_opencv_python3=OFF
-        -DBUILD_opencv_python2=OFF
-        -DBUILD_SHARED_LIBS=ON
-        # OpenCV 4 defaults to include/opencv4/; flatten to include/ so that
-        # #include <opencv2/...> works with a plain -I${BUILD_DEPS}/include.
-        -DOPENCV_INCLUDE_INSTALL_PATH=include
-    )
-    if [ "$(uname)" = "Darwin" ]; then
-        cmake_args+=(
-            -DCMAKE_PREFIX_PATH="${BREW}"
-            -DCMAKE_OSX_ARCHITECTURES=arm64
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0
-        )
-    fi
-    cmake -S /tmp/opencv-${OPENCV_VER} -B "$build_dir" "${cmake_args[@]}"
-    cmake --build "$build_dir" -j"${NCPUS}"
-    cmake --install "$build_dir"
-    # Keep source + build dir: build_opencv_python() reuses them per Python version.
-
-    # OpenCV 4.11 + CMake 4.x have a compatibility bug in OpenCVGenPkgconfig.cmake,
-    # so we generate opencv4.pc manually.
-    mkdir -p "${BUILD_DEPS}/lib/pkgconfig"
-    cat > "${BUILD_DEPS}/lib/pkgconfig/opencv4.pc" << EOF
-prefix=${BUILD_DEPS}
-exec_prefix=\${prefix}
-libdir=\${exec_prefix}/lib
-includedir=\${prefix}/include
-
-Name: OpenCV
-Description: Open Source Computer Vision Library
-Version: ${OPENCV_VER}
-Libs: -L\${libdir} -lopencv_features2d -lopencv_imgcodecs -lopencv_imgproc -lopencv_core -lopencv_highgui
-Cflags: -I\${includedir}
-EOF
-
-    if [ "$(uname)" != "Darwin" ]; then ldconfig; fi
-}
-
-build_opencv_python() {
-    # Build the OpenCV Python3 module for a specific Python interpreter.
-    # Reuses the source + build tree left by build_opencv().
-    local python3="$1"
-    local install_dir="$2"   # e.g. BUILD_DEPS + PY3_MODULES
-
-    # Derive include/library paths from the interpreter so cmake finds them
-    # even in non-standard cibuildwheel layouts.
-    local python_include
-    python_include=$("${python3}" -c 'import sysconfig; print(sysconfig.get_path("include"))')
-    local python_lib
-    python_lib=$("${python3}" -c '
-import sysconfig, os, glob, sys
-libdir = sysconfig.get_config_var("LIBDIR") or ""
-maj, min_ = sys.version_info[:2]
-for pat in [f"libpython{maj}.{min_}.so*", f"libpython{maj}.{min_}m.so*",
-            f"libpython{maj}.{min_}.a",   f"libpython{maj}.{min_}m.a"]:
-    hits = sorted(glob.glob(os.path.join(libdir, pat)))
-    if hits:
-        print(hits[0])
-        break
-else:
-    print("")
-')
-
-    local cmake_args=(
-        -DPYTHON3_EXECUTABLE="${python3}"
-        -DPYTHON3_INCLUDE_DIR="${python_include}"
-        # Re-enable python_bindings_generator which was excluded by the original BUILD_LIST
-        -DBUILD_LIST=core,imgproc,imgcodecs,features2d,highgui,python_bindings_generator
-        -DBUILD_opencv_python3=ON
-        -DBUILD_opencv_python2=OFF
-        -DOPENCV_PYTHON3_INSTALL_PATH="${install_dir}"
-    )
-    [ -n "${python_lib}" ] && cmake_args+=(-DPYTHON3_LIBRARY="${python_lib}")
-    if [ "$(uname)" = "Darwin" ]; then
-        cmake_args+=(
-            -DCMAKE_OSX_ARCHITECTURES=arm64
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0
-        )
-    fi
-    cmake -S /tmp/opencv-${OPENCV_VER} -B /tmp/opencv-build "${cmake_args[@]}"
-    cmake --build /tmp/opencv-build -j"${NCPUS}" --target opencv_python3
-    cmake --install /tmp/opencv-build --component python3
 }
 
 build_gnuplot() {

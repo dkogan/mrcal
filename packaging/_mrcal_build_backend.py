@@ -69,6 +69,7 @@ def _metadata_text(version):
         f"Requires-Dist: numpy\n"
         f"Requires-Dist: numpysane>=0.35\n"
         f"Requires-Dist: scipy>=0.18\n"
+        f"Requires-Dist: opencv-python-headless\n"
         f"Requires-Dist: gnuplotlib>=0.38\n"
         f"Requires-Dist: shapely\n"
         f"Requires-Dist: pyyaml\n"
@@ -200,7 +201,7 @@ def _build_raw_wheel(raw_wheel_path, version, brew=None):
                     mode = 0o755 if os.access(path, os.X_OK) else 0o644
                     add(zf, open(path, "rb").read(), arcname, mode=mode)
 
-        # Bundled mawk — needed by mrgingham at runtime.
+        # Bundled mawk — needed by vnl-* tools at runtime.
         if mawk_bin and os.path.isfile(mawk_bin):
             add(zf, open(mawk_bin, "rb").read(), "mrcal/_vendor/bin/mawk", mode=0o755)
             wrapper = (
@@ -212,10 +213,9 @@ def _build_raw_wheel(raw_wheel_path, version, brew=None):
             )
             add(zf, wrapper, f"{data_dir}/scripts/mawk", mode=0o755)
 
-        # Bundled vnlog — scripts (vnl-*) and Perl modules needed by mrgingham.
+        # Bundled vnlog — scripts (vnl-*) and Perl modules.
         # Scripts get exec-wrappers in data/scripts/ so pip installs them to
-        # venv/bin/, making them findable by mrgingham and users alike.
-        # Wrappers set PERL5LIB so the Perl scripts find their modules.
+        # venv/bin/. Wrappers set PERL5LIB so the Perl scripts find their modules.
         _vnlog_bin_dir = BUILD_DEPS + '/bin'
         _vnlog_perl_dir = BUILD_DEPS + '/lib/perl5'
         if os.path.isdir(_vnlog_perl_dir):
@@ -242,34 +242,7 @@ def _build_raw_wheel(raw_wheel_path, version, brew=None):
                 )
                 add(zf, wrapper, f'{data_dir}/scripts/{name}', mode=0o755)
 
-        # Bundled mrgingham — binaries to mrcal/_vendor/bin/ (PATH is set in
-        # __init__.py); Python extension at wheel root for 'import mrgingham'.
-        # auditwheel/delocate bundles OpenCV and other C lib deps.
-        # Fixed paths set by before-build.sh — independent of any venv's platlib.
-        # mrgingham binaries go into mrcal/_vendor/bin/ so that
-        # delocate/auditwheel compute RPATH relative to mrcal/.dylibs|mrcal.libs
-        # correctly after pip installs the wheel.  A Python exec-wrapper is placed
-        # in data/scripts/ so pip creates a venv/bin/ entry point.
-        _mrg_bin_dir = BUILD_DEPS + '/bin'
-        if os.path.isdir(_mrg_bin_dir):
-            for path in sorted(glob.glob(f'{_mrg_bin_dir}/mrgingham*')):
-                if os.path.isfile(path):
-                    name = os.path.basename(path)
-                    add(zf, open(path, 'rb').read(),
-                        f'mrcal/_vendor/bin/{name}', mode=0o755)
-                    wrapper = (
-                        f'#!python\n'
-                        f'import os, sys, importlib.util\n'
-                        f'_s = importlib.util.find_spec("mrcal")\n'
-                        f'_v = os.path.join(os.path.dirname(_s.origin), "_vendor")\n'
-                        f'_pl = os.path.join(_v, "lib", "perl5")\n'
-                        f'if os.path.isdir(_pl):\n'
-                        f'    os.environ["PERL5LIB"] = _pl + (":" + os.environ["PERL5LIB"] if os.environ.get("PERL5LIB") else "")\n'
-                        f'os.execv(os.path.join(_v, "bin", "{name}"), sys.argv)\n'
-                    )
-                    add(zf, wrapper, f'{data_dir}/scripts/{name}', mode=0o755)
-
-        # Python extensions from GL_image_display and mrgingham, installed by
+        # Python extensions from GL_image_display, installed by
         # before-build.sh into the cibuildwheel Python's site-packages under
         # BUILD_DEPS.  The path is recorded in py3-modules-path because the
         # build backend runs in a different isolated venv.
@@ -345,7 +318,6 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
     env["PATH"]         = os.path.dirname(sys.executable) + ":" + BUILD_DEPS + "/bin" + (":" + env["PATH"] if env.get("PATH") else "")
 
 
-    mrbuild_symlink = None
     if sys.platform == "darwin":
         brew_bin = next((p for p in ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"] if os.path.exists(p)), "brew")
         brew = subprocess.check_output([brew_bin, "--prefix"], text=True).strip()
@@ -358,26 +330,12 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
         import platform
         env.setdefault("ARCHFLAGS", f"-arch {platform.machine()}")
 
-    # choose_mrbuild.mk checks mrbuild/ (local) or /usr/include/mrbuild/.
-    # BUILD_DEPS is neither, so create a temporary local symlink.
-    local_link = f"{SRC}/mrbuild"
-    if not os.path.exists(local_link):
-        candidate = f"{BUILD_DEPS}/include/mrbuild"
-        if os.path.isdir(candidate):
-            os.symlink(candidate, local_link)
-            mrbuild_symlink = local_link
-
     # USE_LOCAL_STB_IMPLEMENTATION: compile stb into libmrcal rather than
     # linking against an external libstb.so (not available on all platforms).
     make_cmd = ["make", f"-j{ncpus}"]
     if sys.platform != "darwin":
         make_cmd.append("USE_LOCAL_STB_IMPLEMENTATION=1")
 
-    try:
-        subprocess.check_call(make_cmd, cwd=SRC, env=env)
-    finally:
-        if mrbuild_symlink and os.path.islink(mrbuild_symlink):
-            os.unlink(mrbuild_symlink)
 
     # Strip debug symbols from built shared libraries before packing the wheel.
     strip_cmd = ['strip', '-x'] if sys.platform == 'darwin' else ['strip', '--strip-debug']

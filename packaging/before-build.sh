@@ -1,11 +1,14 @@
 #!/bin/bash
 
-# Build GL_image_display and mrgingham for the current Python version.
+# Build GL_image_display for the current Python version.
 # Called by cibuildwheel's before-build hook (once per Python version, both
 # platforms). before-all already cloned the sources and installed C build deps.
 set -ex
 
 source "$(dirname "$0")/build-deps-common.sh"
+
+MRCAL_SRC="$(cd "$(dirname "$0")/.." && pwd)"
+ln -sf /tmp/mrbuild "${MRCAL_SRC}/mrbuild"
 
 # Capture the cibuildwheel Python before PATH is modified (macOS adds brew to
 # PATH which would mask the cibuildwheel Python with Homebrew's externally-
@@ -15,10 +18,9 @@ PYTHON3=$(command -v python3)
 if [ "$(uname)" = "Darwin" ]; then
     NCPUS=$(sysctl -n hw.ncpu)
     BREW=$(brew --prefix)
-    # Put cibuildwheel Python first so mrbuild's python3 calls use it, then
-    # GNU getopt (keg-only; needed for mrgingham man-page generation), then
-    # brew tools, then the rest of PATH.
-    export PATH="$(dirname "${PYTHON3}"):${BREW}/opt/gnu-getopt/bin:${BREW}/bin:/usr/local/bin:$PATH"
+    # Put cibuildwheel Python first so mrbuild's python3 calls use it,
+    # then brew tools, then the rest of PATH.
+    export PATH="$(dirname "${PYTHON3}"):${BREW}/bin:/usr/local/bin:$PATH"
     export CPATH="${BUILD_DEPS}/include:${BREW}/include"
     export LIBRARY_PATH="${BUILD_DEPS}/lib:${BREW}/lib"
     export DYLD_LIBRARY_PATH="${BUILD_DEPS}/lib:${BREW}/lib"
@@ -51,12 +53,6 @@ INSTALL_ROOTS="INSTALL_ROOT_LIB=/lib
 
 "${PYTHON3}" -m pip install numpy setuptools --quiet
 
-# ---------------------------------------------------------------------------
-# OpenCV Python bindings — C++ libs built once in before-all; Python module
-# compiled here per Python version against the kept source + build tree.
-# ---------------------------------------------------------------------------
-build_opencv_python "${PYTHON3}" "${BUILD_DEPS}${PY3_MODULES}"
-if [ "$(uname)" != "Darwin" ]; then ldconfig; fi
 NUMPY_INC=$("${PYTHON3}" -c 'import numpy; print(numpy.get_include())')
 ln -sf "${NUMPY_INC}/numpy" "${BUILD_DEPS}/include/numpy"
 
@@ -69,8 +65,4 @@ if [ "$(uname)" != "Darwin" ]; then ldconfig; fi
 # ---------------------------------------------------------------------------
 "${PYTHON3}" -m pip install --no-binary pyfltk --no-deps \
     --target="${BUILD_DEPS}${PY3_MODULES}" pyfltk
-if [ "$(uname)" != "Darwin" ]; then ldconfig; fi
-
-LDFLAGS="-Wl,-rpath=${BUILD_DEPS}/lib -Wl,-rpath=${BUILD_DEPS}/lib64" make -C /tmp/mrgingham -j"${NCPUS}"
-make -C /tmp/mrgingham install DESTDIR="${BUILD_DEPS}" ${INSTALL_ROOTS}
 if [ "$(uname)" != "Darwin" ]; then ldconfig; fi
