@@ -102,6 +102,20 @@ clone_mrgingham() {
     ln -sf /tmp/mrbuild /tmp/mrgingham/mrbuild
 }
 
+install_vnlog() {
+    rm -rf /tmp/vnlog
+    git clone --depth=1 https://github.com/dkogan/vnlog /tmp/vnlog
+    # Copy executable scripts (vnl-*) to BUILD_DEPS/bin/
+    find /tmp/vnlog -maxdepth 1 -type f -executable \
+        -exec cp {} "${BUILD_DEPS}/bin/" \;
+    # Copy Perl modules
+    if [ -d /tmp/vnlog/lib ]; then
+        mkdir -p "${BUILD_DEPS}/lib/perl5"
+        cp -r /tmp/vnlog/lib/. "${BUILD_DEPS}/lib/perl5/"
+    fi
+    rm -rf /tmp/vnlog
+}
+
 clone_gl_image_display() {
     git clone https://github.com/dkogan/GL_image_display /tmp/GL_image_display
     git -C /tmp/GL_image_display checkout "${GL_IMAGE_DISPLAY_COMMIT}"
@@ -147,7 +161,7 @@ build_opencv() {
     cmake -S /tmp/opencv-${OPENCV_VER} -B "$build_dir" "${cmake_args[@]}"
     cmake --build "$build_dir" -j"${NCPUS}"
     cmake --install "$build_dir"
-    rm -rf /tmp/opencv-${OPENCV_VER} "$build_dir"
+    # Keep source + build dir: build_opencv_python() reuses them per Python version.
 
     # OpenCV 4.11 + CMake 4.x have a compatibility bug in OpenCVGenPkgconfig.cmake,
     # so we generate opencv4.pc manually.
@@ -166,6 +180,28 @@ Cflags: -I\${includedir}
 EOF
 
     if [ "$(uname)" != "Darwin" ]; then ldconfig; fi
+}
+
+build_opencv_python() {
+    # Build the OpenCV Python3 module for a specific Python interpreter.
+    # Reuses the source + build tree left by build_opencv().
+    local python3="$1"
+    local install_dir="$2"   # e.g. BUILD_DEPS + PY3_MODULES
+    local cmake_args=(
+        -DPYTHON3_EXECUTABLE="${python3}"
+        -DBUILD_opencv_python3=ON
+        -DBUILD_opencv_python2=OFF
+        -DOPENCV_PYTHON3_INSTALL_PATH="${install_dir}"
+    )
+    if [ "$(uname)" = "Darwin" ]; then
+        cmake_args+=(
+            -DCMAKE_OSX_ARCHITECTURES=arm64
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0
+        )
+    fi
+    cmake -S /tmp/opencv-${OPENCV_VER} -B /tmp/opencv-build "${cmake_args[@]}"
+    cmake --build /tmp/opencv-build -j"${NCPUS}" --target opencv_python3
+    cmake --install /tmp/opencv-build --component python3
 }
 
 build_gnuplot() {

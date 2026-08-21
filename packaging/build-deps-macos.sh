@@ -16,13 +16,13 @@ source "$(dirname "$0")/build-deps-common.sh"
 
 mkdir -p "${BUILD_DEPS}/include" "${BUILD_DEPS}/lib" "${BUILD_DEPS}/bin"
 
-export PATH="${BUILD_DEPS}/bin:/opt/homebrew/bin:$PATH"
+export PATH="${BUILD_DEPS}/bin:/opt/homebrew/bin:/opt/homebrew/opt/qt/bin:$PATH"
 export CPATH="${BUILD_DEPS}/include:/opt/homebrew/include"
 export LIBRARY_PATH="${BUILD_DEPS}/lib:/opt/homebrew/lib"
 
 brew install suite-sparse openblas libpng libjpeg re2c cpanminus \
     fltk freeglut libepoxy swig boost mesa-glu gnu-getopt cmake \
-    qt cairo pango
+    qt cairo pango mawk
 cpanm --notest List::MoreUtils
 
 install_mrbuild
@@ -30,13 +30,9 @@ install_stb
 build_libdogleg
 build_opencv
 
-export PATH="/opt/homebrew/opt/qt/bin:${PATH}"
 build_gnuplot "/opt/homebrew" CXXFLAGS="-std=c++17"
 
-# ---------------------------------------------------------------------------
-# GL_image_display and mrgingham — cloned here; built per Python version in
-# the before-build hook so the Python extension links against the right ABI.
-# ---------------------------------------------------------------------------
+install_vnlog
 clone_gl_image_display
 clone_mrgingham
 
