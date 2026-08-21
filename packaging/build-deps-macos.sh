@@ -28,12 +28,10 @@ cpanm --notest List::MoreUtils
 install_mrbuild
 install_stb
 build_libdogleg
-build_opencv
 
 build_gnuplot "/opt/homebrew" CXXFLAGS="-std=c++17"
 
 install_vnlog
 clone_gl_image_display
-clone_mrgingham
 
 strip_installed

@@ -62,12 +62,10 @@ ldconfig
 install_mrbuild
 install_stb
 build_libdogleg
-build_opencv
 
 build_gnuplot ${BUILD_DEPS} --without-qt
 
 install_vnlog
 clone_gl_image_display
-clone_mrgingham
 
 strip_installed
