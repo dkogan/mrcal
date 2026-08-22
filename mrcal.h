@@ -855,13 +855,15 @@ int mrcal_num_states_calobject_warp(mrcal_problem_selections_t problem_selection
 /////// Model-reading functions
 //
 //// These allocate memory for the model; the caller MUST
-//// mrcal_free_cameramodel(&model) when done. Return NULL on error
+//// mrcal_free_cameramodel(&model) or free(model) when done. Return NULL on error
 //
 // if len>0, the string doesn't need to be 0-terminated. If len<=0, the end of
 // the buffer IS indicated by a '\0' byte
 mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_string(const char* string,
                                                         const int len);
 mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_file  (const char* filename);
+
+// equivalent to free(cameramodel)
 void                      mrcal_free_cameramodel(mrcal_cameramodel_VOID_t** cameramodel);
 
 //// These read the model into a preallocated buffer *model. The given buffer is
