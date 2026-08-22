@@ -58,6 +58,8 @@ def _version():
 
 
 def _metadata_text(version):
+    _readme = os.path.join(os.path.dirname(os.path.abspath(__file__)), "README.md")
+    _readme_content = open(_readme).read() if os.path.exists(_readme) else ""
     return (
         f"Metadata-Version: 2.1\n"
         f"Name: mrcal\n"
@@ -66,6 +68,7 @@ def _metadata_text(version):
         f"Home-page: http://mrcal.secretsauce.net\n"
         f"License: Apache-2.0\n"
         f"Requires-Python: >=3.8\n"
+        f"Description-Content-Type: text/markdown\n"
         f"Requires-Dist: numpy\n"
         f"Requires-Dist: numpysane>=0.35\n"
         f"Requires-Dist: scipy>=0.18\n"
@@ -74,6 +77,8 @@ def _metadata_text(version):
         f"Requires-Dist: shapely\n"
         f"Requires-Dist: pyyaml\n"
         f"Requires-Dist: pyfltk\n"
+        f"\n"
+        f"{_readme_content}"
     )
 
 
