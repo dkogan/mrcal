@@ -20,13 +20,23 @@ exposed as a set of C and Python libraries and some commandline tools.
 
 Extensive documentation is available at <https://mrcal.secretsauce.net/>
 
+These pip wheels are available for Linux (amd64) and macos (arm64). Pip is a
+giant hack. These were a huge pain to build, even with Claude's help. They're
+massively inefficient, and probably are missing things.
+
+Everything mrcal does should be there. Plotting should be there (gnuplot is
+shipped, with x11 and qt terminals for osx); it should just work. Tell me if it
+doesn't. pyfltk and the GL image widget are available (`mrcal-stereo` should
+work). vnlog is available. mrgingham is *not* available: building opencv was an
+endless timesuck; the pip-building tools suck.
+
+
 # INSTALLATION
 
-These are pip wheels. If at all possible, do not use these, and install from the
-Debian packages instead, as noted on the ["Building or installing"
-page](https://mrcal.secretsauce.net/install.html). Pip is a huge hack, and this
-is all deeply inefficient, and might not work as well. If you find issues,
-please let me know.
+These pip wheels should work. If at all possible, do not use these, and install
+from the Debian packages instead, as noted on the ["Building or installing"
+page](https://mrcal.secretsauce.net/install.html). If you find issues with any
+of it, please let me know.
 
 # REPOSITORY
 
