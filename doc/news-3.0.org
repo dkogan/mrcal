@@ -43,6 +43,18 @@ multiplication, but it's nice to have this explicitly available for consistency.
 
 No more Depends:matplotlib
 
+-  C API: quiet versions of the cameramodel-parsing functions
+  
+  New functions:
+  
+  - mrcal_read_cameramodel_string2()
+  - mrcal_read_cameramodel_file2()
+  - mrcal_read_cameramodel_string_into2()
+  - mrcal_read_cameramodel_file_into2()
+  
+  Each has a new "quiet" argument, not present in the original
+
+
 * Migration notes 2.4 -> 3.0
 
 * todo

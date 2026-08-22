@@ -29,6 +29,10 @@
 
 #define DEBUG 0
 
+// Use this for parsing errors only. Actual errors (malloc failing for instance)
+// still use unconditional MSG
+#define MSG_IF_NOT_QUIET(...) do { if(!quiet) MSG(__VA_ARGS__); } while(0)
+
 // string defined by an explicit length. Instead of being 0-terminated
 typedef struct
 {
@@ -72,7 +76,8 @@ static bool read_string( // output stored here. If NULL, we try to read off
                          string_t* out,
                          const char** pYYCURSOR,
                          const char* start_file,
-                         const char* what)
+                         const char* what,
+                         const bool quiet)
 {
     const char* YYMARKER;
     const char* YYCURSOR = *pYYCURSOR;
@@ -96,8 +101,8 @@ static bool read_string( // output stored here. If NULL, we try to read off
         */
     }
     if(out != NULL)
-        MSG("Didn't see the %s string at position %ld. Giving up.",
-            what, (long int)(*pYYCURSOR - start_file));
+        MSG_IF_NOT_QUIET("Didn't see the %s string at position %ld. Giving up.",
+                         what, (long int)(*pYYCURSOR - start_file));
     return false;
 }
 
@@ -134,12 +139,14 @@ static bool read_value( const char** pYYCURSOR,
 typedef bool (ingest_generic_consume_ignorable_t)(void* out0, int i,
                                                   const char** pYYCURSOR,
                                                   const char* start_file,
-                                                  const char* what);
+                                                  const char* what,
+                                                  const bool quiet);
 
 static bool ingest_double_consume_ignorable(void* out0, int i,
                                             const char** pYYCURSOR,
                                             const char* start_file,
-                                            const char* what)
+                                            const char* what,
+                                            const bool quiet)
 {
     const char* YYMARKER;
     const char* YYCURSOR = *pYYCURSOR;
@@ -156,8 +163,8 @@ static bool ingest_double_consume_ignorable(void* out0, int i,
       }
       *
       {
-        MSG("Error parsing double-precision value for %s at %ld",
-            what, (long int)(*pYYCURSOR-start_file));
+        MSG_IF_NOT_QUIET("Error parsing double-precision value for %s at %ld",
+                         what, (long int)(*pYYCURSOR-start_file));
         return false;
       }
       */
@@ -174,8 +181,8 @@ static bool ingest_double_consume_ignorable(void* out0, int i,
         if( N == 0 || endptr == NULL || endptr != &tok[N] ||
             !isfinite(((double*)out0)[i]))
         {
-            MSG("Error parsing double-precision value for %s at %ld. String: '%s'",
-                what, (long int)(*pYYCURSOR-start_file), tok);
+            MSG_IF_NOT_QUIET("Error parsing double-precision value for %s at %ld. String: '%s'",
+                             what, (long int)(*pYYCURSOR-start_file), tok);
             return false;
         }
     }
@@ -187,7 +194,8 @@ static bool ingest_double_consume_ignorable(void* out0, int i,
 static bool ingest_uint_consume_ignorable(void* out0, int i,
                                           const char** pYYCURSOR,
                                           const char* start_file,
-                                          const char* what)
+                                          const char* what,
+                                          const bool quiet)
 {
     const char* YYMARKER;
     const char* YYCURSOR = *pYYCURSOR;
@@ -204,8 +212,8 @@ static bool ingest_uint_consume_ignorable(void* out0, int i,
       }
       *
       {
-        MSG("Error parsing unsigned integer for %s at %ld",
-            what, (long int)(*pYYCURSOR-start_file));
+        MSG_IF_NOT_QUIET("Error parsing unsigned integer for %s at %ld",
+                         what, (long int)(*pYYCURSOR-start_file));
         return false;
       }
       */
@@ -220,8 +228,8 @@ static bool ingest_uint_consume_ignorable(void* out0, int i,
         int si = atoi(tok);
         if( N == 0 || si < 0 )
         {
-            MSG("Error parsing unsigned int for %s at %ld. String: '%s'",
-                what, (long int)(*pYYCURSOR-start_file), tok);
+            MSG_IF_NOT_QUIET("Error parsing unsigned int for %s at %ld. String: '%s'",
+                             what, (long int)(*pYYCURSOR-start_file), tok);
             return false;
         }
         ((unsigned int*)out0)[i] = (unsigned int)si;
@@ -239,7 +247,8 @@ static bool read_list_values_generic( // output stored here. If NULL, we try to
                                       ingest_generic_consume_ignorable_t* f,
                                       const char** pYYCURSOR, const char* start_file,
                                       const char* what,
-                                      int Nvalues)
+                                      int Nvalues,
+                                      const bool quiet)
 {
     const char* YYMARKER;
     const char* YYCURSOR = *pYYCURSOR;
@@ -250,8 +259,8 @@ static bool read_list_values_generic( // output stored here. If NULL, we try to
           IGNORE [[(] { break; }
           *
           {
-            MSG("Didn't see the opening [/( for the %s at position %ld. Giving up.",
-                what, (long int)(YYCURSOR - start_file));
+            MSG_IF_NOT_QUIET("Didn't see the opening [/( for the %s at position %ld. Giving up.",
+                             what, (long int)(YYCURSOR - start_file));
             return false;
           }
         */
@@ -260,21 +269,21 @@ static bool read_list_values_generic( // output stored here. If NULL, we try to
     int i;
     for(i=0; i<Nvalues-1; i++)
     {
-        if(!(*f)(out, i, &YYCURSOR, start_file, what))
+        if(!(*f)(out, i, &YYCURSOR, start_file, what, quiet))
             return false;
         if(*YYCURSOR == ',')
             YYCURSOR++;
         else
         {
-            MSG("Didn't see expected ',' at %ld while parsing %s",
-                (long int)(YYCURSOR-start_file), what);
+            MSG_IF_NOT_QUIET("Didn't see expected ',' at %ld while parsing %s",
+                             (long int)(YYCURSOR-start_file), what);
             return false;
         }
     }
 
     // one more, but the trailing , is optional
     {
-        if(!(*f)(out, i, &YYCURSOR, start_file, what))
+        if(!(*f)(out, i, &YYCURSOR, start_file, what, quiet))
             return false;
         if(*YYCURSOR == ',')
             YYCURSOR++;
@@ -286,8 +295,8 @@ static bool read_list_values_generic( // output stored here. If NULL, we try to
           IGNORE [\])] { break; }
           *
           {
-            MSG("Didn't see the closing )/] for the %s at position %ld. Expected %d values, but the given list has more. Giving up.",
-                what, (long int)(YYCURSOR - start_file), Nvalues);
+            MSG_IF_NOT_QUIET("Didn't see the closing )/] for the %s at position %ld. Expected %d values, but the given list has more. Giving up.",
+                             what, (long int)(YYCURSOR - start_file), Nvalues);
             return false;
           }
         */
@@ -297,7 +306,8 @@ static bool read_list_values_generic( // output stored here. If NULL, we try to
     return true;
 }
 
-static bool read_balanced_list( const char** pYYCURSOR, const char* start_file )
+static bool read_balanced_list( const char** pYYCURSOR, const char* start_file,
+                                const bool quiet)
 {
     const char* YYMARKER;
     const char* YYCURSOR = *pYYCURSOR;
@@ -316,8 +326,8 @@ static bool read_balanced_list( const char** pYYCURSOR, const char* start_file )
             level--;
             if(level < 0)
             {
-              MSG("Error reading a balanced list at %ld (list not balanced)",
-                  (long int)(YYCURSOR-start_file));
+              MSG_IF_NOT_QUIET("Error reading a balanced list at %ld (list not balanced)",
+                               (long int)(YYCURSOR-start_file));
               return false;
             }
             if(level==0)
@@ -341,8 +351,8 @@ static bool read_balanced_list( const char** pYYCURSOR, const char* start_file )
           }
           *
           {
-            MSG("Error reading a balanced list at %ld (unexpected value)",
-                (long int)(YYCURSOR-start_file));
+            MSG_IF_NOT_QUIET("Error reading a balanced list at %ld (unexpected value)",
+                             (long int)(YYCURSOR-start_file));
             return false;
           }
         */
@@ -375,7 +385,8 @@ bool read_cameramodel_from_string(// output buffer. If it should be allocated,
                                   // 0-terminated. If len<=0, the end of the
                                   // buffer IS indicated by a 0 byte
                                   const char* string,
-                                  const int len)
+                                  const int len,
+                                  const bool quiet)
 {
     bool model_need_dealloc      = false;
     bool did_read_intrinsics     = false;
@@ -424,7 +435,7 @@ bool read_cameramodel_from_string(// output buffer. If it should be allocated,
           IGNORE "{" IGNORE { break; }
           *
           {
-            MSG("Didn't see leading '{'. Giving up.");
+            MSG_IF_NOT_QUIET("Didn't see leading '{'. Giving up.");
             goto done;
           }
         */
@@ -436,7 +447,7 @@ bool read_cameramodel_from_string(// output buffer. If it should be allocated,
         string_t key = {};
 
         ///////// key:
-        if(!read_string(&key, &YYCURSOR, start_file, "key"))
+        if(!read_string(&key, &YYCURSOR, start_file, "key", quiet))
             goto done;
         while(true)
         {
@@ -444,8 +455,8 @@ bool read_cameramodel_from_string(// output buffer. If it should be allocated,
               IGNORE ":" { break; }
               *
               {
-                MSG("Didn't see expected ':' at %ld. Giving up.",
-                    (long int)(YYCURSOR-start_file));
+                MSG_IF_NOT_QUIET("Didn't see expected ':' at %ld. Giving up.",
+                                 (long int)(YYCURSOR-start_file));
                 goto done;
               }
             */
@@ -459,14 +470,14 @@ bool read_cameramodel_from_string(// output buffer. If it should be allocated,
         {
             if(model_not_intrinsics.lensmodel.type >= 0)
             {
-                MSG("lensmodel defined more than once");
+                MSG_IF_NOT_QUIET("lensmodel defined more than once");
                 goto done;
             }
 
             // "lensmodel" has string values
             string_t lensmodel;
             if(!read_string(&lensmodel,
-                            &YYCURSOR, start_file, "lensmodel"))
+                            &YYCURSOR, start_file, "lensmodel", quiet))
                 goto done;
 
             char lensmodel_string[lensmodel.len+1];
@@ -475,7 +486,7 @@ bool read_cameramodel_from_string(// output buffer. If it should be allocated,
 
             if( !mrcal_lensmodel_from_name(&model_not_intrinsics.lensmodel, lensmodel_string) )
             {
-                MSG("Could not parse lensmodel '%s'", lensmodel_string);
+                MSG_IF_NOT_QUIET("Could not parse lensmodel '%s'", lensmodel_string);
                 goto done;
             }
         }
@@ -483,13 +494,13 @@ bool read_cameramodel_from_string(// output buffer. If it should be allocated,
         {
             if(did_read_intrinsics)
             {
-                MSG("intrinsics defined more than once");
+                MSG_IF_NOT_QUIET("intrinsics defined more than once");
                 goto done;
             }
 
             if(model_not_intrinsics.lensmodel.type < 0)
             {
-                MSG("Saw 'intrinsics' key, before a 'lensmodel' key. Make sure that a 'lensmodel' key exists, and that it appears in the file before the 'intrinsics'");
+                MSG_IF_NOT_QUIET("Saw 'intrinsics' key, before a 'lensmodel' key. Make sure that a 'lensmodel' key exists, and that it appears in the file before the 'intrinsics'");
                 goto done;
             }
 
@@ -520,7 +531,8 @@ bool read_cameramodel_from_string(// output buffer. If it should be allocated,
             if( !read_list_values_generic((*model)->intrinsics,
                                           ingest_double_consume_ignorable,
                                           &YYCURSOR, start_file,
-                                          "intrinsics", Nintrinsics) )
+                                          "intrinsics", Nintrinsics,
+                                          quiet) )
                 goto done;
 
             did_read_intrinsics = true;
@@ -534,31 +546,34 @@ bool read_cameramodel_from_string(// output buffer. If it should be allocated,
                 double rt_cam_ref[6];
                 if( !read_list_values_generic(rt_cam_ref,
                                               ingest_double_consume_ignorable,
-                                              &YYCURSOR, start_file, "extrinsics", 6) )
+                                              &YYCURSOR, start_file, "extrinsics", 6,
+                                              quiet) )
                     goto done;
 
                 for(int i=0; i<6; i++)
                     if(1e-9 < fabs(rt_cam_ref[i] - model_not_intrinsics.rt_cam_ref[i]))
                     {
-                        MSG("extrinsics defined more than once and aren't identical");
+                        MSG_IF_NOT_QUIET("extrinsics defined more than once and aren't identical");
                         goto done;
                     }
             }
             else if( !read_list_values_generic(model_not_intrinsics.rt_cam_ref,
                                                ingest_double_consume_ignorable,
-                                               &YYCURSOR, start_file, "extrinsics", 6) )
+                                               &YYCURSOR, start_file, "extrinsics", 6,
+                                               quiet) )
                 goto done;
         }
         else if(string_is("imagersize", key))
         {
             if(model_not_intrinsics.imagersize[0] > 0)
             {
-                MSG("imagersize defined more than once");
+                MSG_IF_NOT_QUIET("imagersize defined more than once");
                 goto done;
             }
             if( !read_list_values_generic(model_not_intrinsics.imagersize,
                                           ingest_uint_consume_ignorable,
-                                          &YYCURSOR, start_file, "imagersize", 2) )
+                                          &YYCURSOR, start_file, "imagersize", 2,
+                                          quiet) )
                 goto done;
         }
         else
@@ -566,12 +581,12 @@ bool read_cameramodel_from_string(// output buffer. If it should be allocated,
             // Some unknown key. Read off the data and continue
             // try to read a string...
             if(!read_value(&YYCURSOR, start_file) &&
-               !read_string(NULL, &YYCURSOR, start_file, "unknown") &&
-               !read_balanced_list(&YYCURSOR, start_file))
+               !read_string(NULL, &YYCURSOR, start_file, "unknown", quiet) &&
+               !read_balanced_list(&YYCURSOR, start_file, quiet))
             {
-                MSG("Error parsing value for key '%.*s' at %ld",
-                    key.len, key.s,
-                    (long int)(YYCURSOR-start_file));
+                MSG_IF_NOT_QUIET("Error parsing value for key '%.*s' at %ld",
+                                 key.len, key.s,
+                                 (long int)(YYCURSOR-start_file));
                 goto done;
             }
         }
@@ -592,8 +607,8 @@ bool read_cameramodel_from_string(// output buffer. If it should be allocated,
             }
             *
             {
-                MSG("Didn't see trailing , at %ld",
-                    (long int)(YYCURSOR-start_file));
+                MSG_IF_NOT_QUIET("Didn't see trailing , at %ld",
+                                 (long int)(YYCURSOR-start_file));
                 goto done;
             }
             */
@@ -610,8 +625,8 @@ bool read_cameramodel_from_string(// output buffer. If it should be allocated,
               }
               *
               {
-                  MSG("Garbage after trailing } at %ld. Giving up",
-                      (long int)(f-1 - start_file));
+                  MSG_IF_NOT_QUIET("Garbage after trailing } at %ld. Giving up",
+                                   (long int)(f-1 - start_file));
                   goto done;
               }
               */
@@ -642,7 +657,7 @@ bool read_cameramodel_from_string(// output buffer. If it should be allocated,
          model_not_intrinsics.rt_cam_ref[0] != DBL_MAX &&
          model_not_intrinsics.imagersize[0] > 0))
     {
-        MSG("Incomplete cameramodel. Need keys: lensmodel, intrinsics, rt_cam_ref/extrinsics, imagersize");
+        MSG_IF_NOT_QUIET("Incomplete cameramodel. Need keys: lensmodel, intrinsics, rt_cam_ref/extrinsics, imagersize");
         if(model_need_dealloc)
         {
             free(*model);
@@ -671,7 +686,8 @@ bool read_cameramodel_from_file(// output buffer. If it should be allocated,
                                 int* Nintrinsics_max,
 
                                 // in
-                                const char* filename)
+                                const char* filename,
+                                const bool quiet)
 {
     int   fd                      = -1;
     char* string                  = NULL;
@@ -728,7 +744,8 @@ bool read_cameramodel_from_file(// output buffer. If it should be allocated,
                                           // EOF marker. This is the more
                                           // efficient path in
                                           // read_cameramodel_from_string()
-                                          0);
+                                          0,
+                                          quiet);
 
  done:
     if(string != NULL && string != MAP_FAILED)
@@ -743,23 +760,36 @@ bool read_cameramodel_from_file(// output buffer. If it should be allocated,
 
 // if len>0, the string doesn't need to be 0-terminated. If len<=0, the end of
 // the buffer IS indicated by a 0 byte
-mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_string(const char *string,
-                                                        const int len)
+mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_string2(const char *string,
+                                                         const int len,
+                                                         const bool quiet)
 {
     mrcal_cameramodel_VOID_t* model = NULL;
     bool result = read_cameramodel_from_string(&model, NULL,
-                                               string, len);
+                                               string, len,
+                                               quiet);
     if(result) return model;
     else       return NULL;
 }
+mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_string(const char *string,
+                                                        const int len)
+{
+    return mrcal_read_cameramodel_string2(string,len,false);
+}
 
-mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_file(const char* filename)
+mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_file2(const char* filename,
+                                                       const bool quiet)
 {
     mrcal_cameramodel_VOID_t* model = NULL;
     bool result = read_cameramodel_from_file(&model, NULL,
-                                             filename);
+                                             filename,
+                                             quiet);
     if(result) return model;
     else       return NULL;
+}
+mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_file(const char* filename)
+{
+    return mrcal_read_cameramodel_file2(filename,false);
 }
 
 void mrcal_free_cameramodel(mrcal_cameramodel_VOID_t** cameramodel)
@@ -768,6 +798,19 @@ void mrcal_free_cameramodel(mrcal_cameramodel_VOID_t** cameramodel)
     *cameramodel = NULL;
 }
 
+bool mrcal_read_cameramodel_string_into2(// out
+                                   mrcal_cameramodel_VOID_t* model,
+                                   // in,out
+                                   int* Nintrinsics_max,
+                                   // in
+                                   const char* string,
+                                   const int len,
+                                   const bool quiet)
+{
+    return read_cameramodel_from_string(&model, Nintrinsics_max,
+                                        string, len,
+                                        quiet);
+}
 bool mrcal_read_cameramodel_string_into(// out
                                    mrcal_cameramodel_VOID_t* model,
                                    // in,out
@@ -776,8 +819,26 @@ bool mrcal_read_cameramodel_string_into(// out
                                    const char* string,
                                    const int len)
 {
-    return read_cameramodel_from_string(&model, Nintrinsics_max,
-                                        string, len);
+    return mrcal_read_cameramodel_string_into2(// out
+                                   model,
+                                   // in,out
+                                   Nintrinsics_max,
+                                   // in
+                                   string,
+                                   len,
+                                   false);
+}
+bool mrcal_read_cameramodel_file_into2  (// out
+                                   mrcal_cameramodel_VOID_t* model,
+                                   // in,out
+                                   int* Nintrinsics_max,
+                                   // in
+                                   const char* filename,
+                                   const bool quiet)
+{
+    return read_cameramodel_from_file(&model, Nintrinsics_max,
+                                      filename,
+                                      quiet);
 }
 bool mrcal_read_cameramodel_file_into  (// out
                                    mrcal_cameramodel_VOID_t* model,
@@ -786,6 +847,11 @@ bool mrcal_read_cameramodel_file_into  (// out
                                    // in
                                    const char* filename)
 {
-    return read_cameramodel_from_file(&model, Nintrinsics_max,
-                                      filename);
+    return mrcal_read_cameramodel_file_into2  (// out
+                                               model,
+                                               // in,out
+                                               Nintrinsics_max,
+                                               // in
+                                               filename,
+                                               false);
 }

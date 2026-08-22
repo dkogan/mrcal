@@ -56,16 +56,7 @@ there is no =mrcal_cameramodel_LENSMODEL_SPLINED_STEREOGRAPHIC_t=. When reading
 a model from disk, mrcal dynamically allocates the right amount of memory, and
 returns a =mrcal_cameramodel_VOID_t*=.
 
-The [[file:c-api.org::#cameramodel-io-in-c][C API]] has a simple interface for reading/writing =.cameramodel= data:
-
-#+begin_src c
-mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_string(const char* string, int len);
-mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_file  (const char* filename);
-void                      mrcal_free_cameramodel(mrcal_cameramodel_VOID_t** cameramodel);
-
-bool mrcal_write_cameramodel_file(const char* filename,
-                                  const mrcal_cameramodel_VOID_t* cameramodel);
-#+end_src
+The C API has [[file:c-api.org::#cameramodel-io-in-c][a simple interface for reading/writing =.cameramodel= data]].
 
 * File formats
 :PROPERTIES:
