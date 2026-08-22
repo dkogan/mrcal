@@ -100,32 +100,6 @@ def _wheel_header(version):
     )
 
 
-_VENDOR_SETUP = """\
-def _mrcal_setup_vendor():
-    import os, glob, shutil, sys
-    vendor = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_vendor')
-    # Set gnuplot env vars so the bundled data files (terminals, help, etc.)
-    # are found regardless of system gnuplot installation.
-    if shutil.which('gnuplot'):
-        os.environ.setdefault('GNUTERM', 'qt' if sys.platform == 'darwin' else 'x11')
-        vers = sorted(glob.glob(os.path.join(vendor, 'share', 'gnuplot', '*')))
-        if vers:
-            os.environ.setdefault('GNUPLOT_LIB', vers[-1])
-            gih = os.path.join(vers[-1], 'gnuplot.gih')
-            if os.path.exists(gih):
-                os.environ.setdefault('GNUPLOT_HELP', gih)
-            ps_dir = os.path.join(vers[-1], 'PostScript')
-            if os.path.isdir(ps_dir):
-                os.environ.setdefault('GNUPLOT_PS_DIR', ps_dir)
-        libexec = os.path.join(vendor, 'libexec', 'gnuplot')
-        if os.path.isdir(libexec):
-            vers = sorted(glob.glob(os.path.join(libexec, '*')))
-            if vers:
-                os.environ.setdefault('GNUPLOT_DRIVER_DIR', vers[-1])
-_mrcal_setup_vendor()
-del _mrcal_setup_vendor
-"""
-
 
 def _build_raw_wheel(raw_wheel_path, version, brew=None):
     pkg_dir   = f"{SRC}/mrcal"
@@ -136,10 +110,18 @@ def _build_raw_wheel(raw_wheel_path, version, brew=None):
     data_dir  = f"mrcal-{version}.data"
     records   = []
 
-    gnuplot_bin = shutil.which("gnuplot") or \
-        (os.path.join(brew, "bin", "gnuplot") if brew else None)
-    mawk_bin = shutil.which("mawk") or \
-        (os.path.join(brew, "bin", "mawk") if brew else None)
+    def _find_tool(name):
+        # shutil.which uses the current process PATH, which doesn't include
+        # BUILD_DEPS/bin.  Check there explicitly before falling back to brew.
+        if found := shutil.which(name):
+            return found
+        p = os.path.join(BUILD_DEPS, "bin", name)
+        if os.path.isfile(p):
+            return p
+        return os.path.join(brew, "bin", name) if brew else None
+
+    gnuplot_bin = _find_tool("gnuplot")
+    mawk_bin    = _find_tool("mawk")
 
     def add(zf, data, arcname, mode=0o644):
         if isinstance(data, str):
@@ -164,42 +146,38 @@ def _build_raw_wheel(raw_wheel_path, version, brew=None):
             if path.endswith(".so") and ext_tag not in stem:
                 continue
             arcname = "mrcal/" + os.path.relpath(path, pkg_dir)
-            data = open(path, "rb").read()
-            # Prepend gnuplot env-var setup to __init__.py so data files are found
-            if gnuplot_bin and path == f"{pkg_dir}/__init__.py":
-                data = _VENDOR_SETUP.encode() + data
-            add(zf, data, arcname)
+            add(zf, open(path, "rb").read(), arcname)
 
-        # Bundled gnuplot — full installation tree so help, terminals, etc. work.
-        # auditwheel treats ELF files here like .so deps and bundles their libs.
+        # Bundled gnuplot + gnuplot_x11.
+        # gnuplot wrapper sets GNUPLOT_DRIVER_DIR to its own directory (venv/bin/)
+        # so gnuplot finds gnuplot_x11 there at runtime.
         if gnuplot_bin:
             gnuplot_prefix = os.path.dirname(os.path.dirname(gnuplot_bin))
 
-            # Main binary at mrcal/_vendor/bin/ so delocate/auditwheel compute
-            # RPATH relative to mrcal/.dylibs correctly after pip installs.
             add(zf, open(gnuplot_bin, "rb").read(), "mrcal/_vendor/bin/gnuplot", mode=0o755)
             wrapper = (
                 '#!python\n'
                 'import os, sys, importlib.util\n'
                 '_s = importlib.util.find_spec("mrcal")\n'
                 '_real = os.path.join(os.path.dirname(_s.origin), "_vendor", "bin", "gnuplot")\n'
+                'os.environ["GNUPLOT_DRIVER_DIR"] = os.path.dirname(os.path.abspath(sys.argv[0]))\n'
                 'os.execv(_real, sys.argv)\n'
             )
             add(zf, wrapper, f"{data_dir}/scripts/gnuplot", mode=0o755)
 
-            # Data files: .gih help, terminal scripts, colour names, etc.
-            for src_dir, arc_prefix in [
-                (f"{gnuplot_prefix}/share/gnuplot",   "mrcal/_vendor/share/gnuplot"),
-                (f"{gnuplot_prefix}/libexec/gnuplot",  "mrcal/_vendor/libexec/gnuplot"),
-            ]:
-                if not os.path.isdir(src_dir):
-                    continue
-                for path in sorted(glob.glob(f"{src_dir}/**/*", recursive=True)):
-                    if not os.path.isfile(path):
-                        continue
-                    arcname = arc_prefix + "/" + os.path.relpath(path, src_dir)
-                    mode = 0o755 if os.access(path, os.X_OK) else 0o644
-                    add(zf, open(path, "rb").read(), arcname, mode=mode)
+            # gnuplot_x11: find in libexec and place alongside gnuplot in venv/bin/
+            x11_candidates = glob.glob(f"{gnuplot_prefix}/libexec/gnuplot/*/gnuplot_x11")
+            if x11_candidates:
+                x11_bin = x11_candidates[0]
+                add(zf, open(x11_bin, "rb").read(), "mrcal/_vendor/bin/gnuplot_x11", mode=0o755)
+                wrapper_x11 = (
+                    '#!python\n'
+                    'import os, sys, importlib.util\n'
+                    '_s = importlib.util.find_spec("mrcal")\n'
+                    '_real = os.path.join(os.path.dirname(_s.origin), "_vendor", "bin", "gnuplot_x11")\n'
+                    'os.execv(_real, sys.argv)\n'
+                )
+                add(zf, wrapper_x11, f"{data_dir}/scripts/gnuplot_x11", mode=0o755)
 
         # Bundled mawk — needed by vnl-* tools at runtime.
         if mawk_bin and os.path.isfile(mawk_bin):
