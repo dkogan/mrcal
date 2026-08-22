@@ -58,14 +58,15 @@ def _version():
 
 
 def _metadata_text(version):
-    _readme = os.path.join(os.path.dirname(os.path.abspath(__file__)), "README.md")
+    _readme = os.path.join(os.path.dirname(os.path.abspath(__file__)), "README-pip.md")
     _readme_content = open(_readme).read() if os.path.exists(_readme) else ""
     return (
         f"Metadata-Version: 2.1\n"
         f"Name: mrcal\n"
         f"Version: {version}\n"
         f"Summary: Calibration and SFM library\n"
-        f"Home-page: http://mrcal.secretsauce.net\n"
+        f"Home-page: https://mrcal.secretsauce.net\n"
+        f"Project-URL: Homepage, https://mrcal.secretsauce.net\n"
         f"License: Apache-2.0\n"
         f"Requires-Python: >=3.8\n"
         f"Description-Content-Type: text/markdown\n"
