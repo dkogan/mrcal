@@ -98,8 +98,7 @@ install_vnlog() {
     rm -rf /tmp/vnlog
     git clone --depth=1 https://github.com/dkogan/vnlog /tmp/vnlog
     # Copy executable scripts (vnl-*) to BUILD_DEPS/bin/
-    find /tmp/vnlog -maxdepth 1 -type f -executable \
-        -exec cp {} "${BUILD_DEPS}/bin/" \;
+    cp /tmp/vnlog/vnl-* "${BUILD_DEPS}/bin/"
     # Copy Perl modules
     if [ -d /tmp/vnlog/lib ]; then
         mkdir -p "${BUILD_DEPS}/lib/perl5"
