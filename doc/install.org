@@ -53,6 +53,19 @@ strictly required, is needed if you're doing chessboard-based calibrations. =apt
 install mrgingham=
 
 * Non-Debian releases
+** pip
+There're wheels on pypi. For Linux (amd64) and macos (arm64). Pip is a giant
+hack. These were a huge pain to build, even with Claude's help. They're
+massively inefficient, and probably are missing things.
+
+Everything mrcal does should be there. Plotting should be there (gnuplot is
+shipped, with x11 and qt terminals for osx); it should just work. Tell me if it
+doesn't. pyfltk and the GL image widget are available (=mrcal-stereo= should
+work). vnlog is available. mrgingham is /not/ available: building opencv was an
+endless timesuck; the pip-building tools suck.
+
+If at all possible, use the Debian packages instead.
+
 ** RPM-based distros
 There's a package definition in [[https://github.com/dkogan/mrcal/blob/master/packaging/rpmpackage.spec][=packaging/rpmpackage.spec=]]. This used to work,
 and with a small amount of effort, this can work again. If you'd like to see
@@ -66,11 +79,6 @@ to see mrcal be a part of homebrew, please get in touch.
 ** Windows
 mrcal builds with clang today. MSVC builds are possible with small patches. If
 this is important to you, get in touch.
-
-** pip
-There's an experimental mostly-finished support for pip package building. This
-isn't yet done, and pip is heinous, so it hasn't yet been pushed to pypi. If
-you'd like to see mrcal be a part of pypi, please get in touch.
 
 * Building from source
 If you cannot use the packages for whatever reason, you must build from source.
