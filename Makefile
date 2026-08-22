@@ -228,7 +228,11 @@ test:
 VERSION_WHEEL_POST_NEXT = $(shell v=$$( { echo -1; git tag -l "wheel/$(VERSION).post*" | sed 's/.*\.post//'; } | sort -nr | head -n1 ); echo $$((v+1));)
 pip-packages:
 	sg docker -c 'cd $(CURDIR) && VERSION_WHEEL_BASE=$(VERSION) VERSION_WHEEL_POST=$(VERSION_WHEEL_POST_NEXT) pipx run cibuildwheel'
-.PHONY: pip-packages
+pip-packages-github-linux:
+	gh workflow run build-wheels-linux.yml -f version_base=$(VERSION) -f version_post=$(VERSION_WHEEL_POST_NEXT) -r release-2.5
+pip-packages-github-macos:
+	gh workflow run build-wheels-macos.yml -f version_base=$(VERSION) -f version_post=$(VERSION_WHEEL_POST_NEXT) -r release-2.5
+.PHONY: pip-packages pip-packages-github-linux pip-packages-github-macos
 
 include Makefile.doc
 
