@@ -314,6 +314,10 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
     if sys.platform != "darwin":
         make_cmd.append("USE_LOCAL_STB_IMPLEMENTATION=1")
 
+    subprocess.check_call(["make", "clean"], cwd=SRC, env=env)
+    subprocess.check_call(make_cmd, cwd=SRC, env=env)
+
+
 
     # Strip debug symbols from built shared libraries before packing the wheel.
     strip_cmd = ['strip', '-x'] if sys.platform == 'darwin' else ['strip', '--strip-debug']
