@@ -56,20 +56,20 @@ static void confirm_models_equal(const mrcal_cameramodel_VOID_t* a,
 }
 
 #define check(string, ref, len) do {                                    \
-    mrcal_cameramodel_VOID_t* m = mrcal_read_cameramodel_string(string, len);\
+    mrcal_cameramodel_VOID_t* m = mrcal_cameramodel_read_string(string, len, false);\
     confirm(m != NULL);                                                 \
     if(m != NULL)                                                       \
     {                                                                   \
       confirm_models_equal(m,ref);                                      \
-      mrcal_free_cameramodel(&m);                                       \
+      mrcal_cameramodel_free(&m);                                       \
     }                                                                   \
 } while(0)
 
 #define check_fail(string,len) do{                                      \
-    mrcal_cameramodel_VOID_t* m = mrcal_read_cameramodel_string(string,len); \
+    mrcal_cameramodel_VOID_t* m = mrcal_cameramodel_read_string(string,len, false); \
     confirm(m == NULL);                                                 \
     if(m != NULL)                                                       \
-      mrcal_free_cameramodel(&m);                                       \
+      mrcal_cameramodel_free(&m);                                       \
 } while(0)
 
 
@@ -119,12 +119,12 @@ static void check_read_from_disk(void)
 
     mrcal_cameramodel_LENSMODEL_OPENCV8_t m;
     int Nintrinsics_max = 8+4;
-    if(!confirm(mrcal_read_cameramodel_file_into((mrcal_cameramodel_VOID_t*)&m, &Nintrinsics_max, path_model)))
+    if(!confirm(mrcal_cameramodel_read_file_into((mrcal_cameramodel_VOID_t*)&m, &Nintrinsics_max, path_model, false)))
         return;
     confirm_models_equal((mrcal_cameramodel_VOID_t*)&m,
                          (mrcal_cameramodel_VOID_t*)&cameramodel_ref);
     int Nintrinsics_max_too_small = 8+4 - 1;
-    if(!confirm(!mrcal_read_cameramodel_file_into((mrcal_cameramodel_VOID_t*)&m, &Nintrinsics_max_too_small, path_model)))
+    if(!confirm(!mrcal_cameramodel_read_file_into((mrcal_cameramodel_VOID_t*)&m, &Nintrinsics_max_too_small, path_model, false)))
         return;
 
     confirm_eq_int(Nintrinsics_max_too_small, 8+4);
@@ -140,27 +140,31 @@ static void check_read_from_disk(void)
     fclose(fp);
 
     Nintrinsics_max = 8+4;
-    if(!confirm(mrcal_read_cameramodel_string_into((mrcal_cameramodel_VOID_t*)&m, &Nintrinsics_max,
-                                                   buf, 0)))
+    if(!confirm(mrcal_cameramodel_read_string_into((mrcal_cameramodel_VOID_t*)&m, &Nintrinsics_max,
+                                                   buf, 0,
+                                                   false)))
         return;
     confirm_models_equal((mrcal_cameramodel_VOID_t*)&m,
                          (mrcal_cameramodel_VOID_t*)&cameramodel_ref);
     Nintrinsics_max_too_small = 8+4 - 1;
-    if(!confirm(!mrcal_read_cameramodel_string_into((mrcal_cameramodel_VOID_t*)&m, &Nintrinsics_max_too_small,
-                                                    buf, 0)))
+    if(!confirm(!mrcal_cameramodel_read_string_into((mrcal_cameramodel_VOID_t*)&m, &Nintrinsics_max_too_small,
+                                                    buf, 0,
+                                                    false)))
         return;
 
     // And again, giving it the buffer size instead of '\0' termination
     buf[nbytes] = 'x';
     Nintrinsics_max = 8+4;
-    if(!confirm(mrcal_read_cameramodel_string_into((mrcal_cameramodel_VOID_t*)&m, &Nintrinsics_max,
-                                                   buf, nbytes)))
+    if(!confirm(mrcal_cameramodel_read_string_into((mrcal_cameramodel_VOID_t*)&m, &Nintrinsics_max,
+                                                   buf, nbytes,
+                                                   false)))
         return;
     confirm_models_equal((mrcal_cameramodel_VOID_t*)&m,
                          (mrcal_cameramodel_VOID_t*)&cameramodel_ref);
     Nintrinsics_max_too_small = 8+4 - 1;
-    if(!confirm(!mrcal_read_cameramodel_string_into((mrcal_cameramodel_VOID_t*)&m, &Nintrinsics_max_too_small,
-                                                    buf, nbytes)))
+    if(!confirm(!mrcal_cameramodel_read_string_into((mrcal_cameramodel_VOID_t*)&m, &Nintrinsics_max_too_small,
+                                                    buf, nbytes,
+                                                    false)))
         return;
 }
 
@@ -343,7 +347,7 @@ int main(int argc, char* argv[])
 
     // Roundtrip write/read
     bool write_cameramodel_succeeded =
-        mrcal_write_cameramodel_file("/tmp/test-parser-cameramodel.cameramodel",
+        mrcal_cameramodel_write_file("/tmp/test-parser-cameramodel.cameramodel",
                                      (mrcal_cameramodel_VOID_t*)&cameramodel_ref);
     confirm(write_cameramodel_succeeded);
     if(write_cameramodel_succeeded)

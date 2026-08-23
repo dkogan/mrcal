@@ -760,9 +760,9 @@ bool read_cameramodel_from_file(// output buffer. If it should be allocated,
 
 // if len>0, the string doesn't need to be 0-terminated. If len<=0, the end of
 // the buffer IS indicated by a 0 byte
-mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_string2(const char *string,
-                                                         const int len,
-                                                         const bool quiet)
+mrcal_cameramodel_VOID_t* mrcal_cameramodel_read_string(const char *string,
+                                                        const int len,
+                                                        const bool quiet)
 {
     mrcal_cameramodel_VOID_t* model = NULL;
     bool result = read_cameramodel_from_string(&model, NULL,
@@ -771,14 +771,9 @@ mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_string2(const char *string,
     if(result) return model;
     else       return NULL;
 }
-mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_string(const char *string,
-                                                        const int len)
-{
-    return mrcal_read_cameramodel_string2(string,len,false);
-}
 
-mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_file2(const char* filename,
-                                                       const bool quiet)
+mrcal_cameramodel_VOID_t* mrcal_cameramodel_read_file(const char* filename,
+                                                      const bool quiet)
 {
     mrcal_cameramodel_VOID_t* model = NULL;
     bool result = read_cameramodel_from_file(&model, NULL,
@@ -787,18 +782,14 @@ mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_file2(const char* filename,
     if(result) return model;
     else       return NULL;
 }
-mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_file(const char* filename)
-{
-    return mrcal_read_cameramodel_file2(filename,false);
-}
 
-void mrcal_free_cameramodel(mrcal_cameramodel_VOID_t** cameramodel)
+void mrcal_cameramodel_free(mrcal_cameramodel_VOID_t** cameramodel)
 {
     free(*cameramodel);
     *cameramodel = NULL;
 }
 
-bool mrcal_read_cameramodel_string_into2(// out
+bool mrcal_cameramodel_read_string_into(// out
                                    mrcal_cameramodel_VOID_t* model,
                                    // in,out
                                    int* Nintrinsics_max,
@@ -811,24 +802,7 @@ bool mrcal_read_cameramodel_string_into2(// out
                                         string, len,
                                         quiet);
 }
-bool mrcal_read_cameramodel_string_into(// out
-                                   mrcal_cameramodel_VOID_t* model,
-                                   // in,out
-                                   int* Nintrinsics_max,
-                                   // in
-                                   const char* string,
-                                   const int len)
-{
-    return mrcal_read_cameramodel_string_into2(// out
-                                   model,
-                                   // in,out
-                                   Nintrinsics_max,
-                                   // in
-                                   string,
-                                   len,
-                                   false);
-}
-bool mrcal_read_cameramodel_file_into2  (// out
+bool mrcal_cameramodel_read_file_into  (// out
                                    mrcal_cameramodel_VOID_t* model,
                                    // in,out
                                    int* Nintrinsics_max,
@@ -840,6 +814,42 @@ bool mrcal_read_cameramodel_file_into2  (// out
                                       filename,
                                       quiet);
 }
+
+
+
+
+// Legacy, deprecated aliases for the mrcal_cameramodel_...() functions. Where
+// present, these use quiet=false
+mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_string(const char *string,
+                                                        const int len)
+{
+    return mrcal_cameramodel_read_string(string,len,false);
+}
+mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_file(const char* filename)
+{
+    return mrcal_cameramodel_read_file(filename,false);
+}
+void mrcal_free_cameramodel(mrcal_cameramodel_VOID_t** cameramodel)
+{
+    return mrcal_cameramodel_free(cameramodel);
+}
+bool mrcal_read_cameramodel_string_into(// out
+                                   mrcal_cameramodel_VOID_t* model,
+                                   // in,out
+                                   int* Nintrinsics_max,
+                                   // in
+                                   const char* string,
+                                   const int len)
+{
+    return mrcal_cameramodel_read_string_into(// out
+                                   model,
+                                   // in,out
+                                   Nintrinsics_max,
+                                   // in
+                                   string,
+                                   len,
+                                   false);
+}
 bool mrcal_read_cameramodel_file_into  (// out
                                    mrcal_cameramodel_VOID_t* model,
                                    // in,out
@@ -847,7 +857,7 @@ bool mrcal_read_cameramodel_file_into  (// out
                                    // in
                                    const char* filename)
 {
-    return mrcal_read_cameramodel_file_into2  (// out
+    return mrcal_cameramodel_read_file_into  (// out
                                                model,
                                                // in,out
                                                Nintrinsics_max,

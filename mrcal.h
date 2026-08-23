@@ -855,25 +855,18 @@ int mrcal_num_states_calobject_warp(mrcal_problem_selections_t problem_selection
 /////// Model-reading functions
 //
 //// These allocate memory for the model; the caller MUST
-//// mrcal_free_cameramodel(&model) or free(model) when done. Return NULL on error
+//// mrcal_cameramodel_free(&model) when done. Return NULL on error
 //
 // if len>0, the string doesn't need to be 0-terminated. If len<=0, the end of
 // the buffer IS indicated by a '\0' byte
-mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_string2(const char *string,
+mrcal_cameramodel_VOID_t* mrcal_cameramodel_read_string(const char *string,
                                                          const int len,
                                                          const bool quiet);
-// quiet = false
-mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_string(const char* string,
-                                                        const int len);
-
-mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_file2(const char* filename,
+mrcal_cameramodel_VOID_t* mrcal_cameramodel_read_file(const char* filename,
                                                        const bool quiet);
-// quiet = false
-mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_file  (const char* filename);
-
-// equivalent to free(cameramodel)
-void                      mrcal_free_cameramodel(mrcal_cameramodel_VOID_t** cameramodel);
-
+// Today this is equivalent to free(cameramodel); That MIGHT change in the
+// future. Use mrcal_cameramodel_free() if you can
+void                      mrcal_cameramodel_free(mrcal_cameramodel_VOID_t** cameramodel);
 //// These read the model into a preallocated buffer *model. The given buffer is
 //// big-enough for a model with *Nintrinsics_max intrinsics. Return true on
 //// success. On failure, return false. If the error was a too-small
@@ -882,7 +875,7 @@ void                      mrcal_free_cameramodel(mrcal_cameramodel_VOID_t** came
 //
 // if len>0, the string doesn't need to be 0-terminated. If len<=0, the end of
 // the buffer IS indicated by a '\0' byte
-bool mrcal_read_cameramodel_string_into2(// out
+bool mrcal_cameramodel_read_string_into(// out
                                    mrcal_cameramodel_VOID_t* model,
                                    // in,out
                                    int* Nintrinsics_max,
@@ -890,7 +883,23 @@ bool mrcal_read_cameramodel_string_into2(// out
                                    const char* string,
                                    const int len,
                                    const bool quiet);
-// quiet = false
+bool mrcal_cameramodel_read_file_into  (// out
+                                   mrcal_cameramodel_VOID_t* model,
+                                   // in,out
+                                   int* Nintrinsics_max,
+                                   // in
+                                   const char* filename,
+                                   const bool quiet);
+bool mrcal_cameramodel_write_file(const char* filename,
+                                  const mrcal_cameramodel_VOID_t* cameramodel);
+
+
+// Legacy, deprecated aliases for the mrcal_cameramodel_...() functions. Where
+// present, these use quiet=false
+mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_string(const char* string,
+                                                        const int len);
+mrcal_cameramodel_VOID_t* mrcal_read_cameramodel_file  (const char* filename);
+void                      mrcal_free_cameramodel(mrcal_cameramodel_VOID_t** cameramodel);
 bool mrcal_read_cameramodel_string_into(// out
                                    mrcal_cameramodel_VOID_t* model,
                                    // in,out
@@ -898,24 +907,16 @@ bool mrcal_read_cameramodel_string_into(// out
                                    // in
                                    const char* string,
                                    const int len);
-
-bool mrcal_read_cameramodel_file_into2  (// out
-                                   mrcal_cameramodel_VOID_t* model,
-                                   // in,out
-                                   int* Nintrinsics_max,
-                                   // in
-                                   const char* filename,
-                                   const bool quiet);
-// quiet = false
 bool mrcal_read_cameramodel_file_into  (// out
                                    mrcal_cameramodel_VOID_t* model,
                                    // in,out
                                    int* Nintrinsics_max,
                                    // in
                                    const char* filename);
-
 bool mrcal_write_cameramodel_file(const char* filename,
                                   const mrcal_cameramodel_VOID_t* cameramodel);
+
+
 
 #define DECLARE_mrcal_apply_color_map(T,Tname)                          \
     bool mrcal_apply_color_map_##Tname(                                 \

@@ -6623,7 +6623,7 @@ mrcal_optimize( // out
     return stats;
 }
 
-bool mrcal_write_cameramodel_file(const char* filename,
+bool mrcal_cameramodel_write_file(const char* filename,
                                   const mrcal_cameramodel_VOID_t* cameramodel)
 {
     bool result = false;
@@ -6675,6 +6675,13 @@ bool mrcal_write_cameramodel_file(const char* filename,
     if(fp != NULL)
         fclose(fp);
     return result;
+}
+
+// Legacy, deprecated alias for the mrcal_cameramodel_write_file()
+bool mrcal_write_cameramodel_file(const char* filename,
+                                  const mrcal_cameramodel_VOID_t* cameramodel)
+{
+    return mrcal_cameramodel_write_file(filename,cameramodel);
 }
 
 

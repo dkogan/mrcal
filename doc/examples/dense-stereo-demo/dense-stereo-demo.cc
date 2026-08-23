@@ -99,7 +99,7 @@ int main(int argc, char* argv[])
     //// Read the models from disk
     for(int i=0; i<2; i++)
     {
-        models[i] = mrcal_read_cameramodel_file(model_filenames[i]);
+        models[i] = mrcal_cameramodel_read_file(model_filenames[i], false);
         if(models[i] == NULL)
         {
             fprintf(stderr, "Error loading model '%s'\n", model_filenames[i]);

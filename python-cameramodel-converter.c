@@ -80,7 +80,7 @@ int mrcal_cameramodel_converter(PyObject*             py_model,
         const char* filename = PyUnicode_AsUTF8AndSize(py_model, NULL);
         if(filename == NULL)
             BARF_AND_GOTO_DONE("The model argument claims to be a string, but I could not get this string out of it");
-        *model = mrcal_read_cameramodel_file(filename);
+        *model = mrcal_cameramodel_read_file(filename,false);
         if(*model == NULL)
             BARF_AND_GOTO_DONE("Couldn't read mrcal_cameramodel_VOID_t from '%s'", filename);
     }
