@@ -54,6 +54,8 @@ No more Depends:matplotlib
 
   The new functions have better names. Old functions remain for compatibility
 
+- New mrcal_cameramodel_clone() function
+
 
 * Migration notes 2.4 -> 3.0
 

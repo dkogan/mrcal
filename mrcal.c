@@ -6684,6 +6684,30 @@ bool mrcal_write_cameramodel_file(const char* filename,
     return mrcal_cameramodel_write_file(filename,cameramodel);
 }
 
+mrcal_cameramodel_VOID_t* mrcal_cameramodel_clone(const mrcal_cameramodel_VOID_t* model_in)
+{
+    const int Nintrinsics = mrcal_lensmodel_num_params(&model_in->lensmodel);
+    if(Nintrinsics <= 0)
+    {
+        MSG("Error computing mrcal_lensmodel_num_params(): lensmodel='%s', Nintrinsics=%d",
+            mrcal_lensmodel_name_unconfigured(&model_in->lensmodel),
+            Nintrinsics);
+        return NULL;
+    }
+
+    const size_t Nbytes_model = sizeof(mrcal_cameramodel_VOID_t) + (size_t)Nintrinsics*sizeof(double);
+
+    mrcal_cameramodel_VOID_t* model_out = (mrcal_cameramodel_VOID_t*)malloc(Nbytes_model);
+    if(model_out == NULL)
+    {
+        MSG("Error: couldn't allocate %zd bytes", Nbytes_model);
+        return NULL;
+    }
+
+    memcpy((uint8_t*)model_out, (const uint8_t*)model_in, Nbytes_model);
+    return model_out;
+}
+
 
 #if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
 #warning "triangulated-solve: fixed points should live in a separate array, instead of at the end of the 'points' array"

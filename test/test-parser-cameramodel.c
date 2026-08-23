@@ -345,10 +345,17 @@ int main(int argc, char* argv[])
           0);
 
 
+    // Clone
+    mrcal_cameramodel_VOID_t* cameramodel_ref_cloned = mrcal_cameramodel_clone((mrcal_cameramodel_VOID_t*)&cameramodel_ref);
+    confirm(cameramodel_ref_cloned != NULL);
+
     // Roundtrip write/read
     bool write_cameramodel_succeeded =
         mrcal_cameramodel_write_file("/tmp/test-parser-cameramodel.cameramodel",
-                                     (mrcal_cameramodel_VOID_t*)&cameramodel_ref);
+                                     cameramodel_ref_cloned);
+    mrcal_cameramodel_free(&cameramodel_ref_cloned);
+    confirm(cameramodel_ref_cloned == NULL);
+
     confirm(write_cameramodel_succeeded);
     if(write_cameramodel_succeeded)
     {
@@ -364,6 +371,7 @@ int main(int argc, char* argv[])
             // must deal with
             buf[Nbytes_read] = '5';
             check(buf,
+                  // compare to the model before the clone. Before-clone, after-clone and after write/read must all be the same
                   (mrcal_cameramodel_VOID_t*)&cameramodel_ref,
                   Nbytes_read);
         }

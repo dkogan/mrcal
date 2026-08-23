@@ -423,6 +423,7 @@ mrcal_cameramodel_VOID_t* mrcal_cameramodel_read_string(const char *string,
                                                          const bool quiet);
 mrcal_cameramodel_VOID_t* mrcal_cameramodel_read_file(const char* filename,
                                                        const bool quiet);
+mrcal_cameramodel_VOID_t* mrcal_cameramodel_clone(const mrcal_cameramodel_VOID_t* model_in);
 // Today this is equivalent to free(cameramodel); That MIGHT change in the
 // future. Use mrcal_cameramodel_free() if you can
 void                      mrcal_cameramodel_free(mrcal_cameramodel_VOID_t** cameramodel);
