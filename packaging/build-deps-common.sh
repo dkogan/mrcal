@@ -3,7 +3,7 @@
 # Shared build logic sourced by build-deps-linux.sh and build-deps-macos.sh.
 # Callers must set NCPUS before sourcing this file.
 
-MRBUILD_VER=c2940bc
+MRBUILD_VER=5328f4c
 LIBDOGLEG_VER=0.18
 FLTK_VER=1.4.5
 GNUPLOT_VER=6.0.2
