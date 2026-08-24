@@ -32,6 +32,7 @@ strip_installed() {
 }
 
 install_mrbuild() {
+    git clone https://github.com/dkogan/mrbuild /tmp/mrbuild
     git -C /tmp/mrbuild checkout "${MRBUILD_VER}"
     mkdir -p "${BUILD_DEPS}/include/mrbuild"
     cp /tmp/mrbuild/Makefile.common.* "${BUILD_DEPS}/include/mrbuild/"
