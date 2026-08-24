@@ -7,7 +7,7 @@ MRBUILD_VER=5328f4c
 LIBDOGLEG_VER=0.18
 FLTK_VER=1.4.5
 GNUPLOT_VER=6.0.2
-GL_IMAGE_DISPLAY_COMMIT=88d00f1
+GL_IMAGE_DISPLAY_COMMIT=7a0b6f8
 RE2C_VER=3.1
 
 # All custom-built C dependencies install here.  The build scripts, before-build
