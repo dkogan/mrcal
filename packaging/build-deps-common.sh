@@ -3,11 +3,11 @@
 # Shared build logic sourced by build-deps-linux.sh and build-deps-macos.sh.
 # Callers must set NCPUS before sourcing this file.
 
-MRBUILD_VER=1.19
+MRBUILD_VER=c2940bc
 LIBDOGLEG_VER=0.18
 FLTK_VER=1.4.5
 GNUPLOT_VER=6.0.2
-GL_IMAGE_DISPLAY_COMMIT=dbd3eb0
+GL_IMAGE_DISPLAY_COMMIT=88d00f1
 RE2C_VER=3.1
 
 # All custom-built C dependencies install here.  The build scripts, before-build
@@ -32,8 +32,7 @@ strip_installed() {
 }
 
 install_mrbuild() {
-    curl -fsSL "https://github.com/dkogan/mrbuild/archive/refs/tags/v${MRBUILD_VER}.tar.gz" | tar xz -C /tmp
-    mv /tmp/mrbuild-${MRBUILD_VER} /tmp/mrbuild
+    git -C /tmp/mrbuild checkout "${MRBUILD_VER}"
     mkdir -p "${BUILD_DEPS}/include/mrbuild"
     cp /tmp/mrbuild/Makefile.common.* "${BUILD_DEPS}/include/mrbuild/"
     cp /tmp/mrbuild/bin/*             "${BUILD_DEPS}/bin/"
