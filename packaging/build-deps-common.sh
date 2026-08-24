@@ -33,7 +33,7 @@ strip_installed() {
 
 install_mrbuild() {
     git clone https://github.com/dkogan/mrbuild /tmp/mrbuild
-    git -C /tmp/mrbuild checkout "${MRBUILD_VER}"
+    git -C /tmp/mrbuild reset --hard "${MRBUILD_VER}"
     mkdir -p "${BUILD_DEPS}/include/mrbuild"
     cp /tmp/mrbuild/Makefile.common.* "${BUILD_DEPS}/include/mrbuild/"
     cp /tmp/mrbuild/bin/*             "${BUILD_DEPS}/bin/"
@@ -109,7 +109,7 @@ install_vnlog() {
 
 clone_gl_image_display() {
     git clone https://github.com/dkogan/GL_image_display /tmp/GL_image_display
-    git -C /tmp/GL_image_display checkout "${GL_IMAGE_DISPLAY_COMMIT}"
+    git -C /tmp/GL_image_display reset --hard "${GL_IMAGE_DISPLAY_COMMIT}"
     ln -sf /tmp/mrbuild /tmp/GL_image_display/mrbuild
 }
 
