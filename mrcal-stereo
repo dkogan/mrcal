@@ -959,7 +959,9 @@ def process(i_image):
     if args.force_grayscale:
         for i in range(2):
             if images[i].ndim == 3:
-                images[i] = np.mean(images[i], axis=-1, dtype=images[i].dtype)
+                # computing the rgb mean of 8-bit channels can overflow. I avoid
+                # that by doing the mean in 16-bit space
+                images[i] = np.mean(images[i], axis=-1, dtype=np.uint16).astype(images[i].dtype)
 
     if args.equalization == 'clahe':
         images = [ clahe.apply(image) for image in images ]
