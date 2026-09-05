@@ -4453,7 +4453,7 @@ void optimizer_callback(// input state
 
                        const callback_context_t* ctx)
 {
-    double norm2_error = 0.0;
+    double norm2_error __attribute__((unused)) = 0.0;
 
     int    iJacobian          = 0;
     int    iMeasurement       = 0;
