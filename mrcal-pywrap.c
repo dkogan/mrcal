@@ -1331,7 +1331,16 @@ int fill_c_observations_point_triangulated(// output. I fill in the given arrays
     }
     ARGDEF_indices_point_triangulated_camintrinsics_camextrinsics(CHECK_LAYOUT);
 
+
+
+// gcc 16.2.0 is confused:
+// /usr/lib/x86_64-linux-gnu/python3-numpy/numpy/_core/include/numpy/ndarraytypes.h:1570:41: warning: array subscript ‘PyArrayObject_fields {aka struct tagPyArrayObject_fields}[0]’ is partly outside array bounds of ‘PyObject[1]’ {aka ‘struct _object[1]’} [-Warray-bounds=]
+//  1570 |     return ((PyArrayObject_fields *)arr)->dimensions[idim];
+//       |            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
     int N = (int)PyArray_DIM(indices_point_triangulated_camintrinsics_camextrinsics, 0);
+#pragma GCC diagnostic pop
     if(observations_point_triangulated != NULL)
     {
         if(N != (int)PyArray_DIM(observations_point_triangulated, 0))
