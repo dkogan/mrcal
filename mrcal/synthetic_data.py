@@ -763,9 +763,12 @@ def make_tracks(model,
                 R_cam_camnext,
                 t_cam_camnext__world,
                 Nobservations_total, # I aim for this
-                track_length,
-                Nobservations_image,  # desired feature density
+                track_length,        # exclusive with p_NED_static; exactly one must be given
+                Nobservations_image, # desired feature density
                 gridn,
+                # If given, we track these points. If not, we generate features,
+                # and track them
+                p_NED_static            = None, # exclusive with track_length; exactly one must be given
                 Npoint_observations_min = 4,
                 Ncam_observing_min      = 4):
 
@@ -934,7 +937,15 @@ def make_tracks(model,
     W,H = model.imagersize()
 
     # shape (Npoints,3)
-    points = np.zeros((0,3), dtype=float)
+    if p_NED_static is None:
+        points = np.zeros((0,3), dtype=float)
+        if track_length is None:
+            raise Exception("p_NED_static is not given; we're tracking feature correspondences. track_length MUST be given")
+    else:
+        points = p_NED_static
+        if track_length is not None:
+            raise Exception("p_NED_static is given; we're tracking global objects. track_length MUST NOT be given")
+
     # shape (Nframes,6)
     rt_cam_ref = np.zeros((0,6), dtype=float)
     # shape (Nobservations,2); omit the weight column; will add it at the end
@@ -953,22 +964,6 @@ def make_tracks(model,
 
         if len(points) > 0:
             #### Propagate EXTANT points
-
-            if False:
-                print(f"Propagating extant {len(observations_point)=}")
-            # The start of previous-point-in-time observations. We can keep
-            # track instead of recomputing
-            came = indices_point_camextrinsics[:,1]
-            if len(came) <= 0:
-                iobs0 = 0
-            else:
-                came_last = came[-1]
-                iobs0 = len(came) - np.argmax(came[::-1] != came_last)
-                if iobs0 == len(came):
-                    iobs0 = 0
-
-            ipoints = indices_point_camextrinsics[iobs0:, 0]
-
             R_cam_world = Rt_NED_cam[:3,:].T
             Rt_cam_camnext = \
                 nps.glue(R_cam_camnext,
@@ -979,6 +974,24 @@ def make_tracks(model,
                                   mrcal.rt_from_Rt( mrcal.invert_Rt(Rt_NED_cam) ),
                                   axis = -2)
             irt_cam_ref = len(rt_cam_ref)-1
+
+            if p_NED_static is None:
+                # The start of previous-point-in-time observations. We can keep
+                # track instead of recomputing
+                came = indices_point_camextrinsics[:,1]
+                if len(came) <= 0:
+                    iobs0 = 0
+                else:
+                    iobs0 = len(came) - np.argmax(came[::-1] != came[-1])
+                    if iobs0 == len(came):
+                        iobs0 = 0
+
+                ipoints = indices_point_camextrinsics[iobs0:, 0]
+
+            else:
+
+                # everything
+                ipoints = slice(None,None)
 
             # propagate existing tracks
             q1 = mrcal.project( mrcal.transform_point_Rt(Rt_NED_cam,
@@ -991,8 +1004,11 @@ def make_tracks(model,
                 (q1[...,0] >= 0) * \
                 (q1[...,1] >= 0) * \
                 (q1[...,0] <= W-1) * \
-                (q1[...,1] <= H-1) * \
-                (Nobservations_point[ipoints] < track_length)
+                (q1[...,1] <= H-1)
+
+            if p_NED_static is None:
+                mask_keep *= (Nobservations_point[ipoints] < track_length)
+                Nobservations_point[ipoints[mask_keep]] += 1
 
             q_extant = q1[mask_keep]
 
@@ -1007,7 +1023,9 @@ def make_tracks(model,
                          nps.transpose (nps.cat(ipoints[mask_keep],
                                                 irt_cam_ref * np.ones((Nkeep,),dtype=np.int32))),
                          axis = -2)
-            Nobservations_point[ipoints[mask_keep]] += 1
+
+
+
 
         else:
             q_extant = np.zeros((0,2))
@@ -1018,34 +1036,36 @@ def make_tracks(model,
             irt_cam_ref = 0
 
         #### Done with extant points. Create NEW points
-        if False:
-            print(f"Creating new {len(observations_point)=}")
-        ipoint0 = len(points)
-        for q,p in generate_new_features(q_extant, model, Rt_NED_cam,
-                                         Nobservations_image,
-                                         gridn = gridn):
-            points = \
-                nps.glue(points,
-                         p,
-                         axis = -2)
-            observations_point = \
-                nps.glue(observations_point,
-                         q,
-                         axis = -2)
-            indices_point_camextrinsics = \
-                nps.glue(indices_point_camextrinsics,
-                         nps.transpose(nps.cat(ipoint0 + np.arange(len(p),dtype=np.int32),
-                                               irt_cam_ref * np.ones((len(p),),dtype=np.int32))),
-                         axis = -2)
-            Nobservations_point = \
-                nps.glue(Nobservations_point,
-                         np.ones((len(p),), dtype=int),
-                         axis = -1)
+        if p_NED_static is None:
+            if False:
+                print(f"Creating new {len(observations_point)=}")
 
-            ipoint0 += len(p)
-        else:
-            if len(points) == 0:
-                raise Exception("Generate_new_features() generated nothing, and we have no extant points to propagate")
+            ipoint0 = len(points)
+            for q,p in generate_new_features(q_extant, model, Rt_NED_cam,
+                                             Nobservations_image,
+                                             gridn = gridn):
+                points = \
+                    nps.glue(points,
+                             p,
+                             axis = -2)
+                observations_point = \
+                    nps.glue(observations_point,
+                             q,
+                             axis = -2)
+                indices_point_camextrinsics = \
+                    nps.glue(indices_point_camextrinsics,
+                             nps.transpose(nps.cat(ipoint0 + np.arange(len(p),dtype=np.int32),
+                                                   irt_cam_ref * np.ones((len(p),),dtype=np.int32))),
+                             axis = -2)
+                Nobservations_point = \
+                    nps.glue(Nobservations_point,
+                             np.ones((len(p),), dtype=int),
+                             axis = -1)
+
+                ipoint0 += len(p)
+            else:
+                if len(points) == 0:
+                    raise Exception("Generate_new_features() generated nothing, and we have no extant points to propagate")
 
     # Added the expected extra columns
     observations_point = \
