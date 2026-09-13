@@ -773,7 +773,7 @@ def make_tracks(model,
                 Ncam_observing_min      = 4):
 
 
-    def generate_new_features(q_extant, model, Rt_NED_cam,
+    def generate_new_features(q_extant, model, rt_cam_ref,
                               Nobservations_image,
                               *,
                               gridn):
@@ -782,14 +782,16 @@ def make_tracks(model,
 
         '''
 
-        def points_on_ground(q, model, Rt_NED_cam):
+        Rt_ref_cam = mrcal.invert_Rt( mrcal.Rt_from_rt(rt_cam_ref) )
+
+        def points_on_ground(q, model):
             r'''Takes pixel observations
 
         Returns a subset of those observations that are looking at the ground at z=0,
         and the corresponding points
             '''
 
-            p = Rt_NED_cam[3,:]
+            p = Rt_ref_cam[3,:]
 
             vcam = mrcal.unproject(q, *model.intrinsics())
             mask = \
@@ -801,7 +803,7 @@ def make_tracks(model,
             # Doesn't matter. To get around /0 and operating on nan
             vcam[~mask,:] = 1.
 
-            v = mrcal.rotate_point_R(Rt_NED_cam[:3,:], vcam)
+            v = mrcal.rotate_point_R(Rt_ref_cam[:3,:], vcam)
             d = -p[2] / v[...,2]
             mask *= (d > 0)
 
@@ -839,7 +841,7 @@ def make_tracks(model,
                     np.array( (x0,y0), dtype=float) + \
                     np.random.uniform(size=(N_want,2)) * np.array( (x1-x0,y1-y0), dtype=float)
 
-                yield points_on_ground(qhere, model, Rt_NED_cam)
+                yield points_on_ground(qhere, model)
 
 
     def normalize_indices(indices_point_camintrinsics_camextrinsics,
@@ -959,7 +961,6 @@ def make_tracks(model,
         points = p_NED_static
 
     W,H = model.imagersize()
-    Rt_NED_cam = Rt_NED_cam0
 
 
 
@@ -974,14 +975,13 @@ def make_tracks(model,
 
         #### Propagate EXTANT points, if they exist
         if len(points) > 0:
-            R_cam_world = Rt_NED_cam[:3,:].T
             Rt_cam_camnext = \
                 nps.glue(R_cam_camnext,
-                         mrcal.rotate_point_R(R_cam_world, t_cam_camnext__world),
+                         mrcal.rotate_point_r(rt_cam_ref[-1,:3], t_cam_camnext__world),
                          axis = -2)
-            Rt_NED_cam = mrcal.compose_Rt( Rt_NED_cam, Rt_cam_camnext )
             rt_cam_ref = nps.glue(rt_cam_ref,
-                                  mrcal.rt_from_Rt( mrcal.invert_Rt(Rt_NED_cam) ),
+                                  mrcal.compose_rt( mrcal.rt_from_Rt(mrcal.invert_Rt(Rt_cam_camnext)),
+                                                    rt_cam_ref[-1,:] ),
                                   axis = -2)
 
             if p_NED_static is None:
@@ -1003,9 +1003,8 @@ def make_tracks(model,
                 ipoints = slice(None,None)
 
             # propagate existing tracks
-            q1 = mrcal.project( mrcal.transform_point_Rt(Rt_NED_cam,
-                                                         points[ipoints],
-                                                         inverted=True),
+            q1 = mrcal.project( mrcal.transform_point_rt(rt_cam_ref[-1,:],
+                                                         points[ipoints]),
                                 *model.intrinsics() )
             mask_keep = \
                 np.isfinite(q1[...,0]) * \
@@ -1038,7 +1037,7 @@ def make_tracks(model,
 
             ipoint0 = len(points)
             for q,p in generate_new_features(observations_point[-Nkeep:],
-                                             model, Rt_NED_cam,
+                                             model, rt_cam_ref[-1,:],
                                              Nobservations_image,
                                              gridn = gridn):
                 points = \
