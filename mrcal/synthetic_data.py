@@ -763,12 +763,12 @@ def make_tracks(model,
                 R_cam_camnext,
                 t_cam_camnext__world,
                 Nobservations_total, # I aim for this
-                track_length,        # exclusive with p_NED_static; exactly one must be given
+                track_length,        # exactly one of (track_length,p_NED_static) must be given
                 Nobservations_image, # desired feature density
                 gridn,
                 # If given, we track these points. If not, we generate features,
                 # and track them
-                p_NED_static            = None, # exclusive with track_length; exactly one must be given
+                p_NED_static            = None, # exactly one of (track_length,p_NED_static) must be given
                 Npoint_observations_min = 4,
                 Ncam_observing_min      = 4):
 
@@ -932,29 +932,39 @@ def make_tracks(model,
              observations_point)
 
 
-
-
-    W,H = model.imagersize()
-
-    # shape (Npoints,3)
-    if p_NED_static is None:
-        points = np.zeros((0,3), dtype=float)
-        if track_length is None:
-            raise Exception("p_NED_static is not given; we're tracking feature correspondences. track_length MUST be given")
-    else:
-        points = p_NED_static
-        if track_length is not None:
-            raise Exception("p_NED_static is given; we're tracking global objects. track_length MUST NOT be given")
-
-    # shape (Nframes,6)
-    rt_cam_ref = np.zeros((0,6), dtype=float)
+    ####### ACCUMULATORS: the results are stored into these objects
     # shape (Nobservations,2); omit the weight column; will add it at the end
     observations_point = np.zeros((0,2), dtype=float)
     # shape (Nobservations,2); will add camintrinsics at the end
     indices_point_camextrinsics = np.zeros((0,2), dtype=np.int32)
-
     # shape (Npoints,); this is a cache; can be computed from indices_point_camextrinsics
     Nobservations_point = np.zeros( (0,), dtype=int)
+    Nkeep = 0
+    # shape (Npoints,3)
+    points = np.zeros((0,3), dtype=float)
+    # shape (Nframes,6)
+    rt_cam_ref = nps.atleast_dims(mrcal.rt_from_Rt( mrcal.invert_Rt(Rt_NED_cam0) ),
+                                  -2)
+
+    if p_NED_static is None and \
+       track_length is None:
+        raise Exception("p_NED_static is not given; we're tracking feature correspondences. track_length MUST be given")
+    if p_NED_static is not None and \
+       track_length is not None:
+            raise Exception("p_NED_static is given; we're tracking global objects. track_length MUST NOT be given")
+
+
+    if p_NED_static is not None:
+        # We are given the points; do NOT accumulate, but use the preset ones
+        points = p_NED_static
+
+    W,H = model.imagersize()
+    Rt_NED_cam = Rt_NED_cam0
+
+
+
+
+
 
     len_observations_point_last = -1
     while len(observations_point) < Nobservations_total:
@@ -962,8 +972,8 @@ def make_tracks(model,
             raise Exception("No observation added this cycle. Giving up")
         len_observations_point_last = len(observations_point)
 
+        #### Propagate EXTANT points, if they exist
         if len(points) > 0:
-            #### Propagate EXTANT points
             R_cam_world = Rt_NED_cam[:3,:].T
             Rt_cam_camnext = \
                 nps.glue(R_cam_camnext,
@@ -973,7 +983,6 @@ def make_tracks(model,
             rt_cam_ref = nps.glue(rt_cam_ref,
                                   mrcal.rt_from_Rt( mrcal.invert_Rt(Rt_NED_cam) ),
                                   axis = -2)
-            irt_cam_ref = len(rt_cam_ref)-1
 
             if p_NED_static is None:
                 # The start of previous-point-in-time observations. We can keep
@@ -1010,30 +1019,17 @@ def make_tracks(model,
                 mask_keep *= (Nobservations_point[ipoints] < track_length)
                 Nobservations_point[ipoints[mask_keep]] += 1
 
-            q_extant = q1[mask_keep]
-
             observations_point = \
                 nps.glue(observations_point,
-                         q_extant,
+                         q1[mask_keep],
                          axis = -2)
-            Nkeep = len(q_extant)
+            Nkeep = np.count_nonzero(mask_keep)
 
             indices_point_camextrinsics = \
                 nps.glue(indices_point_camextrinsics,
                          nps.transpose (nps.cat(ipoints[mask_keep],
-                                                irt_cam_ref * np.ones((Nkeep,),dtype=np.int32))),
+                                                (len(rt_cam_ref)-1) * np.ones((Nkeep,),dtype=np.int32))),
                          axis = -2)
-
-
-
-
-        else:
-            q_extant = np.zeros((0,2))
-
-            Rt_NED_cam = Rt_NED_cam0
-            rt_cam_ref = nps.atleast_dims(mrcal.rt_from_Rt( mrcal.invert_Rt(Rt_NED_cam) ),
-                                          -2)
-            irt_cam_ref = 0
 
         #### Done with extant points. Create NEW points
         if p_NED_static is None:
@@ -1041,7 +1037,8 @@ def make_tracks(model,
                 print(f"Creating new {len(observations_point)=}")
 
             ipoint0 = len(points)
-            for q,p in generate_new_features(q_extant, model, Rt_NED_cam,
+            for q,p in generate_new_features(observations_point[-Nkeep:],
+                                             model, Rt_NED_cam,
                                              Nobservations_image,
                                              gridn = gridn):
                 points = \
@@ -1055,7 +1052,7 @@ def make_tracks(model,
                 indices_point_camextrinsics = \
                     nps.glue(indices_point_camextrinsics,
                              nps.transpose(nps.cat(ipoint0 + np.arange(len(p),dtype=np.int32),
-                                                   irt_cam_ref * np.ones((len(p),),dtype=np.int32))),
+                                                   (len(rt_cam_ref)-1) * np.ones((len(p),),dtype=np.int32))),
                              axis = -2)
                 Nobservations_point = \
                     nps.glue(Nobservations_point,
