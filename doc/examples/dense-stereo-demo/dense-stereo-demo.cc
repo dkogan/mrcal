@@ -90,16 +90,19 @@ int main(int argc, char* argv[])
     double pixels_per_deg_az = -1.;
     double pixels_per_deg_el = -1.;
 
-
-
-    mrcal_cameramodel_VOID_t* models[2];
+    // mrcal >= 2.5 should use mrcal_cameramodel_VOID_t. The type used here will
+    // continue to work, but it is suggested to use the new name
+    mrcal_cameramodel_t* models[2];
     mrcal_image_uint8_t images[2];
 
 
     //// Read the models from disk
     for(int i=0; i<2; i++)
     {
-        models[i] = mrcal_cameramodel_read_file(model_filenames[i], false);
+        // mrcal >= 3.0 should use mrcal_cameramodel_read_file. The function
+        // name used here will continue to work, but it is suggested to use the
+        // new name
+        models[i] = mrcal_read_cameramodel_file(model_filenames[i], false);
         if(models[i] == NULL)
         {
             fprintf(stderr, "Error loading model '%s'\n", model_filenames[i]);
