@@ -989,46 +989,46 @@ def make_tracks(model,
                 # track instead of recomputing
                 came = indices_point_camextrinsics[:,1]
                 if len(came) <= 0:
-                    iobs0 = 0
+                    # We don't have any extant points to propagate
+                    ipoints = None
                 else:
                     iobs0 = len(came) - np.argmax(came[::-1] != came[-1])
                     if iobs0 == len(came):
                         iobs0 = 0
-
-                ipoints = indices_point_camextrinsics[iobs0:, 0]
-
+                    ipoints = indices_point_camextrinsics[iobs0:, 0]
             else:
-
-                # everything
+                # propagate all the points we have
                 ipoints = slice(None,None)
 
-            # propagate existing tracks
-            q1 = mrcal.project( mrcal.transform_point_rt(rt_cam_ref[-1,:],
-                                                         points[ipoints]),
-                                *model.intrinsics() )
-            mask_keep = \
-                np.isfinite(q1[...,0]) * \
-                np.isfinite(q1[...,1]) * \
-                (q1[...,0] >= 0) * \
-                (q1[...,1] >= 0) * \
-                (q1[...,0] <= W-1) * \
-                (q1[...,1] <= H-1)
 
-            if p_NED_static is None:
-                mask_keep *= (Nobservations_point[ipoints] < track_length)
-                Nobservations_point[ipoints[mask_keep]] += 1
+            if ipoints is not None:
+                # propagate existing tracks
+                q1 = mrcal.project( mrcal.transform_point_rt(rt_cam_ref[-1,:],
+                                                             points[ipoints]),
+                                    *model.intrinsics() )
+                mask_keep = \
+                    np.isfinite(q1[...,0]) * \
+                    np.isfinite(q1[...,1]) * \
+                    (q1[...,0] >= 0) * \
+                    (q1[...,1] >= 0) * \
+                    (q1[...,0] <= W-1) * \
+                    (q1[...,1] <= H-1)
 
-            observations_point = \
-                nps.glue(observations_point,
-                         q1[mask_keep],
-                         axis = -2)
-            Nkeep = np.count_nonzero(mask_keep)
+                if p_NED_static is None:
+                    mask_keep *= (Nobservations_point[ipoints] < track_length)
+                    Nobservations_point[ipoints[mask_keep]] += 1
 
-            indices_point_camextrinsics = \
-                nps.glue(indices_point_camextrinsics,
-                         nps.transpose (nps.cat(ipoints[mask_keep],
-                                                (len(rt_cam_ref)-1) * np.ones((Nkeep,),dtype=np.int32))),
-                         axis = -2)
+                observations_point = \
+                    nps.glue(observations_point,
+                             q1[mask_keep],
+                             axis = -2)
+                Nkeep = np.count_nonzero(mask_keep)
+
+                indices_point_camextrinsics = \
+                    nps.glue(indices_point_camextrinsics,
+                             nps.transpose (nps.cat(ipoints[mask_keep],
+                                                    (len(rt_cam_ref)-1) * np.ones((Nkeep,),dtype=np.int32))),
+                             axis = -2)
 
         #### Done with extant points. Create NEW points
         if p_NED_static is None:
