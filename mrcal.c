@@ -284,7 +284,7 @@ mrcal_lensmodel_metadata_t mrcal_lensmodel_metadata( const mrcal_lensmodel_t* le
     default: ;
     }
     MSG("Unknown lens model %d. Barfing out", lensmodel->type);
-    assert(0);
+    abort();
 }
 
 static
@@ -1377,7 +1377,7 @@ void _project_point_parametric( // outputs
     {
         MSG("Unhandled lens model: %d (%s)",
             lensmodel->type, mrcal_lensmodel_name_unconfigured(lensmodel));
-        assert(0);
+        abort();
     }
 
     mrcal_point3_t dq_dp[2];
@@ -1927,7 +1927,7 @@ static void _mrcal_precompute_lensmodel_data_MRCAL_LENSMODEL_SPLINED_STEREOGRAPH
         {
             MSG("Quadratic splines: absolute minimum Nx, Ny is 3. Got Nx=%d Ny=%d. Barfing out",
                 config->Nx, config->Ny);
-            assert(0);
+            abort();
         }
     }
     else if(config->order == 3)
@@ -1937,13 +1937,13 @@ static void _mrcal_precompute_lensmodel_data_MRCAL_LENSMODEL_SPLINED_STEREOGRAPH
         {
             MSG("Cubic splines: absolute minimum Nx, Ny is 4. Got Nx=%d Ny=%d. Barfing out",
                 config->Nx, config->Ny);
-            assert(0);
+            abort();
         }
     }
     else
     {
         MSG("I only support spline order 2 and 3");
-        assert(0);
+        abort();
     }
 
     double th_edge_x = (double)config->fov_x_deg/2. * M_PI / 180.;
@@ -2224,7 +2224,7 @@ void _project_point_splined( // outputs
     {
         MSG("I only support spline order==2 or 3. Somehow got %d. This is a bug. Barfing",
             spline_order);
-        assert(0);
+        abort();
     }
 
     // u = stereographic(p)
@@ -2608,7 +2608,11 @@ void project( // out
              int    calibration_object_width_n,
              int    calibration_object_height_n)
 {
-    assert(precomputed->ready);
+    if(!(precomputed->ready))
+    {
+        MSG("Assertion (precomputed->ready) failed");
+        abort();
+    }
 
     // Parametric and non-parametric models do different things:
     //
@@ -2738,7 +2742,7 @@ void project( // out
                 MSG("Unhandled lens model: %d (%s)",
                     lensmodel->type,
                     mrcal_lensmodel_name_unconfigured(lensmodel));
-                assert(0);
+                abort();
             }
             const mrcal_LENSMODEL_SPLINED_STEREOGRAPHIC__config_t* config =
                 &lensmodel->LENSMODEL_SPLINED_STEREOGRAPHIC__config;
@@ -3435,7 +3439,11 @@ static void pack_solver_state( // out
         b[i_state++] = calobject_warp->y2 / SCALE_CALOBJECT_WARP;
     }
 
-    assert(i_state == Nstate_ref);
+    if(!(i_state == Nstate_ref))
+    {
+        MSG("Assertion (i_state == Nstate_ref) failed");
+        abort();
+    }
 }
 
 // Same as above, but packs/unpacks a vector instead of structures
@@ -3684,7 +3692,11 @@ static void unpack_solver_state( // out
     if( has_calobject_warp(problem_selections,Nobservations_board) )
         i_state += unpack_solver_state_calobject_warp(calobject_warp, &b[i_state]);
 
-    assert(i_state == Nstate_ref);
+    if(!(i_state == Nstate_ref))
+    {
+        MSG("Assertion (i_state == Nstate_ref) failed");
+        abort();
+    }
 }
 // Same as above, but packs/unpacks a vector instead of structures
 void mrcal_unpack_solver_state_vector( // out, in
@@ -5186,7 +5198,7 @@ void optimizer_callback(// input state
         {
             // Shouldn't get here. Have a check with an error message in
             // mrcal_optimize() and mrcal_optimizer_callback()
-            assert(0);
+            abort();
         }
 
 #if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
@@ -5959,13 +5971,13 @@ void optimizer_callback(// input state
     {
         MSG("Assertion (iMeasurement == ctx->Nmeasurements) failed: (%d != %d)",
             iMeasurement, ctx->Nmeasurements);
-        assert(0);
+        abort();
     }
     if(iJacobian    != ctx->N_j_nonzero  )
     {
         MSG("Assertion (iJacobian    == ctx->N_j_nonzero  ) failed: (%d != %d)",
             iJacobian, ctx->N_j_nonzero);
-        assert(0);
+        abort();
     }
 }
 
@@ -6576,7 +6588,11 @@ mrcal_optimize( // out
 
             if(verbose)
             {
-                assert(xreg == &solver_context->beforeStep->x[ctx.Nmeasurements]);
+                if(!(xreg == &solver_context->beforeStep->x[ctx.Nmeasurements]))
+                {
+                    MSG("Assertion (xreg == &solver_context->beforeStep->x[ctx.Nmeasurements]) failed");
+                    abort();
+                }
 
 
                 // Disable this by default. Splined models have LOTS of
