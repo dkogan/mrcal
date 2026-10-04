@@ -43,16 +43,16 @@ Rt_NED_cam0 = np.array(((1, 0, 0),
                         (0, 0, 1),
                         (0, 0, -5.)))
 
-# camera moves 0.2m East every frame
-R_cam_camnext        = mrcal.R_from_r( np.array((0,0.05,0.25),))
-t_cam_camnext__world = np.array((0.0, 0.2, 0))
 
 
-Nobservations_total     = 3000
-track_length            = 10
-Nobservations_image     = 80
+R_cam_camnext           = mrcal.R_from_r( np.array((0.01, 0.02, 0.25),) )
+t_cam_camnext__world    = np.array((1.5, 0.1, -0.4))
+Nobservations_total     = 4000
+track_length            = 20
+Nobservations_image     = 10
 gridn                   = 4
-Npoint_observations_min = 4
+Npoint_observations_min = 6
+
 
 
 
@@ -72,6 +72,14 @@ Npoint_observations_min = 4
                       Nobservations_image     = Nobservations_image, # desired feature density
                       gridn                   = gridn,
                       Npoint_observations_min = Npoint_observations_min)
+
+_,point_counts = np.unique(indices_point_camintrinsics_camextrinsics[:,0], return_counts=True)
+plot_point_counts = gp.gnuplotlib(xlabel = "Point count",
+                                  ylabel = "How many points have been seen this many times",
+                                  title  = "Track lengths")
+plot_point_counts.plot(point_counts,
+                       histogram = True)
+
 
 print(f"{len(rt_cam_ref)=}")
 # Re-reference to cam0
@@ -104,8 +112,7 @@ optimization_inputs = \
         do_optimize_intrinsics_core         = False,
         do_optimize_intrinsics_distortions  = True,
         do_optimize_extrinsics              = True,
-        do_optimize_frames                  = True
-
+        do_optimize_frames                  = True,
     )
 imeas_regularization = mrcal.measurement_index_regularization(**optimization_inputs)
 b,x = mrcal.optimizer_callback(**optimization_inputs,
@@ -143,13 +150,24 @@ if np.max(np.abs(x[:imeas_regularization])) < 2e-8:
 
 plot_features = gp.gnuplotlib(_xrange = [0,W-1],
                               _yrange = [H-1,0],
+                              unset = 'key',
                               square=True)
 plot_features.plot(*[ ( observations_point[indices_point_camintrinsics_camextrinsics[:,0] == ipoint,:2],
                         dict(legend = ipoint) ) \
                       for ipoint in range(len(points))],
                    tuplesize = -2)
 
-mrcal.optimize(**optimization_inputs)
+
+mrcal.optimize(**optimization_inputs,
+               verbose=True)
+
+b,x = mrcal.optimizer_callback(**optimization_inputs,
+                               no_factorization = True,
+                               no_jacobian      = True)[:2]
+gp.plot(x,
+        _set = mrcal.plotoptions_measurement_boundaries(**optimization_inputs))
+
+
 model = mrcal.cameramodel(optimization_inputs = optimization_inputs,
                           icam_intrinsics = 0,
                           icam_extrinsics = -1)
