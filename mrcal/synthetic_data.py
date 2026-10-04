@@ -759,16 +759,19 @@ None
 def make_tracks(model,
                 *,
                 # The world frame has the ground at z=0. It is xyz ~ North,East,down
-                Rt_NED_cam0,
+                Rt_ref_cam0,
                 R_cam_camnext,
                 t_cam_camnext__world,
                 Nobservations_total, # I aim for this
-                track_length,        # exactly one of (track_length,p_NED_static) must be given
-                Nobservations_image, # desired feature density
-                gridn,
+
+                # exactly one of (track_length,p_static) must be given
+                track_length,
                 # If given, we track these points. If not, we generate features,
                 # and track them
-                p_NED_static            = None, # exactly one of (track_length,p_NED_static) must be given
+                p_static                = None, # exactly one of (track_length,p_static) must be given
+
+                Nobservations_image, # desired feature density
+                gridn,
                 Npoint_observations_min = 4,
                 Ncam_observing_min      = 4):
 
@@ -945,20 +948,20 @@ def make_tracks(model,
     # shape (Npoints,3)
     points = np.zeros((0,3), dtype=float)
     # shape (Nframes,6)
-    rt_cam_ref = nps.atleast_dims(mrcal.rt_from_Rt( mrcal.invert_Rt(Rt_NED_cam0) ),
+    rt_cam_ref = nps.atleast_dims(mrcal.rt_from_Rt( mrcal.invert_Rt(Rt_ref_cam0) ),
                                   -2)
 
-    if p_NED_static is None and \
+    if p_static is None and \
        track_length is None:
-        raise Exception("p_NED_static is not given; we're tracking feature correspondences. track_length MUST be given")
-    if p_NED_static is not None and \
+        raise Exception("p_static is not given; we're tracking feature correspondences. track_length MUST be given")
+    if p_static is not None and \
        track_length is not None:
-            raise Exception("p_NED_static is given; we're tracking global objects. track_length MUST NOT be given")
+            raise Exception("p_static is given; we're tracking global objects. track_length MUST NOT be given")
 
 
-    if p_NED_static is not None:
+    if p_static is not None:
         # We are given the points; do NOT accumulate, but use the preset ones
-        points = p_NED_static
+        points = p_static
 
     W,H = model.imagersize()
 
@@ -984,7 +987,7 @@ def make_tracks(model,
                                                     rt_cam_ref[-1,:] ),
                                   axis = -2)
 
-            if p_NED_static is None:
+            if p_static is None:
                 # The start of previous-point-in-time observations. We can keep
                 # track instead of recomputing
                 came = indices_point_camextrinsics[:,1]
@@ -1014,7 +1017,7 @@ def make_tracks(model,
                     (q1[...,0] <= W-1) * \
                     (q1[...,1] <= H-1)
 
-                if p_NED_static is None:
+                if p_static is None:
                     mask_keep *= (Nobservations_point[ipoints] < track_length)
                     Nobservations_point[ipoints[mask_keep]] += 1
 
@@ -1031,7 +1034,7 @@ def make_tracks(model,
                              axis = -2)
 
         #### Done with extant points. Create NEW points
-        if p_NED_static is None:
+        if p_static is None:
             if False:
                 print(f"Creating new {len(observations_point)=}")
 

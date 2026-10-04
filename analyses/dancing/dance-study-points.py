@@ -64,7 +64,7 @@ Npoint_observations_min = 6
  observations_point) = \
     mrcal.make_tracks(model,
                       # The world frame has the ground at z=0. It is xyz ~ North,East,down
-                      Rt_NED_cam0             = Rt_NED_cam0,
+                      Rt_ref_cam0             = Rt_NED_cam0,
                       R_cam_camnext           = R_cam_camnext,
                       t_cam_camnext__world    = t_cam_camnext__world,
                       Nobservations_total     = Nobservations_total, # I aim for this
