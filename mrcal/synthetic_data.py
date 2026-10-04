@@ -760,8 +760,14 @@ def make_tracks(model,
                 *,
                 # The world frame has the ground at z=0. It is xyz ~ North,East,down
                 Rt_ref_cam0,
-                R_cam_camnext,
-                t_cam_camnext__world,
+
+                # Exactly one of
+                # - rt_cam_ref__callback
+                # - (R_cam_camnext,t_cam_camnext__world)
+                # must be given
+                rt_ref_cam__callback = None,
+                R_cam_camnext        = None,
+                t_cam_camnext__world = None,
                 Nobservations_total, # I aim for this
 
                 # exactly one of (track_length,p_static) must be given
@@ -978,13 +984,21 @@ def make_tracks(model,
 
         #### Propagate EXTANT points, if they exist
         if len(points) > 0:
-            Rt_cam_camnext = \
-                nps.glue(R_cam_camnext,
-                         mrcal.rotate_point_r(rt_cam_ref[-1,:3], t_cam_camnext__world),
-                         axis = -2)
+
+            if rt_ref_cam__callback is not None:
+                rt_cam_ref_next = \
+                    mrcal.invert_rt( rt_ref_cam__callback(mrcal.invert_rt(rt_cam_ref)) )
+            else:
+                Rt_cam_camnext = \
+                    nps.glue(R_cam_camnext,
+                             mrcal.rotate_point_r(rt_cam_ref[-1,:3], t_cam_camnext__world),
+                             axis = -2)
+                rt_cam_ref_next = \
+                    mrcal.compose_rt( mrcal.rt_from_Rt(mrcal.invert_Rt(Rt_cam_camnext)),
+                                      rt_cam_ref[-1,:] ),
+
             rt_cam_ref = nps.glue(rt_cam_ref,
-                                  mrcal.compose_rt( mrcal.rt_from_Rt(mrcal.invert_Rt(Rt_cam_camnext)),
-                                                    rt_cam_ref[-1,:] ),
+                                  rt_cam_ref_next,
                                   axis = -2)
 
             if p_static is None:
