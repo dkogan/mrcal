@@ -29,9 +29,9 @@
 #include "stereo.h"
 
 #include "python-wrapping-utilities.h"
-
 #include "python-cameramodel-converter.h"
 #include "_attribute.h"
+#include "bitarray.h"
 
 
 // adds a reference to P,I,X, unless an error is reported
@@ -1158,80 +1158,66 @@ static bool optimize_validate_args( // out
 
     // I allow i_point to be non-monotonic, but I do make sure that it covers
     // all Npoints of my array.
-    int32_t i_point_biggest = -1;
-    for(int i_observation=0; i_observation<Nobservations_point; i_observation++)
     {
-        int32_t i_point_here         = ((int32_t*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 0];
-        int32_t icam_intrinsics_here = ((int32_t*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 1];
-        int32_t icam_extrinsics_here = ((int32_t*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 2];
+        const int Nwords = bitarray64_nwords(Npoints);
+        uint64_t bitarray_point_referenced[Nwords];
+        bitarray64_clear_all(bitarray_point_referenced, Nwords);
+        for(int i_observation=0; i_observation<Nobservations_point; i_observation++)
+        {
+            int32_t i_point_here         = ((int32_t*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 0];
+            int32_t icam_intrinsics_here = ((int32_t*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 1];
+            int32_t icam_extrinsics_here = ((int32_t*)PyArray_DATA(indices_point_camintrinsics_camextrinsics))[i_observation*3 + 2];
 
-        // First I make sure everything is in-range
-        if(i_point_here < 0 || i_point_here >= Npoints)
-        {
-            BARF("i_point_here MUST be in [0,%d], instead got %d in row %d of indices_point_camintrinsics_camextrinsics",
-                         Npoints-1, i_point_here, i_observation);
-            return false;
-        }
-        if(icam_intrinsics_here < 0 || icam_intrinsics_here >= Ncameras_intrinsics)
-        {
-            BARF("icam_intrinsics_here MUST be in [0,%d], instead got %d in row %d of indices_point_camintrinsics_camextrinsics",
-                         Ncameras_intrinsics-1, icam_intrinsics_here, i_observation);
-            return false;
-        }
-        if(icam_extrinsics_here < -1 || icam_extrinsics_here >= Ncameras_extrinsics)
-        {
-            BARF("icam_extrinsics_here MUST be in [-1,%d], instead got %d in row %d of indices_point_camintrinsics_camextrinsics",
-                         Ncameras_extrinsics-1, icam_extrinsics_here, i_observation);
-            return false;
-        }
-
-        if(i_point_here > i_point_biggest)
-        {
-            if(i_point_here > i_point_biggest+1)
+            // First I make sure everything is in-range
+            if(i_point_here < 0 || i_point_here >= Npoints)
             {
-                BARF("indices_point_camintrinsics_camextrinsics should contain i_point_here that extend the existing set by one point at a time at most. However row %d has i_point_here=%d while the biggest-seen-so-far i_point_here=%d",
-                     i_observation, i_point_here, i_point_biggest);
+                BARF("i_point_here MUST be in [0,%d], instead got %d in row %d of indices_point_camintrinsics_camextrinsics",
+                     Npoints-1, i_point_here, i_observation);
                 return false;
             }
-            i_point_biggest = i_point_here;
-        }
-    }
-    if(i_point_biggest != Npoints-1)
-    {
-        BARF("indices_point_camintrinsics_camextrinsics should cover all point indices in [0,%d], but there are gaps. The biggest i_point=%d",
-             Npoints-1, i_point_biggest);
-        return false;
-    }
-
-    i_point_biggest = -1;
-    for(int i_observation=0; i_observation<Nobservations_point_triangulated; i_observation++)
-    {
-        int32_t i_point_here         = ((int32_t*)PyArray_DATA(indices_point_triangulated_camintrinsics_camextrinsics))[i_observation*3 + 0];
-        int32_t icam_intrinsics_here = ((int32_t*)PyArray_DATA(indices_point_triangulated_camintrinsics_camextrinsics))[i_observation*3 + 1];
-        int32_t icam_extrinsics_here = ((int32_t*)PyArray_DATA(indices_point_triangulated_camintrinsics_camextrinsics))[i_observation*3 + 2];
-
-        if(icam_intrinsics_here < 0 || icam_intrinsics_here >= Ncameras_intrinsics)
-        {
-            BARF("icam_intrinsics_here MUST be in [0,%d], instead got %d in row %d of indices_point_triangulated_camintrinsics_camextrinsics",
-                         Ncameras_intrinsics-1, icam_intrinsics_here, i_observation);
-            return false;
-        }
-        if(icam_extrinsics_here < -1 || icam_extrinsics_here >= Ncameras_extrinsics)
-        {
-            BARF("icam_extrinsics_here MUST be in [-1,%d], instead got %d in row %d of indices_point_triangulated_camintrinsics_camextrinsics",
-                         Ncameras_extrinsics-1, icam_extrinsics_here, i_observation);
-            return false;
-        }
-
-        if(i_point_here > i_point_biggest)
-        {
-            if(i_point_here > i_point_biggest+1)
+            if(icam_intrinsics_here < 0 || icam_intrinsics_here >= Ncameras_intrinsics)
             {
-                BARF("indices_point_triangulated_camintrinsics_camextrinsics should contain i_point_here that extend the existing set by one point at a time at most. However row %d has i_point_here=%d while the biggest-seen-so-far i_point_here=%d",
-                     i_observation, i_point_here, i_point_biggest);
+                BARF("icam_intrinsics_here MUST be in [0,%d], instead got %d in row %d of indices_point_camintrinsics_camextrinsics",
+                     Ncameras_intrinsics-1, icam_intrinsics_here, i_observation);
                 return false;
             }
-            i_point_biggest = i_point_here;
+            if(icam_extrinsics_here < -1 || icam_extrinsics_here >= Ncameras_extrinsics)
+            {
+                BARF("icam_extrinsics_here MUST be in [-1,%d], instead got %d in row %d of indices_point_camintrinsics_camextrinsics",
+                     Ncameras_extrinsics-1, icam_extrinsics_here, i_observation);
+                return false;
+            }
+
+            bitarray64_set(bitarray_point_referenced, i_point_here);
+        }
+
+        for(int i_observation=0; i_observation<Nobservations_point_triangulated; i_observation++)
+        {
+            int32_t i_point_here         = ((int32_t*)PyArray_DATA(indices_point_triangulated_camintrinsics_camextrinsics))[i_observation*3 + 0];
+            int32_t icam_intrinsics_here = ((int32_t*)PyArray_DATA(indices_point_triangulated_camintrinsics_camextrinsics))[i_observation*3 + 1];
+            int32_t icam_extrinsics_here = ((int32_t*)PyArray_DATA(indices_point_triangulated_camintrinsics_camextrinsics))[i_observation*3 + 2];
+
+            if(icam_intrinsics_here < 0 || icam_intrinsics_here >= Ncameras_intrinsics)
+            {
+                BARF("icam_intrinsics_here MUST be in [0,%d], instead got %d in row %d of indices_point_triangulated_camintrinsics_camextrinsics",
+                     Ncameras_intrinsics-1, icam_intrinsics_here, i_observation);
+                return false;
+            }
+            if(icam_extrinsics_here < -1 || icam_extrinsics_here >= Ncameras_extrinsics)
+            {
+                BARF("icam_extrinsics_here MUST be in [-1,%d], instead got %d in row %d of indices_point_triangulated_camintrinsics_camextrinsics",
+                     Ncameras_extrinsics-1, icam_extrinsics_here, i_observation);
+                return false;
+            }
+
+            bitarray64_set(bitarray_point_referenced, i_point_here);
+        }
+
+        if(!bitarray64_check_all_set(bitarray_point_referenced, Npoints))
+        {
+            BARF("indices_point_camintrinsics_camextrinsics doesn't reference all %d points we are given",
+                 Npoints);
+            return false;
         }
     }
 
