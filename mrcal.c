@@ -6574,27 +6574,30 @@ mrcal_optimize( // out
                         norm2_err_regularization_unity_cam01,  norm2_error, regularization_ratio_unity_cam01);
             }
 
-            assert(xreg == &solver_context->beforeStep->x[ctx.Nmeasurements]);
-
-
-            // Disable this by default. Splined models have LOTS of
-            // parameters, and I don't want to print them. Usually.
-            //
-            // for(int i=0; i<Nmeasurements_regularization; i++)
-            // {
-            //     double x = solver_context->beforeStep->x[ctx.Nmeasurements - Nmeasurements_regularization + i];
-            //     MSG("regularization %d: %f (squared: %f)", i, x, x*x);
-            // }
-            MSG("reg err ratio (distortion,centerpixel): %.3g %.3g",
-                regularization_ratio_distortion,
-                regularization_ratio_centerpixel);
-
-            if(problem_selections.do_apply_regularization_unity_cam01 &&
-               problem_selections.do_optimize_extrinsics &&
-               Ncameras_extrinsics > 0)
+            if(verbose)
             {
-                MSG("reg err ratio (unity_cam01): %.3g",
-                    regularization_ratio_unity_cam01);
+                assert(xreg == &solver_context->beforeStep->x[ctx.Nmeasurements]);
+
+
+                // Disable this by default. Splined models have LOTS of
+                // parameters, and I don't want to print them. Usually.
+                //
+                // for(int i=0; i<Nmeasurements_regularization; i++)
+                // {
+                //     double x = solver_context->beforeStep->x[ctx.Nmeasurements - Nmeasurements_regularization + i];
+                //     MSG("regularization %d: %f (squared: %f)", i, x, x*x);
+                // }
+                MSG("reg err ratio (distortion,centerpixel): %.3g %.3g",
+                    regularization_ratio_distortion,
+                    regularization_ratio_centerpixel);
+
+                if(problem_selections.do_apply_regularization_unity_cam01 &&
+                   problem_selections.do_optimize_extrinsics &&
+                   Ncameras_extrinsics > 0)
+                {
+                    MSG("reg err ratio (unity_cam01): %.3g",
+                        regularization_ratio_unity_cam01);
+                }
             }
         }
     }
