@@ -758,28 +758,28 @@ None
 
 def make_tracks(model,
                 *,
-                # The world frame has the ground at z=0. It is xyz ~ North,East,down
-                Rt_ref_cam0,
+                # The world frame has the ground at z=0
+                Nobservations_total, # I aim for this
+                Npoint_observations_min = 4,
+                Ncam_observing_min      = 4,
 
                 # Exactly one of
                 # - rt_cam_ref__callback
-                # - (R_cam_camnext,t_cam_camnext__world)
+                # - (Rt_ref_cam0,R_cam_camnext,t_cam_camnext__world)
                 # must be given
                 rt_ref_cam__callback = None,
+                Rt_ref_cam0          = None,
                 R_cam_camnext        = None,
                 t_cam_camnext__world = None,
-                Nobservations_total, # I aim for this
 
-                # exactly one of (track_length,p_static) must be given
-                track_length,
-                # If given, we track these points. If not, we generate features,
-                # and track them
-                p_static                = None, # exactly one of (track_length,p_static) must be given
-
-                Nobservations_image, # desired feature density
-                gridn,
-                Npoint_observations_min = 4,
-                Ncam_observing_min      = 4):
+                # exactly one of
+                # - (track_length,gridn,Nobservations_image)
+                # - p_static
+                # must be given
+                track_length            = None,
+                gridn                   = None,
+                Nobservations_image     = None, # desired feature density
+                p_static                = None,):
 
 
     def generate_new_features(q_extant, model, rt_cam_ref,
@@ -954,8 +954,12 @@ def make_tracks(model,
     # shape (Npoints,3)
     points = np.zeros((0,3), dtype=float)
     # shape (Nframes,6)
-    rt_cam_ref = nps.atleast_dims(mrcal.rt_from_Rt( mrcal.invert_Rt(Rt_ref_cam0) ),
-                                  -2)
+    if rt_ref_cam__callback is not None:
+        rt_cam_ref = nps.atleast_dims( mrcal.invert_rt( rt_ref_cam__callback(0) ),
+                                       -2 )
+    else:
+        rt_cam_ref = nps.atleast_dims(mrcal.rt_from_Rt( mrcal.invert_Rt(Rt_ref_cam0) ),
+                                      -2)
 
     if p_static is None and \
        track_length is None:
@@ -987,7 +991,7 @@ def make_tracks(model,
 
             if rt_ref_cam__callback is not None:
                 rt_cam_ref_next = \
-                    mrcal.invert_rt( rt_ref_cam__callback(mrcal.invert_rt(rt_cam_ref)) )
+                    mrcal.invert_rt( rt_ref_cam__callback(len(rt_cam_ref)) )
             else:
                 Rt_cam_camnext = \
                     nps.glue(R_cam_camnext,
@@ -1015,7 +1019,7 @@ def make_tracks(model,
                     ipoints = indices_point_camextrinsics[iobs0:, 0]
             else:
                 # propagate all the points we have
-                ipoints = slice(None,None)
+                ipoints = np.arange(len(points))
 
 
             if ipoints is not None:
