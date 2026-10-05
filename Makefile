@@ -54,7 +54,8 @@ BIN_SOURCES +=					\
   test/test-cahvor.c				\
   test/test-lensmodel-string-manipulation.c     \
   test/test-parser-cameramodel.c                \
-  test/test-heap.c
+  test/test-heap.c                              \
+  test/test-bitarray.c
 
 LDLIBS += -ldogleg $(if $(USE_LOCAL_STB_IMPLEMENTATION),,-lstb) -lpng -ljpeg -llapack
 

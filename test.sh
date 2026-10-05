@@ -56,6 +56,7 @@ TESTS=("test/test-pywrap-functions.py"
        "test/test-worst_direction_stdev.py"
        "test/test-propagate-calibration-uncertainty.py"
        "test/test-heap"
+       "test/test-bitarray"
        "test/test-traverse-sensor-links.py"
        "test/test-sorted-eig.py"
        "test/test-python-cameramodel-converter.py")
