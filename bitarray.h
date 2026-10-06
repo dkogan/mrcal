@@ -15,46 +15,46 @@
 //       ...
 //   }
 
-
+#include "_attribute.h"
 #include <stdint.h>
 #include <stdbool.h>
 
-__attribute__((unused))
+MRCAL_ATTRIBUTE((unused))
 static inline int bitarray64_nwords(const int Nbits)
 {
     // round up the number of 64-bit words required
     return (Nbits+63)/64;
 }
-__attribute__((unused))
+MRCAL_ATTRIBUTE((unused))
 static inline void bitarray64_set(uint64_t* bitarray, int ibit)
 {
     bitarray[ibit/64] |= (1ul << (ibit % 64));
 }
-__attribute__((unused))
+MRCAL_ATTRIBUTE((unused))
 static inline void bitarray64_set_all(uint64_t* bitarray, const int Nbits)
 {
     const int Nwords = bitarray64_nwords(Nbits);
     for(int i=0; i<Nwords; i++)
         bitarray[i] = ~0ULL;
 }
-__attribute__((unused))
+MRCAL_ATTRIBUTE((unused))
 static inline void bitarray64_clear_all(uint64_t* bitarray, const int Nbits)
 {
     const int Nwords = bitarray64_nwords(Nbits);
     for(int i=0; i<Nwords; i++)
         bitarray[i] = 0ULL;
 }
-__attribute__((unused))
+MRCAL_ATTRIBUTE((unused))
 static inline void bitarray64_clear(uint64_t* bitarray, int ibit)
 {
     bitarray[ibit/64] &= ~(1ul << (ibit % 64));
 }
-__attribute__((unused))
+MRCAL_ATTRIBUTE((unused))
 static inline bool bitarray64_check(const uint64_t* bitarray, int ibit)
 {
     return bitarray[ibit/64] & (1ul << (ibit % 64));
 }
-__attribute__((unused))
+MRCAL_ATTRIBUTE((unused))
 static inline bool bitarray64_check_all_set(const uint64_t* bitarray, int Nbits)
 {
     // Check the full words
@@ -69,7 +69,7 @@ static inline bool bitarray64_check_all_set(const uint64_t* bitarray, int Nbits)
     const uint64_t mask = (1UL << Nbits_remaining) - 1UL;
     return (bitarray[Nwords_full] & mask) == mask;
 }
-__attribute__((unused))
+MRCAL_ATTRIBUTE((unused))
 static inline bool bitarray64_check_all_clear(const uint64_t* bitarray, int Nbits)
 {
     // Check the full words
@@ -84,13 +84,13 @@ static inline bool bitarray64_check_all_clear(const uint64_t* bitarray, int Nbit
     const uint64_t mask = (1UL << Nbits_remaining) - 1UL;
     return (bitarray[Nwords_full] & mask) == 0;
 }
-__attribute__((unused))
+MRCAL_ATTRIBUTE((unused))
 static inline void bitarray64_set_range_oneword(uint64_t* word,
                                                 int ibit0, int Nbits)
 {
     *word |= ((1ul << Nbits) - 1) << ibit0;
 }
-__attribute__((unused))
+MRCAL_ATTRIBUTE((unused))
 static inline void bitarray64_set_range(uint64_t* bitarray,
                                         int ibit0, int Nbits)
 {

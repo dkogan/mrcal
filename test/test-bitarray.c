@@ -5,8 +5,8 @@
 #include "test-harness.h"
 #include "../bitarray.h"
 
-int main(int argc      __attribute__((unused)),
-         char* argv[]  __attribute__((unused)))
+int main(int argc      MRCAL_ATTRIBUTE((unused)),
+         char* argv[]  MRCAL_ATTRIBUTE((unused)))
 {
     const int Nbits = 350;
 
