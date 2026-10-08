@@ -5981,6 +5981,16 @@ void optimizer_callback(// input state
     }
 }
 
+// libdogleg calls this through dogleg_callback_t, so its type must match
+// exactly
+static void optimizer_callback_dogleg(const double*   packed_state,
+                                      double*         x,
+                                      cholmod_sparse* Jt,
+                                      void*           cookie)
+{
+    optimizer_callback(packed_state, x, Jt, (const callback_context_t*)cookie);
+}
+
 bool mrcal_optimizer_callback(// out
 
                              // These output pointers may NOT be NULL, unlike
@@ -6446,7 +6456,7 @@ mrcal_optimize( // out
 
             norm2_error = dogleg_optimize2(packed_state,
                                            Nstate, ctx.Nmeasurements, ctx.N_j_nonzero,
-                                           (dogleg_callback_t*)&optimizer_callback, &ctx,
+                                           &optimizer_callback_dogleg, &ctx,
                                            &dogleg_parameters,
                                            &solver_context);
 
@@ -6621,7 +6631,7 @@ mrcal_optimize( // out
         for(int ivar=0; ivar<Nstate; ivar++)
             dogleg_testGradient(ivar, packed_state,
                                 Nstate, ctx.Nmeasurements, ctx.N_j_nonzero,
-                                (dogleg_callback_t*)&optimizer_callback, &ctx);
+                                &optimizer_callback_dogleg, &ctx);
 
     stats.rms_reproj_error__pixels =
 #if defined ENABLE_TRIANGULATED_WARNINGS && ENABLE_TRIANGULATED_WARNINGS
