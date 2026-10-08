@@ -72,6 +72,7 @@ EXTRA_CLEAN += minimath/minimath_generated.h
 
 DIST_INCLUDE +=			\
 	mrcal.h			\
+	_attribute.h		\
 	image.h			\
 	internal.h		\
 	basic-geometry.h	\
