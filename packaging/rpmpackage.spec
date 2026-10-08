@@ -34,9 +34,6 @@ BuildRequires: python36
 # some tests shell out to vnl-filter
 BuildRequires: vnlog
 
-# for minimath
-BuildRequires: perl-List-MoreUtils
-
 # for mrbuild
 BuildRequires: chrpath
 
