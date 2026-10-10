@@ -115,6 +115,36 @@ def wrap_r(r,
     return wrap_r_unconditional(r, dr_dX = dr_dX)
 
 
+def closer_reference(r, r_ref, *dr_dX__ref):
+    '''Pick the form of a reference rotation closer to r
+
+    returns (r_ref, dr_dX__ref...), possibly wrapped
+
+    At mag(r) = pi, r and -r represent the same rotation, and the sign of the
+    rotation axis is determined only by roundoff. This happens in the reference
+    implementation of compose_r() (r_from_R() gets the sign from sin(th), and
+    sin(pi) = 0) and in mrcal. The two may choose differently, depending on the
+    hardware and the math libraries in use. Both answers are correct, so if
+    both r and r_ref have mag pi, I compare against whichever form of r_ref
+    points the same way as r. The two forms are always exactly the same
+    rotation: wrapping changes the angle by 2pi. The tolerance only decides
+    when the sign counts as ambiguous, and it is loose because th comes from
+    acos() of something near -1, so the mag is only accurate to ~1e-8
+
+    Wrapping the reference value changes its gradients, so I convert them with
+    the same wrap. This is valid because the reference gradients come from
+    grad(..., forward_differences=True, switch=wrap_r_unconditional): they're
+    the gradients of the form of the reference at r_ref itself
+
+    '''
+    if abs(nps.mag(r)     - np.pi) > 1e-6 or \
+       abs(nps.mag(r_ref) - np.pi) > 1e-6:
+        return (r_ref,) + dr_dX__ref
+
+    return (wrap_r(r_ref, r_match_direction = r),) + \
+        tuple(wrap_r(r_ref, r_match_direction = r, dr_dX = dr_dX) for dr_dX in dr_dX__ref)
+
+
 ################### Check the behavior around the th=0, th=180, th=360
 ################### singularities. Gradients and values should be correct
 axes = \
@@ -193,12 +223,6 @@ for iaxis,axis in enumerate(axes):
                     ###### r01
                     r01, dr01_dr0, dr01_dr1 = mrcal.compose_r(r0,r1, get_gradients = True)
                     r01_ref                 = compose_r(r0,r1)
-                    confirm_equal( r01,
-                                   r01_ref,
-                                   worstcase = True,
-                                   relative  = True,
-                                   eps       = 1e-3,
-                                   msg=f'compose_r(r0,r1) near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
                     dr01_dr0__ref = grad(lambda r0: compose_r(r0,r1),
                                          r0,
                                          forward_differences = True,
@@ -209,6 +233,14 @@ for iaxis,axis in enumerate(axes):
                                          forward_differences = True,
                                          switch = wrap_r_unconditional,
                                          step = 1e-7)
+                    r01_ref, dr01_dr0__ref, dr01_dr1__ref = \
+                        closer_reference(r01, r01_ref, dr01_dr0__ref, dr01_dr1__ref)
+                    confirm_equal( r01,
+                                   r01_ref,
+                                   worstcase = True,
+                                   relative  = True,
+                                   eps       = 1e-3,
+                                   msg=f'compose_r(r0,r1) near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
                     confirm_equal( dr01_dr0,
                                    dr01_dr0__ref,
                                    worstcase = True,
@@ -230,24 +262,6 @@ for iaxis,axis in enumerate(axes):
                     r10, dr10_dr1, dr10_dr0 = mrcal.compose_r(r1,r0, get_gradients = True)
                     r10_ref = compose_r(r1,r0)
 
-                    if th0 == np.pi and dth == 0. and r0 is r1_simple and r1 is inv_r1_simple_r and iaxis==0:
-                        if nps.inner(r10_ref, r10) < 0:
-                            # This is about to fail. I'm skipping this test.
-                            # It's the only case that fails. And it fails ONLY
-                            # on my workstation (recent Debian/sid, Intel(R)
-                            # Xeon(R) CPU E5-2687W). It passes on my laptops
-                            # (same recent Debian/sid with I think identical
-                            # packages, but older CPU: Intel(R) Core(TM)
-                            # i7-3520M)
-                            print("SKIPPING test case that fails on only some hardware. Everything else passes, so this is likely a subtle roundoff issue")
-                            continue
-
-                    confirm_equal( r10,
-                                   r10_ref,
-                                   worstcase = True,
-                                   relative  = True,
-                                   eps       = 1e-3,
-                                   msg=f'compose_r(r1,r0) near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
                     dr10_dr0__ref = grad(lambda r0: compose_r(r1,r0),
                                          r0,
                                          forward_differences = True,
@@ -258,6 +272,14 @@ for iaxis,axis in enumerate(axes):
                                          forward_differences = True,
                                          switch = wrap_r_unconditional,
                                          step = 1e-7)
+                    r10_ref, dr10_dr0__ref, dr10_dr1__ref = \
+                        closer_reference(r10, r10_ref, dr10_dr0__ref, dr10_dr1__ref)
+                    confirm_equal( r10,
+                                   r10_ref,
+                                   worstcase = True,
+                                   relative  = True,
+                                   eps       = 1e-3,
+                                   msg=f'compose_r(r1,r0) near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
                     confirm_equal( dr10_dr0,
                                    dr10_dr0__ref,
                                    worstcase = True,
