@@ -186,7 +186,7 @@ EXTRA_CLEAN += \
 
 %-npsp-pywrap-GENERATED.c: %-genpywrap.py
 	python3 $< > $@.tmp && mv $@.tmp $@
-mrcal/_%_npsp$(PY_EXT_SUFFIX): %-npsp-pywrap-GENERATED.o libmrcal.$(SO) libmrcal.$(SO).${ABI_VERSION}
+mrcal/_%_npsp$(PY_EXT_SUFFIX): %-npsp-pywrap-GENERATED.o libmrcal.$(SO) $(call MRBUILD_LIBSO_ABI,libmrcal)
 	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $(LDFLAGS) $< -lmrcal -o $@
 
 ALL_NPSP_C  := $(patsubst %,%-npsp-pywrap-GENERATED.c,$(ALL_NPSP_EXTENSION_MODULES))
@@ -199,7 +199,7 @@ EXTRA_CLEAN += $(ALL_NPSP_C)
 $(ALL_NPSP_O): CFLAGS += -Wno-array-bounds
 
 mrcal-pywrap.o: $(addsuffix .h,$(wildcard *.docstring))
-mrcal/_mrcal$(PY_EXT_SUFFIX): mrcal-pywrap.o libmrcal.$(SO) libmrcal.$(SO).${ABI_VERSION}
+mrcal/_mrcal$(PY_EXT_SUFFIX): mrcal-pywrap.o libmrcal.$(SO) $(call MRBUILD_LIBSO_ABI,libmrcal)
 	$(PY_MRBUILD_LINKER) $(PY_MRBUILD_LDFLAGS) $(LDFLAGS) $< -lmrcal -lsuitesparseconfig -o $@
 
 PYTHON_OBJECTS := mrcal-pywrap.o python-cameramodel-converter.o $(ALL_NPSP_O)
