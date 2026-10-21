@@ -167,6 +167,13 @@ def cone_from_contour(# not necesarily normalized.
     # manually splitting into trianges
     v = v/v[...,(2,)] * radius
 
+    # Shouldn't be needed, but I see missing model pieces if I don't add this. I
+    # THINK it is a bug in cadquery, but I don't know. I intersect() below
+    # anyway, so this does not hurt
+    if not args.pinhole:
+        v *= 10.
+
+    # Claude wrote the parts that talk to cq. Might not be the most efficient
     O = cq.Vector(0, 0, 0)
     P = [cq.Vector(*p) for p in (v)]
 
