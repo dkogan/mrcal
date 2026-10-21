@@ -1,0 +1,221 @@
+#!/usr/bin/env python3
+
+r'''Visualize the projection volume of a camera model in a 3D part
+
+SYNOPSIS
+
+  $ mrcal-generate-fov-part --output fov.stl model.cameramodel
+
+Camera projection volumes sometimes have unintuitive shapes, and it helps to
+visualize them in 3D, or maybe even 3D-print them. This tool produces a 3D part
+to represent the projection volume, and draws a regular pixel grid on the part,
+to see how pixels map to 3D space.
+
+By default, the projection volume is extended to a sphere, but if --pinhole: it
+is extended to a plane normal to z. This makes obvious the distortions produced
+by a pinhole reprojection.
+
+'''
+
+import sys
+import argparse
+import re
+import os
+
+def parse_args():
+
+    parser = \
+        argparse.ArgumentParser(description = __doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    parser.add_argument('--gridn-volume',
+                        type=int,
+                        default = 20,
+                        help='''How many segments per side to use in the
+                        projection volume''')
+    parser.add_argument('--gridn-pixelblocks',
+                        type=int,
+                        default = 10,
+                        help='''How many pixel blocks per side to visualize. Set
+                        to <=0 to omit the pixel blocks entirely''')
+    parser.add_argument('--pinhole',
+                        action='store_true',
+                        help='''If given, intersect the field of view with a
+                        plane instead of a sphere''')
+    parser.add_argument('--radius',
+                        type=float,
+                        default = 1.,
+                        help='''The radius of the sphere (or z if --pinhole)''')
+    parser.add_argument('--radius-extra-pixelblocks',
+                        type=float,
+                        default = .01,
+                        help='''The extra bit of radius for the pixelblock
+                        boundaries (or z if --pinhole)''')
+    parser.add_argument('--output',
+                        type=str,
+                        required = True,
+                        help='''The output filename. Must be something that
+                        cadquery knows how to export. .stl works''')
+    parser.add_argument('model',
+                        type=str,
+                        help=r'''Camera model to visualize. Only the intirnsics are used''')
+
+    args = parser.parse_args()
+
+    return args
+
+args = parse_args()
+
+
+
+
+
+import mrcal
+import numpy as np
+import numpysane as nps
+import cadquery as cq
+
+
+model = mrcal.cameramodel(args.model)
+W,H = model.imagersize()
+
+
+def get_outline():
+    qx = nps.cat(np.linspace(0,W-1,args.gridn_volume,
+                             endpoint = False,
+                             dtype    = float),
+                 np.zeros((args.gridn_volume,))).T
+    qy = nps.cat(np.zeros((args.gridn_volume,)),
+                 np.linspace(0,H-1,args.gridn_volume,
+                             endpoint = False,
+                             dtype=float)).T
+    qtop    = qx
+    qright  = qy + np.array((W-1,0),)
+    qbottom = (qx + np.array((qx[1,0]-qx[0,0], H-1),))[::-1]
+    qleft   = (qy + np.array((0, qy[1,1]-qy[0,1]),))[::-1]
+    q = \
+        np.ascontiguousarray(nps.glue(qtop,qright,qbottom,qleft,qtop[0],
+                                      axis=-2))
+    v = mrcal.unproject(q, *model.intrinsics(),
+                        normalize = True)
+    return v,qx,qy
+
+def get_pixelblock_vertical(*,
+                          qxmid,
+                          dqx,
+                          qy):
+
+    # I'm tracing the fov from (0,0) to (W-1,H-1). This cuts off 1/2 pixels on
+    # each side, which I don't bother to fix here
+    if   qxmid-dqx/2. < 0:   qxmid = dqx/2
+    elif qxmid+dqx/2. > W-1: qxmid = W-1 - dqx/2.
+
+    qx = np.array(((qxmid-dqx/2., 0),
+                   (qxmid,        0),),
+                  dtype=float)
+
+    qtop    = qx
+    qright  = qy + np.array((qxmid+dqx/2.,0),)
+    qbottom = (qx + np.array((qx[1,0]-qx[0,0], H-1),))[::-1]
+    qleft   = (qy + np.array((qxmid-dqx/2., qy[1,1]-qy[0,1]),))[::-1]
+
+    q = \
+        np.ascontiguousarray(nps.glue(qtop,qright,qbottom,qleft,qtop[0],
+                                      axis=-2))
+    v = mrcal.unproject(q, *model.intrinsics(),
+                        normalize = True)
+    return v
+
+
+def get_pixelblock_horizontal(*,
+                            qymid,
+                            dqy,
+                            qx):
+    # I'm tracing the fov from (0,0) to (W-1,H-1). This cuts off 1/2 pixels on
+    # each side, which I don't bother to fix here
+    if   qymid-dqy/2. < 0:   qymid = dqy/2
+    elif qymid+dqy/2. > H-1: qymid = H-1 - dqy/2.
+
+    qy = np.array(((0, qymid-dqy/2.),
+                   (0, qymid,      ),),
+                  dtype=float)
+
+    qtop    = qx + np.array((0,   qymid-dqy/2.),)
+    qright  = qy + np.array((W-1.,0),)
+    qbottom = (qx + np.array((qx[1,0]-qx[0,0], qymid+dqy/2.),))[::-1]
+    qleft   = (qy + np.array((0., qy[1,1]-qy[0,1]),))[::-1]
+
+    q = \
+        np.ascontiguousarray(nps.glue(qtop,qright,qbottom,qleft,qtop[0],
+                                      axis=-2))
+    v = mrcal.unproject(q, *model.intrinsics(),
+                        normalize = True)
+    return v
+
+def cone_from_contour(# not necesarily normalized.
+                      # closed contour
+                      # shape (N,3)
+                      v,
+                      *,
+                      radius, # if args.pinhole: this is z
+                      ):
+
+    N = len(v)-1 # contour is closed; N unique points
+
+    # Make v a plane. I do this even when I'm intersecting with a sphere.
+    # Because with a planar v I can makePolygon() of the whole thing, instead of
+    # manually splitting into trianges
+    v = v/v[...,(2,)] * radius
+
+    O = cq.Vector(0, 0, 0)
+    P = [cq.Vector(*p) for p in (v)]
+
+    def tri(a, b, c):
+        return cq.Face.makeFromWires(cq.Wire.makePolygon([a, b, c, a]))
+
+    faces =  [tri(O, P[i], P[i + 1]) for i in range(N)]
+    faces += [ cq.Face.makeFromWires(cq.Wire.makePolygon(P)) ]
+
+    shell = cq.Shell.makeShell(faces)
+    solid = cq.Solid.makeSolid(shell)
+    if solid.Volume() < 0:
+        raise Exception("inside-out; flip the vertex ordering")
+
+    if not args.pinhole:
+        sphere = cq.Solid.makeSphere(radius)
+        return cq.Workplane("XY").add(solid.intersect(sphere))
+    else:
+        return cq.Workplane("XY").add(solid)
+
+
+
+
+
+v,qx,qy = get_outline()
+part = cone_from_contour(v,
+                         radius = args.radius)
+
+if args.gridn_pixelblocks > 0:
+
+    dq_pixelblock = min(W,H)/args.gridn_pixelblocks/10
+
+    for qxmid in np.linspace(0, W-1, args.gridn_pixelblocks+1,
+                             endpoint = True):
+        v = get_pixelblock_vertical(qxmid = qxmid,
+                                    dqx   = dq_pixelblock,
+                                    qy    = qy)
+        part = part.union( cone_from_contour(v,
+                                             radius  = args.radius + args.radius_extra_pixelblocks) )
+
+    for qymid in np.linspace(0, H-1, args.gridn_pixelblocks+1,
+                             endpoint = True):
+        v = get_pixelblock_horizontal(qymid = qymid,
+                                      dqy   = dq_pixelblock,
+                                      qx    = qx)
+        part = part.union( cone_from_contour(v,
+                                             radius  = args.radius + args.radius_extra_pixelblocks) )
+
+
+part = part.clean()
+
+cq.exporters.export(part, args.output)
