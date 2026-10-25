@@ -260,8 +260,7 @@ diff --git a/debian/control b/debian/control
 index 374f20f..53e5d37 100644
 --- a/debian/control
 +++ b/debian/control
-@@ -20,13 +20,12 @@ Build-Depends:
-  liblist-moreutils-perl:native,
+@@ -21,12 +21,11 @@
   vnlog,
   chrpath,
   re2c (>= 2),
