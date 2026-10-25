@@ -23,7 +23,6 @@ export LIBRARY_PATH="${BUILD_DEPS}/lib:/opt/homebrew/lib"
 brew install suite-sparse openblas libpng libjpeg re2c cpanminus \
     fltk freeglut libepoxy swig boost mesa-glu gnu-getopt cmake \
     qt cairo pango mawk
-cpanm --notest List::MoreUtils
 
 install_mrbuild
 install_stb

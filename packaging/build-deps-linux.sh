@@ -38,7 +38,6 @@ dnf install -y --setopt=keepcache=1 \
     pkgconf \
     binutils \
     perl \
-    perl-List-MoreUtils \
     git \
     make \
     cmake \
