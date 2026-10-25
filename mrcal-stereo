@@ -1446,7 +1446,7 @@ import signal
 signal_handler_sigint = signal.signal(signal.SIGINT, signal.SIG_IGN)
 signal.signal(signal.SIGINT, signal_handler_sigint)
 
-pool = multiprocessing.Pool(args.jobs)
+pool = multiprocessing.get_context("fork").Pool(args.jobs)
 try:
     mapresult = pool.map_async(process, np.arange(Nimages))
 
