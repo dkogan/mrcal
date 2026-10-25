@@ -582,7 +582,7 @@ def process(model_from, model_to, image_globs, suffix,
 
     if args.jobs > 1:
         # Normal parallelized path
-        pool = multiprocessing.Pool(args.jobs)
+        pool = multiprocessing.get_context("fork").Pool(args.jobs)
         try:
             mapresult = pool.map_async(_transform_this, filenames_inout)
 
