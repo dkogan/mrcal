@@ -206,13 +206,17 @@ if args.gridn_pixelblocks > 0:
 
     dq_pixelblock = min(W,H)/args.gridn_pixelblocks/10
 
+    # I pass clean=False to avoid the error
+    #   OCP.Standard.Standard_Failure: Courbes non jointives
+    # Something in cadquery thinks the geometry is broken, but it isn't
     for qxmid in np.linspace(0, W-1, args.gridn_pixelblocks+1,
                              endpoint = True):
         v = get_pixelblock_vertical(qxmid = qxmid,
                                     dqx   = dq_pixelblock,
                                     qy    = qy)
         part = part.union( cone_from_contour(v,
-                                             radius  = args.radius + args.radius_extra_pixelblocks) )
+                                             radius  = args.radius + args.radius_extra_pixelblocks),
+                           clean = False)
 
     for qymid in np.linspace(0, H-1, args.gridn_pixelblocks+1,
                              endpoint = True):
@@ -220,9 +224,8 @@ if args.gridn_pixelblocks > 0:
                                       dqy   = dq_pixelblock,
                                       qx    = qx)
         part = part.union( cone_from_contour(v,
-                                             radius  = args.radius + args.radius_extra_pixelblocks) )
+                                             radius  = args.radius + args.radius_extra_pixelblocks),
+                           clean = False)
 
-
-part = part.clean()
 
 cq.exporters.export(part, args.output)
