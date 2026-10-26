@@ -406,6 +406,47 @@ void stretch_equalization_uint8_from_uint16(mrcal_image_uint8_t* out,
 
 
 static
+bool detect_image_parameters(// out
+                             int* width,
+                             int* height,
+                             int* bits_per_pixel,
+                             int* channels,
+                             // in
+                             const char* filename, // for error reporting
+                             FILE* fp)
+{
+    if(!stbi_info_from_file(fp, width, height, channels))
+    {
+        MSG("Couldn't load image: stbi_info_from_file(\"%s\") failed", filename);
+        return false;
+    }
+    const bool is_16bit = (bool)stbi_is_16_bit_from_file(fp);
+    if(!is_16bit)
+    {
+        if(*channels == 3 || *channels == 4)
+            *bits_per_pixel = 24;
+        else if(*channels == 1)
+            *bits_per_pixel = 8;
+        else
+        {
+            MSG("Couldn't load image \"%s\" 8-bit image: I only support 1- and 3- and 4-channel images (alpha ignored)", filename);
+            return false;
+        }
+    }
+    else
+    {
+        if(*channels == 1)
+            *bits_per_pixel = 16;
+        else
+        {
+            MSG("Couldn't load image \"%s\" 16-bit image: I only support 1-channel", filename);
+            return false;
+        }
+    }
+    return true;
+}
+
+static
 bool generic_load(// output
 
                   // mrcal_image_uint8_t  if bits_per_pixel == 8
@@ -423,7 +464,9 @@ bool generic_load(// output
     bool result = false;
 
     unsigned char* image_buf = NULL;
-    int width=0, height=0, channels=0;
+    int            width     = 0;
+    int            height    = 0;
+    int            channels  = 0;
 
     FILE* fp = fopen(filename, "r");
     if(fp == NULL)
@@ -432,72 +475,35 @@ bool generic_load(// output
         goto done;
     }
 
-    int bits_per_pixel_detected = -1;
-    int channels_detected       = -1;
-    {
-        // autodetect the image parameters
-        int width,height;
+    int width_detected;
+    int height_detected;
+    int bits_per_pixel_detected;
+    int channels_detected;
 
-        if(!stbi_info_from_file(fp, &width, &height, &channels_detected))
-        {
-            MSG("Couldn't load image: stbi_info_from_file(\"%s\") failed", filename);
-            goto done;
-        }
-        bool is_16bit = (bool)stbi_is_16_bit_from_file(fp);
-        if(!is_16bit)
-        {
-            if(channels_detected == 3 || channels_detected == 4)
-                bits_per_pixel_detected = 24;
-            else if(channels_detected == 1)
-                bits_per_pixel_detected = 8;
-            else
-            {
-                MSG("Couldn't load image \"%s\" 8-bit image: I only support 1-channel and 3-channel images and 4-channel images (alpha ignored)", filename);
-                goto done;
-            }
-        }
-        else
-        {
-            if(channels_detected == 1)
-                bits_per_pixel_detected = 16;
-            else
-            {
-                MSG("Couldn't load image \"%s\" 16-bit image: I only support 1-channel", filename);
-                goto done;
-            }
-        }
-    }
+
+    if(!detect_image_parameters(// out
+                                &width_detected,
+                                &height_detected,
+                                &bits_per_pixel_detected,
+                                &channels_detected,
+
+                                // in
+                                filename,
+                                fp))
+        goto done;
+
     if(*bits_per_pixel == 0)
         *bits_per_pixel = bits_per_pixel_detected;
-    else
-    {
-        if(bits_per_pixel_detected == 8 && *bits_per_pixel == 16)
-        {
-            MSG("Loading 8-bit image as a 16-bit image not supported");
-            goto done;
-        }
-        if(bits_per_pixel_detected == 16 && *bits_per_pixel == 24)
-        {
-            MSG("Loading 16-bit image as a 24-bit image not supported");
-            goto done;
-        }
-        if(bits_per_pixel_detected == 24 && *bits_per_pixel == 16)
-        {
-            MSG("Loading 24-bit image as a 16-bit image not supported");
-            goto done;
-        }
-    }
-
 
     if(*bits_per_pixel == 8)
     {
-        const bool is_16bit = (bool)stbi_is_16_bit_from_file(fp);
-
-        if(is_16bit)
+        if(bits_per_pixel_detected == 16)
         {
             // special case: uint16 monochrome image. I apply stretch
             // equalization
-            image_buf = (unsigned char*)stbi_load_from_file_16(fp, &width, &height, &channels, 1);
+            image_buf = (unsigned char*)stbi_load_from_file_16(fp, &width, &height, &channels,
+                                                               // I want 1 channel in the output
+                                                               1);
             if(image_buf == NULL)
             {
                 MSG("Couldn't load image: stbi_load_from_file_16(\"%s\", desired_channels=1) failed", filename);
@@ -533,7 +539,9 @@ bool generic_load(// output
         }
         else
         {
-            image_buf = stbi_load_from_file(fp, &width, &height, &channels, 1);
+            image_buf = stbi_load_from_file(fp, &width, &height, &channels,
+                                            // I want 1 channel in the output
+                                            1);
             if(image_buf == NULL)
             {
                 MSG("Couldn't load image: stbi_load_from_file(\"%s\", desired_channels=1) failed", filename);
@@ -543,7 +551,16 @@ bool generic_load(// output
     }
     else if(*bits_per_pixel == 16)
     {
-        image_buf = (unsigned char*)stbi_load_from_file_16(fp, &width, &height, &channels, 1);
+        if(bits_per_pixel_detected != 16)
+        {
+            MSG("Loading %d-bit image as a 16-bit image not supported",
+                bits_per_pixel_detected);
+            goto done;
+        }
+
+        image_buf = (unsigned char*)stbi_load_from_file_16(fp, &width, &height, &channels,
+                                                           // I want 1 channels in the output
+                                                           1);
         if(image_buf == NULL)
         {
             MSG("Couldn't load image: stbi_load_from_file_16(\"%s\", desired_channels=1) failed", filename);
@@ -552,7 +569,16 @@ bool generic_load(// output
     }
     else if(*bits_per_pixel == 24)
     {
-        image_buf = stbi_load_from_file(fp, &width, &height, &channels, 3);
+        if(bits_per_pixel_detected == 16)
+        {
+            MSG("Loading %d-bit image as a 24-bit image not supported",
+                bits_per_pixel_detected);
+            goto done;
+        }
+
+        image_buf = stbi_load_from_file(fp, &width, &height, &channels,
+                                        // I want 3 channels in the output
+                                        3);
         if(image_buf == NULL)
         {
             MSG("Couldn't load image: stbi_load_from_file(\"%s\", desired_channels=3) failed", filename);
