@@ -405,6 +405,195 @@ void stretch_equalization_uint8_from_uint16(mrcal_image_uint8_t* out,
 
 
 
+typedef struct {
+    jmp_buf         jmpbuf;
+    unsigned char*  image_buf;
+    unsigned char** row_pointers;
+    bool            result;
+} load_png_ctx_t;
+
+static void load_png_on_error(png_structp png_ptr, png_const_charp msg)
+{
+    load_png_ctx_t* ctx = png_get_error_ptr(png_ptr);
+    free(ctx->row_pointers); ctx->row_pointers = NULL;
+    free(ctx->image_buf);    ctx->image_buf    = NULL;
+    longjmp(ctx->jmpbuf, 1);
+}
+
+static
+bool load_png(// out
+              mrcal_image_void_t* image,
+              int* bits_per_pixel,
+              // in
+              const char* filename, // for error reporting
+              FILE* fp)
+{
+    // load_png() and generic_load() have a very similar structure. Please
+    // update them together
+
+    // Written by Claude
+
+    int         width    = 0;
+    int         height   = 0;
+    png_structp png_ptr  = NULL;
+    png_infop   info_ptr = NULL;
+    // image_buf and row_pointers live in ctx so their address is taken;
+    // GCC won't warn about them in the presence of setjmp
+    load_png_ctx_t ctx = {};
+
+    if(NULL == (png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, &ctx, load_png_on_error, NULL)))
+    {
+        MSG("png_create_read_struct() failed");
+        goto done;
+    }
+    if(NULL == (info_ptr = png_create_info_struct(png_ptr)))
+    {
+        MSG("png_create_info_struct() failed");
+        goto done;
+    }
+    if(setjmp(ctx.jmpbuf))
+    {
+        MSG("libpng error while reading '%s'", filename);
+        goto done;
+    }
+    png_init_io(png_ptr, fp);
+    png_read_info(png_ptr, info_ptr);
+
+    {
+        int bit_depth  = png_get_bit_depth (png_ptr, info_ptr);
+        int color_type = png_get_color_type(png_ptr, info_ptr);
+
+        // Normalise: expand palette→RGB, low-depth gray→8-bit, strip alpha
+        if(color_type == PNG_COLOR_TYPE_PALETTE)
+            png_set_palette_to_rgb(png_ptr);
+        if(color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8)
+            png_set_expand_gray_1_2_4_to_8(png_ptr);
+        if(color_type & PNG_COLOR_MASK_ALPHA)
+            png_set_strip_alpha(png_ptr);
+        // PNG stores 16-bit values big-endian; swap to host byte order
+        if(bit_depth == 16)
+            png_set_swap(png_ptr);
+        // If caller requests 3-channel BGR from an 8-bit grayscale file, expand
+        if(*bits_per_pixel == 24 &&
+           (color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA) &&
+           bit_depth <= 8)
+            png_set_gray_to_rgb(png_ptr);
+
+        // Re-read after registering transforms: e.g. palette→RGB changes
+        // color_type, expand_gray_1_2_4_to_8 changes bit_depth
+        png_read_update_info(png_ptr, info_ptr);
+        bit_depth  = png_get_bit_depth (png_ptr, info_ptr);
+        color_type = png_get_color_type(png_ptr, info_ptr);
+
+        int bits_per_pixel_detected;
+        if(color_type == PNG_COLOR_TYPE_GRAY)
+        {
+            if     (bit_depth == 8)  bits_per_pixel_detected = 8;
+            else if(bit_depth == 16) bits_per_pixel_detected = 16;
+            else
+            {
+                MSG("Unsupported PNG bit depth %d in '%s'", bit_depth, filename);
+                goto done;
+            }
+        }
+        else if(color_type == PNG_COLOR_TYPE_RGB)
+            bits_per_pixel_detected = 24;
+        else
+        {
+            MSG("Couldn't load image \"%s\": unsupported PNG color type %d", filename, color_type);
+            goto done;
+        }
+
+        const int stride_raw = (int)png_get_rowbytes(png_ptr, info_ptr);
+        width  = (int)png_get_image_width (png_ptr, info_ptr);
+        height = (int)png_get_image_height(png_ptr, info_ptr);
+
+        if(*bits_per_pixel == 0)
+            *bits_per_pixel = bits_per_pixel_detected;
+
+        if(*bits_per_pixel == 8)
+        {
+            if(posix_memalign((void**)&ctx.image_buf, 16UL, (size_t)stride_raw * height) != 0)
+            { MSG("posix_memalign() failed for %zu bytes", (size_t)stride_raw * height); goto done; }
+            if(NULL == (ctx.row_pointers = malloc(height * sizeof(unsigned char*))))
+            { MSG("malloc() failed for row pointers"); goto done; }
+            for(int i = 0; i < height; i++)
+                ctx.row_pointers[i] = ctx.image_buf + (size_t)i * stride_raw;
+            png_read_image(png_ptr, ctx.row_pointers);
+            free(ctx.row_pointers); ctx.row_pointers = NULL;
+
+            if(bits_per_pixel_detected == 16)
+            {
+                unsigned char* image_buf_8bit;
+                if(posix_memalign((void**)&image_buf_8bit, 16UL, (size_t)width * height) != 0)
+                { MSG("posix_memalign() failed for %zu bytes", (size_t)width * height); goto done; }
+                mrcal_image_uint16_t in  = { .width = width, .height = height, .stride = stride_raw, .data = (uint16_t*)ctx.image_buf };
+                mrcal_image_uint8_t  out = { .width = width, .height = height, .stride = width,       .data = (uint8_t*)image_buf_8bit };
+                stretch_equalization_uint8_from_uint16(&out, &in);
+                free(ctx.image_buf);
+                ctx.image_buf = image_buf_8bit;
+            }
+        }
+        else if(*bits_per_pixel == 16)
+        {
+            if(bits_per_pixel_detected != 16)
+            {
+                MSG("Loading %d-bit image as a 16-bit image not supported",
+                    bits_per_pixel_detected);
+                goto done;
+            }
+
+            if(posix_memalign((void**)&ctx.image_buf, 16UL, (size_t)stride_raw * height) != 0)
+            { MSG("posix_memalign() failed for %zu bytes", (size_t)stride_raw * height); goto done; }
+            if(NULL == (ctx.row_pointers = malloc(height * sizeof(unsigned char*))))
+            { MSG("malloc() failed for row pointers"); goto done; }
+            for(int i = 0; i < height; i++)
+                ctx.row_pointers[i] = ctx.image_buf + (size_t)i * stride_raw;
+            png_read_image(png_ptr, ctx.row_pointers);
+            free(ctx.row_pointers); ctx.row_pointers = NULL;
+        }
+        else if(*bits_per_pixel == 24)
+        {
+            if(bits_per_pixel_detected == 16)
+            {
+                MSG("Loading 16-bit image as a 24-bit image not supported");
+                goto done;
+            }
+
+            if(posix_memalign((void**)&ctx.image_buf, 16UL, (size_t)stride_raw * height) != 0)
+            { MSG("posix_memalign() failed for %zu bytes", (size_t)stride_raw * height); goto done; }
+            if(NULL == (ctx.row_pointers = malloc(height * sizeof(unsigned char*))))
+            { MSG("malloc() failed for row pointers"); goto done; }
+            for(int i = 0; i < height; i++)
+                ctx.row_pointers[i] = ctx.image_buf + (size_t)i * stride_raw;
+            png_read_image(png_ptr, ctx.row_pointers);
+            free(ctx.row_pointers); ctx.row_pointers = NULL;
+        }
+        else
+        {
+            MSG("Input bits_per_pixel must be 8 or 16 or 24; got %d", *bits_per_pixel);
+            goto done;
+        }
+    }
+
+    image->width  = width;
+    image->height = height;
+    image->stride = width * (*bits_per_pixel) / 8;
+    image->data   = ctx.image_buf;
+    ctx.image_buf = NULL;
+
+    if(*bits_per_pixel == 24)
+        bgr_tofrom_rgb((mrcal_image_bgr_t*)image);
+
+    ctx.result = true;
+
+done:
+    free(ctx.row_pointers);
+    free(ctx.image_buf);
+    if(png_ptr) png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+    return ctx.result;
+}
+
 static
 bool detect_image_parameters(// out
                              int* width,
@@ -474,6 +663,18 @@ bool generic_load(// output
         MSG("Couldn't open image: fopen(\"%s\") failed", filename);
         goto done;
     }
+
+    const char* extension = get_extension(filename);
+    if(extension == NULL) goto done;
+    if(0 == strcasecmp(extension, ".png"))
+    {
+        result = load_png(image, bits_per_pixel,
+                          filename, fp);
+        goto done;
+    }
+
+    // load_png() and generic_load() have a very similar structure. Please
+    // update them together
 
     int width_detected;
     int height_detected;
