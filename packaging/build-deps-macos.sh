@@ -16,9 +16,11 @@ source "$(dirname "$0")/build-deps-common.sh"
 
 mkdir -p "${BUILD_DEPS}/include" "${BUILD_DEPS}/lib" "${BUILD_DEPS}/bin"
 
-export PATH="${BUILD_DEPS}/bin:/opt/homebrew/bin:/opt/homebrew/opt/qt/bin:$PATH"
-export CPATH="${BUILD_DEPS}/include:/opt/homebrew/include"
-export LIBRARY_PATH="${BUILD_DEPS}/lib:/opt/homebrew/lib"
+BREW_PREFIX=$(brew --prefix)
+
+export PATH="${BUILD_DEPS}/bin:${BREW_PREFIX}/bin:${BREW_PREFIX}/opt/qt/bin:$PATH"
+export CPATH="${BUILD_DEPS}/include:${BREW_PREFIX}/include"
+export LIBRARY_PATH="${BUILD_DEPS}/lib:${BREW_PREFIX}/lib"
 
 brew install suite-sparse openblas libpng libjpeg re2c cpanminus \
     fltk freeglut libepoxy swig boost mesa-glu gnu-getopt cmake \
@@ -28,7 +30,7 @@ install_mrbuild
 install_stb
 build_libdogleg
 
-build_gnuplot "/opt/homebrew" CXXFLAGS="-std=c++17"
+build_gnuplot "${BREW_PREFIX}" CXXFLAGS="-std=c++17"
 
 install_vnlog
 clone_gl_image_display
