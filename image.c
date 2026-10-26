@@ -56,30 +56,68 @@ const char* get_extension(const char* filename)
 }
 
 static
+bool generic_save_png_inner(png_structp png_ptr, png_infop info_ptr,
+                             FILE* fp,
+                             const mrcal_image_void_t* image,
+                             int bits_per_pixel)
+{
+    // Claude wrote this
+    if(setjmp(png_jmpbuf(png_ptr))) return false;
+
+    png_init_io(png_ptr, fp);
+    png_set_compression_level(png_ptr, 1);
+    png_set_filter(png_ptr, 0, PNG_FILTER_SUB);
+
+    const int color_type = (bits_per_pixel == 24) ? PNG_COLOR_TYPE_RGB : PNG_COLOR_TYPE_GRAY;
+    const int bit_depth  = (bits_per_pixel == 16) ? 16 : 8;
+
+    png_set_IHDR(png_ptr, info_ptr,
+                 image->width, image->height,
+                 bit_depth, color_type,
+                 PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
+    png_write_info(png_ptr, info_ptr);
+
+    // PNG requires 16-bit values in big-endian; swap from host byte order
+    if(bit_depth == 16)
+        png_set_swap(png_ptr);
+
+    for(int i = 0; i < image->height; i++)
+        png_write_row(png_ptr,
+                      (png_const_bytep)((const uint8_t*)image->data + (size_t)i * image->stride));
+
+    png_write_end(png_ptr, NULL);
+    return true;
+}
+
+static
 bool generic_save_png(const char* filename,
                       const mrcal_image_void_t* image,
                       const int bits_per_pixel,
                       const int channels)
 {
-    bool result = false;
+    // Claude wrote this
 
-    png_image pimage = { .version = PNG_IMAGE_VERSION,
-                         .width   = image->width,
-                         .height  = image->height,
-                         .format  =
-                             bits_per_pixel == 24 ? PNG_FORMAT_RGB :
-                                 (bits_per_pixel == 16 ? PNG_FORMAT_LINEAR_Y : PNG_FORMAT_GRAY) };
-    if(!png_image_write_to_file(&pimage, filename, 0, image->data,
-                                bits_per_pixel == 16 ? image->stride/2 : image->stride,
-                                NULL))
-    {
-        MSG("png_image_write_to_file('%s') failed", filename);
-        goto done;
-    }
+    bool        result   = false;
+    FILE*       fp       = NULL;
+    png_structp png_ptr  = NULL;
+    png_infop   info_ptr = NULL;
+
+    if(NULL == (fp = fopen(filename, "wb")))
+    { MSG("Couldn't open '%s' for writing", filename); goto done; }
+
+    png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+    if(!png_ptr) { MSG("png_create_write_struct() failed"); goto done; }
+    info_ptr = png_create_info_struct(png_ptr);
+    if(!info_ptr) { MSG("png_create_info_struct() failed"); goto done; }
+
+    if(!generic_save_png_inner(png_ptr, info_ptr, fp, image, bits_per_pixel))
+    { MSG("libpng error while writing '%s'", filename); goto done; }
+
     result = true;
 
 done:
-    png_image_free(&pimage);
+    if(png_ptr) png_destroy_write_struct(&png_ptr, &info_ptr);
+    if(fp)      fclose(fp);
     return result;
 }
 
