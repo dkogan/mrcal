@@ -55,6 +55,123 @@ const char* get_extension(const char* filename)
     return &filename[filename_len - 4];
 }
 
+// Claude wrote all this!
+// libdeflate-based PNG writer. Faster than libpng, but I don't want a new
+// dependency yet
+#if 0
+#include <libdeflate.h>
+
+static void write_be32(uint8_t* p, uint32_t v)
+{
+    p[0] = v >> 24; p[1] = v >> 16; p[2] = v >> 8; p[3] = v;
+}
+
+static bool write_png_chunk(FILE* fp, const char type[4], const uint8_t* data, uint32_t len)
+{
+    uint8_t buf[4];
+    write_be32(buf, len);
+    if(fwrite(buf,  1, 4,   fp) != 4)   return false;
+    if(fwrite(type, 1, 4,   fp) != 4)   return false;
+    uint32_t crc = libdeflate_crc32(0, type, 4);
+    if(len)
+    {
+        if(fwrite(data, 1, len, fp) != len) return false;
+        crc = libdeflate_crc32(crc, data, len);
+    }
+    write_be32(buf, crc);
+    return fwrite(buf, 1, 4, fp) == 4;
+}
+
+// Write PNG using libdeflate. Returns false if memory allocation fails
+// (e.g. very large image), in which case caller falls back to libpng.
+static bool save_png_libdeflate(FILE* fp,
+                                const mrcal_image_void_t* image,
+                                int bits_per_pixel)
+{
+    bool     result   = false;
+    uint8_t* filtered = NULL;
+    uint8_t* zbuf     = NULL;
+    struct libdeflate_compressor* comp = NULL;
+
+    const int    W               = image->width;
+    const int    H               = image->height;
+    const int    bytes_per_pixel = bits_per_pixel / 8;
+    const int    row_bytes       = W * bytes_per_pixel;
+    const size_t frow_size       = 1 + row_bytes;  // 1 filter byte + row data
+    const size_t filtered_sz     = (size_t)H * frow_size;
+
+    filtered = malloc(filtered_sz);
+    if(!filtered) goto done;
+
+    // Apply Sub filter to each row.
+    // For 16-bit: convert to big-endian first, then Sub with bpp=2.
+    // For 8/24-bit: Sub with bpp=1 or bpp=3.
+    for(int y = 0; y < H; y++)
+    {
+        const uint8_t* src = (const uint8_t*)image->data + (size_t)y * image->stride;
+        uint8_t*       dst = filtered + (size_t)y * frow_size;
+        dst[0] = 1;  // SUB filter type
+        dst++;
+
+        if(bits_per_pixel == 16)
+        {
+            const uint16_t* src16 = (const uint16_t*)src;
+            uint8_t prev_hi = 0, prev_lo = 0;
+            for(int x = 0; x < W; x++)
+            {
+                uint8_t hi = (src16[x] >> 8) & 0xff;
+                uint8_t lo =  src16[x]       & 0xff;
+                dst[x*2+0] = hi - prev_hi;
+                dst[x*2+1] = lo - prev_lo;
+                prev_hi = hi;
+                prev_lo = lo;
+            }
+        }
+        else
+        {
+            for(int i = 0; i < row_bytes; i++)
+            {
+                uint8_t left = (i >= bytes_per_pixel) ? src[i - bytes_per_pixel] : 0;
+                dst[i] = src[i] - left;
+            }
+        }
+    }
+
+    comp = libdeflate_alloc_compressor(6);
+    if(!comp) goto done;
+
+    size_t zbuf_sz = libdeflate_zlib_compress_bound(comp, filtered_sz);
+    zbuf = malloc(zbuf_sz);
+    if(!zbuf) goto done;
+
+    size_t compressed_sz = libdeflate_zlib_compress(comp, filtered, filtered_sz, zbuf, zbuf_sz);
+    if(!compressed_sz || compressed_sz > 0x7fffffff) goto done;
+
+    // Write PNG: signature, IHDR, IDAT, IEND
+    static const uint8_t sig[8] = {137, 80, 78, 71, 13, 10, 26, 10};
+    if(fwrite(sig, 1, 8, fp) != 8) goto done;
+
+    uint8_t ihdr[13];
+    write_be32(ihdr+0, W);
+    write_be32(ihdr+4, H);
+    ihdr[8]  = (bits_per_pixel == 16) ? 16 : 8;
+    ihdr[9]  = (bits_per_pixel == 24) ? 2 : 0;  // RGB=2, GRAY=0
+    ihdr[10] = 0;  ihdr[11] = 0;  ihdr[12] = 0;
+    if(!write_png_chunk(fp, "IHDR", ihdr, 13)) goto done;
+    if(!write_png_chunk(fp, "IDAT", zbuf, (uint32_t)compressed_sz)) goto done;
+    if(!write_png_chunk(fp, "IEND", NULL, 0)) goto done;
+
+    result = true;
+
+done:
+    free(filtered);
+    free(zbuf);
+    libdeflate_free_compressor(comp);
+    return result;
+}
+#endif
+
+
 static
 bool generic_save_png_inner(png_structp png_ptr, png_infop info_ptr,
                              FILE* fp,
