@@ -1210,7 +1210,6 @@ static bool optimize_validate_args( // out
                 return false;
             }
 
-            bitarray64_set(bitarray_point_referenced, i_point_here);
         }
 
         if(!bitarray64_check_all_set(bitarray_point_referenced, Npoints))
