@@ -8,14 +8,11 @@
 
 #define STBI_NO_HDR 1
 #include <stb/stb_image.h>
-//#include <stb/stb_image_write.h>
 
-// stb_image_write() cannot write 16-bit png files. So I use stb for everything
-// except for writing png files. Using libpng to write all .png
+// stb_image_write() cannot write 16-bit png files and it cannot write 8-bit jpg
+// files AS 8-BIT FILES. So I use stb for reading but other things for writing.
+// No stb_image_write.
 #include <png.h>
-
-// stb_image_write() cannot write 8-bit jpg files AS 8-BIT FILES. It always
-// writes color. So I do this myself for jpeg files.
 #include <jpeglib.h>
 #include <setjmp.h>
 
@@ -296,8 +293,6 @@ bool generic_save(const char* filename,
         image = (const mrcal_image_void_t*)&_image;
     }
 
-    // stb_image_write() cannot write 16-bit png files. So I use stb for
-    // everything except for writing png files. Using libpng to write all .png
     const char* extension = get_extension(filename);
     if(extension == NULL) goto done;
 
