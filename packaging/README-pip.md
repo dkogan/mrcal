@@ -20,7 +20,7 @@ exposed as a set of C and Python libraries and some commandline tools.
 
 Extensive documentation is available at <https://mrcal.secretsauce.net/>
 
-These pip wheels are available for Linux (amd64) and macos (arm64). Pip is a
+These pip wheels are available for Linux (amd64) and macOS (x86_64 and arm64). Pip is a
 giant hack. These were a huge pain to build, even with Claude's help. They're
 massively inefficient, and probably are missing things.
 
