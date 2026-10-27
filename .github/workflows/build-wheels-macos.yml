@@ -18,18 +18,37 @@ on:
 
 jobs:
   build-macos:
-    name: Build macOS wheels
-    runs-on: macos-14
+    name: Build macOS ${{ matrix.arch }} wheels
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: macos-15-intel
+          - arch: arm64
+            runner: macos-15
+
+    runs-on: ${{ matrix.runner }}
+
     steps:
       - uses: actions/checkout@v7.0.1
 
-      - name: Build wheels
+      - name: Verify native runner architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+          machine=$(uname -m)
+          echo "runner architecture: ${machine}"
+          test "${machine}" = "${{ matrix.arch }}"
+
+      - name: Build and test wheels
         uses: pypa/cibuildwheel@v4.2.0
         env:
+          CIBW_ARCHS_MACOS: ${{ matrix.arch }}
           VERSION_WHEEL_BASE: ${{ inputs.version_base }}
           VERSION_WHEEL_POST: ${{ inputs.version_post }}
 
       - uses: actions/upload-artifact@v7.0.1
         with:
-          name: wheels-macos
+          name: wheels-macos-${{ matrix.arch }}
           path: wheelhouse/*.whl
