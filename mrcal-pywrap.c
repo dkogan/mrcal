@@ -1156,8 +1156,10 @@ static bool optimize_validate_args( // out
         }
     }
 
-    // I allow i_point to be non-monotonic, but I do make sure that it covers
-    // all Npoints of my array.
+    // I allow discrete-point indices to be non-monotonic, but I do make sure
+    // that they cover all Npoints of the points array. Triangulated-point
+    // indices identify observation sets, not entries in points, so they must
+    // not be written into this bit array.
     {
         const int Nwords = bitarray64_nwords(Npoints);
         uint64_t bitarray_point_referenced[Nwords];
@@ -1210,7 +1212,6 @@ static bool optimize_validate_args( // out
                 return false;
             }
 
-            bitarray64_set(bitarray_point_referenced, i_point_here);
         }
 
         if(!bitarray64_check_all_set(bitarray_point_referenced, Npoints))
