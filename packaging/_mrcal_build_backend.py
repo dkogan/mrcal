@@ -154,19 +154,40 @@ def _build_raw_wheel(raw_wheel_path, version, brew=None):
             arcname = "mrcal/" + os.path.relpath(path, pkg_dir)
             add(zf, open(path, "rb").read(), arcname)
 
-        # Bundled gnuplot + gnuplot_x11.
-        # gnuplot wrapper sets GNUPLOT_DRIVER_DIR to its own directory (venv/bin/)
-        # so gnuplot finds gnuplot_x11 there at runtime.
+        # Bundle gnuplot, its terminal helper and its runtime data. The wrapper
+        # points gnuplot at resources inside the installed wheel instead of the
+        # build-machine prefix compiled into the executable.
         if gnuplot_bin:
             gnuplot_prefix = os.path.dirname(os.path.dirname(gnuplot_bin))
+            share_roots = sorted(
+                glob.glob(f"{gnuplot_prefix}/share/gnuplot/*"),
+                reverse=True,
+            )
+            gnuplot_share = share_roots[0] if share_roots else None
 
-            add(zf, open(gnuplot_bin, "rb").read(), "mrcal/_vendor/bin/gnuplot", mode=0o755)
+            add(zf, open(gnuplot_bin, "rb").read(),
+                "mrcal/_vendor/bin/gnuplot", mode=0o755)
+
+            if gnuplot_share and os.path.isdir(gnuplot_share):
+                for path in sorted(
+                        glob.glob(f"{gnuplot_share}/**/*", recursive=True)):
+                    if not os.path.isfile(path):
+                        continue
+                    rel = os.path.relpath(path, gnuplot_share)
+                    add(zf, open(path, "rb").read(),
+                        f"mrcal/_vendor/share/gnuplot/{rel}")
+
             wrapper = (
                 '#!python\n'
                 'import os, sys, importlib.util\n'
                 '_s = importlib.util.find_spec("mrcal")\n'
-                '_real = os.path.join(os.path.dirname(_s.origin), "_vendor", "bin", "gnuplot")\n'
+                '_v = os.path.join(os.path.dirname(_s.origin), "_vendor")\n'
+                '_real = os.path.join(_v, "bin", "gnuplot")\n'
+                '_share = os.path.join(_v, "share", "gnuplot")\n'
                 'os.environ["GNUPLOT_DRIVER_DIR"] = os.path.dirname(os.path.abspath(sys.argv[0]))\n'
+                'os.environ["GNUHELP"] = os.path.join(_share, "gnuplot.gih")\n'
+                'os.environ["GNUPLOT_PS_DIR"] = os.path.join(_share, "PostScript")\n'
+                'os.environ["GNUPLOT_LIB"] = _share\n'
                 'os.execv(_real, sys.argv)\n'
             )
             add(zf, wrapper, f"{data_dir}/scripts/gnuplot", mode=0o755)
