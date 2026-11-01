@@ -64,23 +64,19 @@ def wrap_r(r):
         return r
     return r - r/nps.mag(r) * 2.*np.pi
 
-def wrap_r_if_needed(r,
-                     dr_dX, # tuple of arrays of shape (3,...)
-                     r_match_direction = None):
+def wrap_r_to_match(r,
+                    dr_dX, # tuple of arrays of shape (3,...)
+                    r_match_direction):
 
-    '''Unwrap a Rodrigues vector r
-
-    returns (r', dr'_dX)
-
-    This function only wraps the argument if it needs to: if mag(r) > np.pi or
-    if we're pointing opposite r_match_direction
+    '''Unwrap a Rodrigues vector r to match the direction of r_match_direction
 
     '''
 
-    if (r_match_direction is not None) and (nps.inner(r, r_match_direction) > 0) or \
-       (r_match_direction is     None) and (nps.mag(r) <= np.pi):
+    if nps.inner(r, r_match_direction) >= 0:
         return (r, dr_dX)
 
+    # if nps.mag(r) <= np.pi: should also trigger a wrapping maybe. But this
+    # function exists to get us into the same r mode, thus I only look at the direction
 
     def wrap_dr(r, dr_dX):
 
@@ -189,12 +185,6 @@ for iaxis,axis in enumerate(axes):
                     ###### r01
                     r01, dr01_dr0, dr01_dr1 = mrcal.compose_r(r0,r1, get_gradients = True)
                     r01_ref                 = compose_r(r0,r1)
-                    confirm_equal( r01,
-                                   r01_ref,
-                                   worstcase = True,
-                                   relative  = True,
-                                   eps       = 1e-3,
-                                   msg=f'compose_r(r0,r1) near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
                     dr01_dr0__ref = grad(lambda r0: compose_r(r0,r1),
                                          r0,
                                          forward_differences = True,
@@ -205,6 +195,14 @@ for iaxis,axis in enumerate(axes):
                                          forward_differences = True,
                                          switch = wrap_r,
                                          step = 1e-7)
+                    r01_ref, (dr01_dr0__ref, dr01_dr1__ref) = \
+                        wrap_r_to_match(r01_ref, (dr01_dr0__ref, dr01_dr1__ref), r_match_direction = r01)
+                    confirm_equal( r01,
+                                   r01_ref,
+                                   worstcase = True,
+                                   relative  = True,
+                                   eps       = 1e-3,
+                                   msg=f'compose_r(r0,r1) near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
                     confirm_equal( dr01_dr0,
                                    dr01_dr0__ref,
                                    worstcase = True,
@@ -226,24 +224,6 @@ for iaxis,axis in enumerate(axes):
                     r10, dr10_dr1, dr10_dr0 = mrcal.compose_r(r1,r0, get_gradients = True)
                     r10_ref = compose_r(r1,r0)
 
-                    if th0 == np.pi and dth == 0. and r0 is r1_simple and r1 is inv_r1_simple_r and iaxis==0:
-                        if nps.inner(r10_ref, r10) < 0:
-                            # This is about to fail. I'm skipping this test.
-                            # It's the only case that fails. And it fails ONLY
-                            # on my workstation (recent Debian/sid, Intel(R)
-                            # Xeon(R) CPU E5-2687W). It passes on my laptops
-                            # (same recent Debian/sid with I think identical
-                            # packages, but older CPU: Intel(R) Core(TM)
-                            # i7-3520M)
-                            print("SKIPPING test case that fails on only some hardware. Everything else passes, so this is likely a subtle roundoff issue")
-                            continue
-
-                    confirm_equal( r10,
-                                   r10_ref,
-                                   worstcase = True,
-                                   relative  = True,
-                                   eps       = 1e-3,
-                                   msg=f'compose_r(r1,r0) near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
                     dr10_dr0__ref = grad(lambda r0: compose_r(r1,r0),
                                          r0,
                                          forward_differences = True,
@@ -254,6 +234,14 @@ for iaxis,axis in enumerate(axes):
                                          forward_differences = True,
                                          switch = wrap_r,
                                          step = 1e-7)
+                    r10_ref, (dr10_dr0__ref, dr10_dr1__ref) = \
+                        wrap_r_to_match(r10_ref, (dr10_dr0__ref, dr10_dr1__ref), r_match_direction = r10)
+                    confirm_equal( r10,
+                                   r10_ref,
+                                   worstcase = True,
+                                   relative  = True,
+                                   eps       = 1e-3,
+                                   msg=f'compose_r(r1,r0) near a singularity. axis={axis}, th0={th0:.2f}, dth={dth}')
                     confirm_equal( dr10_dr0,
                                    dr10_dr0__ref,
                                    worstcase = True,
