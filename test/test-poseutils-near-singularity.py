@@ -18,11 +18,8 @@ from test_poseutils_helpers import \
     r_from_R,                      \
     compose_r
 
-def wrap_r_unconditional(r, dr_dX = None):
+def wrap_r(r):
     '''Unwrap a Rodrigues vector r
-
-    returns r'     if dr_dX is None
-    returns dr'_dX if dr_dX is not None
 
     I define rotations with a Rodrigues vector r = th v. Where v is the unit
     vector representing the rotation axis; and th is a scalar representing the
@@ -63,56 +60,55 @@ def wrap_r_unconditional(r, dr_dX = None):
 
     '''
 
-
-    if dr_dX is None:
-        if nps.mag(r) == 0:
-            return r
-        return r - r/nps.mag(r) * 2.*np.pi
-
     if nps.mag(r) == 0:
-        return dr_dX
+        return r
+    return r - r/nps.mag(r) * 2.*np.pi
 
-    # drw_dX = d( r - r/nps.mag(r) * 2.*np.pi )/dX
-    #        = dr_dX - 2pi (dr_dX/nps.mag(r) + r d/dx (1/magr))
-    #        = dr_dX - 2pi (dr_dX/nps.mag(r) - r /magr^2 /2magr 2rt dr_dX )
-    #        = dr_dX - 2pi (dr_dX - r rt /norm2(r) dr_dX ) /nps.mag(r)
-    #        = dr_dX + 2pi /nps.mag(r) (r rt /norm2(r) - I) dr_dX
-
-    # dr_dX has shape (3,...) so r rt dr_dX also has shape (3,...) I clump
-    # the trailing shapes so that dr_dX.shape is (3,N), and then reshape it
-    # at the end
-    s = dr_dX.shape[1:]
-    # shape (3,N)
-    dr_dX = nps.clump(dr_dX, n = -(dr_dX.ndim-1))
-
-    drw_dX =    \
-        dr_dX + \
-        2.*np.pi / nps.mag(r) * nps.matmult(nps.outer(r,r)/nps.norm2(r) - np.eye(r.size),
-                                            dr_dX)
-    return drw_dX.reshape((3,) + s)
-
-def wrap_r(r,
-           *,
-           r_match_direction = None,
-           dr_dX             = None):
+def wrap_r_if_needed(r,
+                     dr_dX, # tuple of arrays of shape (3,...)
+                     r_match_direction = None):
 
     '''Unwrap a Rodrigues vector r
 
-    returns r'     if dr_dX is None
-    returns dr'_dX if dr_dX is not None
+    returns (r', dr'_dX)
 
     This function only wraps the argument if it needs to: if mag(r) > np.pi or
     if we're pointing opposite r_match_direction
 
     '''
 
-    if r_match_direction is not None:
-        if nps.inner(r, r_match_direction) > 0:
-            return r if dr_dX is None else dr_dX
-        return wrap_r_unconditional(r, dr_dX = dr_dX)
-    if nps.mag(r) <= np.pi:
-        return r if dr_dX is None else dr_dX
-    return wrap_r_unconditional(r, dr_dX = dr_dX)
+    if (r_match_direction is not None) and (nps.inner(r, r_match_direction) > 0) or \
+       (r_match_direction is     None) and (nps.mag(r) <= np.pi):
+        return (r, dr_dX)
+
+
+    def wrap_dr(r, dr_dX):
+
+        if nps.mag(r) == 0:
+            raise Exception("Getting here is a bug; we just checked to make sure this cannot happen")
+
+        # drw_dX = d( r - r/nps.mag(r) * 2.*np.pi )/dX
+        #        = dr_dX - 2pi (dr_dX/nps.mag(r) + r d/dx (1/magr))
+        #        = dr_dX - 2pi (dr_dX/nps.mag(r) - r /magr^2 /2magr 2rt dr_dX )
+        #        = dr_dX - 2pi (dr_dX - r rt /norm2(r) dr_dX ) /nps.mag(r)
+        #        = dr_dX + 2pi /nps.mag(r) (r rt /norm2(r) - I) dr_dX
+
+        # dr_dX has shape (3,...) so r rt dr_dX also has shape (3,...) I clump
+        # the trailing shapes so that dr_dX.shape is (3,N), and then reshape it
+        # at the end
+        s = dr_dX.shape[1:]
+        # shape (3,N)
+        dr_dX = nps.clump(dr_dX, n = -(dr_dX.ndim-1))
+
+        drw_dX =    \
+            dr_dX + \
+            2.*np.pi / nps.mag(r) * nps.matmult(nps.outer(r,r)/nps.norm2(r) - np.eye(r.size),
+                                                dr_dX)
+        return drw_dX.reshape((3,) + s)
+
+
+    return (wrap_r(r), [wrap_dr(r, dr_dX_this) for dr_dX_this in dr_dX])
+
 
 
 ################### Check the behavior around the th=0, th=180, th=360
@@ -178,7 +174,7 @@ for iaxis,axis in enumerate(axes):
                 # exactly, up to machine precision). So I try both, and pick the
                 # closer one
                 r_roundtrip = mrcal.compose_r( r1_simple, inv_r1_simple_r )
-                r_wrapped   = wrap_r_unconditional(r)
+                r_wrapped   = wrap_r(r)
                 confirm_equal( r_roundtrip,
                                r if nps.norm2(r_roundtrip-r) < nps.norm2(r_roundtrip-r_wrapped) \
                                else r_wrapped,
@@ -202,12 +198,12 @@ for iaxis,axis in enumerate(axes):
                     dr01_dr0__ref = grad(lambda r0: compose_r(r0,r1),
                                          r0,
                                          forward_differences = True,
-                                         switch = wrap_r_unconditional,
+                                         switch = wrap_r,
                                          step = 1e-7)
                     dr01_dr1__ref = grad(lambda r1: compose_r(r0,r1),
                                          r1,
                                          forward_differences = True,
-                                         switch = wrap_r_unconditional,
+                                         switch = wrap_r,
                                          step = 1e-7)
                     confirm_equal( dr01_dr0,
                                    dr01_dr0__ref,
@@ -251,12 +247,12 @@ for iaxis,axis in enumerate(axes):
                     dr10_dr0__ref = grad(lambda r0: compose_r(r1,r0),
                                          r0,
                                          forward_differences = True,
-                                         switch = wrap_r_unconditional,
+                                         switch = wrap_r,
                                          step = 1e-7)
                     dr10_dr1__ref = grad(lambda r1: compose_r(r1,r0),
                                          r1,
                                          forward_differences = True,
-                                         switch = wrap_r_unconditional,
+                                         switch = wrap_r,
                                          step = 1e-7)
                     confirm_equal( dr10_dr0,
                                    dr10_dr0__ref,
