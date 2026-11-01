@@ -7,7 +7,7 @@
 //     http://www.apache.org/licenses/LICENSE-2.0
 
 #include <stdio.h>
-#include <assert.h>
+#include <stdlib.h>
 
 #include "_autodiff.hh"
 #include "_attribute.h"
@@ -329,5 +329,5 @@ bool project_cahvore_internals( // outputs
     }
 
     fprintf(stderr, "Getting here is a bug. Please report\n");
-    assert(0);
+    abort();
 }
