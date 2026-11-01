@@ -59,25 +59,23 @@ def grad(f, x,
 
     def df_dxi(i, d,dflat):
 
+        dflat[i] = step
+
         if not forward_differences:
             # central differences
-            dflat[i] = step
             fplus  = f(x+d)
             fminus = f(x-d)
             j = (fplus-fminus)/(2.*step)
-            dflat[i] = 0
-            return j
-
         else:
             # forward differences
-            dflat[i] = step
             f0    = f(x)
             fplus = f(x+d)
             if switch is not None and nps.norm2(fplus-f0) > 1.:
                 fplus = switch(fplus)
             j = (fplus-f0)/step
-            dflat[i] = 0
-            return j
+
+        dflat[i] = 0
+        return j
 
     # grad variable is in first dim
     Jflat = nps.cat(*[df_dxi(i, d,dflat) for i in range(len(dflat))])
