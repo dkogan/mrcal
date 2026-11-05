@@ -1167,7 +1167,10 @@ general function is used to find the data. The args are:
             def tryread(f, what):
                 r'''Try all the formats I support'''
 
-                modelstring = f.read()
+                try:
+                    modelstring = f.read()
+                except Exception as e:
+                    raise Exception(f"Couldn't read {what}: {e}")
 
                 errors = dict()
                 try:
