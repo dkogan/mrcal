@@ -908,7 +908,7 @@ if dyawdpitch is not None:
     print("## Optimized relative yaw (1 <- 0): {:.3f} degrees".format(rt10[1] * 180./np.pi))
 
 if args.make_corrected_model1:
-    if dyaw is None:
+    if dyawdpitch is None:
         print("I can't make the corrected model if I couldn't compute the yaw,pitch shifts", file=sys.stderr)
         sys.exit(1)
     rt_1r = mrcal.compose_rt(rt10,
