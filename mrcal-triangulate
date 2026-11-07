@@ -704,12 +704,10 @@ def get_rt10_perturbed( t01err            = np.array((0,0,0)),
     # orthogonal axes, so they commute
     R = np.eye(3)
     if r01err_yaw:
-        K    = mrcal.skew_symmetric(r01err_yaw_axis)
-        Ryaw = np.eye(3) + np.sin(r01err_yaw) * K + (1. - np.cos(r01err_yaw))*nps.matmult(K,K)
+        Ryaw = mrcal.R_from_r( r01err_yaw_axis/nps.mag(r01err_yaw_axis) * r01err_yaw)
         R = Ryaw
     if r01err_pitch:
-        K = mrcal.skew_symmetric(r01err_pitch_axis)
-        Rpitch = np.eye(3) + np.sin(r01err_pitch) * K + (1. - np.cos(r01err_pitch))*nps.matmult(K,K)
+        Rpitch = mrcal.R_from_r( r01err_pitch_axis/nps.mag(r01err_pitch_axis) * r01err_pitch)
         R = nps.matmult(R, Rpitch)
 
     rt10 = mrcal.rt_from_Rt( mrcal.compose_Rt(mrcal.invert_Rt(Rt01),
