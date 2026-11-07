@@ -874,22 +874,22 @@ if get_range_err_yaw_pitch_sq((0,0)) < 1e6:
 else:
     print("## Initially divergent. Finding a usable operating point to begin optimization")
 
-    step = 1. * np.pi/180.0
-    for d in np.array((( 1.,  0.),
-                       (-1.,  0.),
-                       ( 0.,  1.),
-                       ( 0., -1.)))*step:
+    step = 1e-2 * np.pi/180.0
+    i=0
+    while i < 200:
+        for d in np.array((( 1.,  0.),
+                           (-1.,  0.),
+                           ( 0.,  1.),
+                           ( 0., -1.)))*step:
 
-        i=0
-        while i < 180:
             dyawdpitch = i*d
             err = get_range_err_yaw_pitch_sq(dyawdpitch)
             if err < 1e6:
                 # no longer divergent
                 break
-            i += 1
         if err < 1e6:
             break
+        i += 1
     if err >= 1e6:
         print("## Initial search couldn't make the rays converge. Will not report optimized corrections")
         dyawdpitch = None
