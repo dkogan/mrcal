@@ -652,7 +652,14 @@ bool load_png(// out
             }
         }
         else if(color_type == PNG_COLOR_TYPE_RGB)
+        {
+            if(bit_depth == 16)
+            {
+                MSG("16-bit RGB PNG not supported in '%s'", filename);
+                goto done;
+            }
             bits_per_pixel_detected = 24;
+        }
         else
         {
             MSG("Couldn't load image \"%s\": unsupported PNG color type %d", filename, color_type);
