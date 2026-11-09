@@ -77,8 +77,15 @@ def parse_args():
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--make-corrected-model1',
                         action='store_true',
-                        help='''If given, we assume the --range-estimate is correct, and output to standard
-                        output a rotated camera1 to produce this range''')
+                        help='''If given, we assume the --range-estimate is
+                        correct, and output to standard output a rotated camera1
+                        model to produce this range. Note: re-running this tool
+                        with that adjusted model will produce the exact
+                        estimated range ONLY if the corresponding feature is
+                        given on the commandline instead of being found by
+                        matching. The match routine uses the model as its input,
+                        so an adjusted model will produce a slightly differnet
+                        patch pixel''')
     parser.add_argument('--template-size',
                         type=positive_int,
                         nargs=2,
@@ -673,7 +680,7 @@ if nps.norm2(p0) == 0:
 # I use the lower-level triangulation function further on, for the empirical
 # sensitivity calculation. I call it here as a sanity check, to make sure that
 # mrcal.triangulate() gave me the same thing
-v1 = mrcal.unproject(q1, *models[1].intrinsics())
+v1 = mrcal.unproject(q1, *models[1].intrinsics(), normalize = True)
 
 if nps.norm2( p0 - method( v0, v1,
                            Rt01        = Rt01,
@@ -715,19 +722,16 @@ def get_rt10_perturbed( t01err            = np.array((0,0,0)),
     rt10[3:] -= t01err
     return rt10
 
-def get_world_intersection_point(qerr1 = np.array((0,0)),
-                                 **kwargs):
 
+def get_range(qerr1 = np.array((0,0)),
+              **kwargs):
+    # divergent rays have p = (0,0,0)
     rt10 = get_rt10_perturbed(**kwargs)
     v1 = mrcal.unproject(q1 + qerr1, *models[1].intrinsics())
 
-    return method( v0, v1,
-                   Rt01        = mrcal.invert_Rt( mrcal.Rt_from_rt(rt10) ),
-                   v_are_local = True)
-
-def get_range(**kwargs):
-    # divergent rays have p = (0,0,0)
-    p = get_world_intersection_point(**kwargs)
+    p = method( v0, v1,
+                Rt01        = mrcal.invert_Rt( mrcal.Rt_from_rt(rt10) ),
+                v_are_local = True)
     return nps.mag(p)
 
 
@@ -842,78 +846,37 @@ else:
                  -range_err_have/rangeerr_worst_t01err*delta))
 
 
-# I have a pixel coordinate given on the commandline and a range. I can use the
-# range to correct the yaw (x shift in the image). And I can tweak the pitch to
-# correct the y shift in the image.
-def get_range_err_yaw_pitch_sq(dyawdpitch):
+# We find the shortest rotation-only transform to perfectly point the observed
+# point in cam1 to the epipolar ray at the given range
+def shortest_rotation(v0, v1):
+    v0 = v0/nps.mag(v0)
+    v1 = v1/nps.mag(v1)
+    th = np.arccos(nps.inner(v0,v1))
+    axis = np.linalg.cross(v0,v1)
+    mag_axis = nps.mag(axis)
+    if np.abs(mag_axis) < 1e-8:
+        # observation vectors colinear. There's nothing to adjust
+        return np.identity_r()
+    axis /= mag_axis
+    return axis * th
 
-    p = get_world_intersection_point(r01err_yaw_axis   = n_epipolar_plane,
-                                     r01err_yaw        = dyawdpitch[0],
-                                     r01err_pitch_axis = v_pitch,
-                                     r01err_pitch      = dyawdpitch[1])
+p0_perfect = args.range_estimate*v0
+p1_perfect = mrcal.transform_point_Rt(Rt01, p0_perfect,
+                                      inverted = True)
+r_1rotated_ref = shortest_rotation(p1_perfect, v1)
+# I now have v1 = rotate(r_1rotated_ref, p1_perfect)
+#               = R_1rotated_ref Rt1r Rt0r p0_perfect
+Rt_1rotated_ref = mrcal.compose_Rt( nps.glue( mrcal.R_from_r(r_1rotated_ref),
+                                              np.zeros((3,)),
+                                              axis=-2),
+                                    models[1].Rt_cam_ref() )
 
-    r = nps.mag(p)
-    if r == 0:
-        # The intersection is behind the camera. I arbitrarily make the error
-        # very large
-        return 1e6
-    erange        = r - args.range_estimate
-    ereprojection = mrcal.project(p, *models[0].intrinsics()) - q0
-
-    # The range errors are generally much higher than pixel errors, so I scale
-    # these. Nothing about any of this is particularly principled, but it is
-    # useful for testing
-    ereprojection *= 100
-    return erange*erange + nps.norm2(ereprojection)
-
-# If I'm divergent initially. I take discrete steps to make me
-# convergent, then I run an iterative method
-if get_range_err_yaw_pitch_sq((0,0)) < 1e6:
-    # not divergent initially
-    dyawdpitch = (0,0)
-else:
-    print("## Initially divergent. Finding a usable operating point to begin optimization")
-
-    step = 1e-2 * np.pi/180.0
-    i=0
-    while i < 200:
-        for d in np.array((( 1.,  0.),
-                           (-1.,  0.),
-                           ( 0.,  1.),
-                           ( 0., -1.)))*step:
-
-            dyawdpitch = i*d
-            err = get_range_err_yaw_pitch_sq(dyawdpitch)
-            if err < 1e6:
-                # no longer divergent
-                break
-        if err < 1e6:
-            break
-        i += 1
-    if err >= 1e6:
-        print("## Initial search couldn't make the rays converge. Will not report optimized corrections")
-        dyawdpitch = None
-
-if dyawdpitch is not None:
-    dyaw,dpitch = scipy.optimize.minimize(get_range_err_yaw_pitch_sq, dyawdpitch).x
-    print("## Optimized yaw   (rotation in epipolar plane) correction = {:.3f} degrees".format(dyaw/np.pi*180))
-    print("## Optimized pitch (tilt of epipolar plane)     correction = {:.3f} degrees".format(dpitch/np.pi*180))
-
-    rt10 = get_rt10_perturbed(r01err_yaw_axis   = n_epipolar_plane,
-                              r01err_yaw        = dyaw,
-                              r01err_pitch_axis = v_pitch,
-                              r01err_pitch      = dpitch)
-    print("## Optimized relative yaw (1 <- 0): {:.3f} degrees".format(rt10[1] * 180./np.pi))
+print("## Shorted-rotation yaw   (cam1 rotation around cam1y) correction = {:.3f} degrees".format(r_1rotated_ref[1]/np.pi*180))
+print("## Shorted-rotation pitch (cam1 rotation around cam1x) correction = {:.3f} degrees".format(r_1rotated_ref[0]/np.pi*180))
 
 if args.make_corrected_model1:
-    if dyawdpitch is None:
-        print("I can't make the corrected model if I couldn't compute the yaw,pitch shifts", file=sys.stderr)
-        sys.exit(1)
-    rt_1r = mrcal.compose_rt(rt10,
-                             models[0].rt_cam_ref())
-    models[1].rt_cam_ref(rt_1r)
+    models[1].Rt_cam_ref(Rt_1rotated_ref)
     models[1].write(sys.stdout)
-
 
 if args.viz == '':
     pass
