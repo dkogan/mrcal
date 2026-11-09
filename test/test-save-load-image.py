@@ -189,4 +189,20 @@ for bpp,extension,what in ( (8,  'png', "8bpp  png grayscale"),
                    channels       = 1,
                    should_fail_load = True)
 
+# The existing 24bpp-png-loaded-as-8bpp test above uses compare_value=False, so it
+# would pass even if the values were garbage (e.g. interleaved RGB bytes with wrong
+# stride). Re-test by comparing against the PPM path, which uses the same stbi
+# grayscale conversion, so the results should be exactly equal.
+if not (bpp==24 and extension=='ppm'):
+    raise Exception("Here I'm assuming the last check that ran was bpp=24, extension=.ppm")
+_gray_from_ppm = mrcal.load_image(filename_pattern.format(extension='ppm'),
+                                  bits_per_pixel = 8,
+                                  channels       = 1)
+_check_load(filename_pattern.format(extension='png'),
+            _gray_from_ppm,
+            "24bpp png loaded as 8bpp matches ppm loaded as 8bpp",
+            bits_per_pixel = 8,
+            channels       = 1,
+            extension      = 'png')
+
 testutils.finish()

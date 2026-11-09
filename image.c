@@ -633,6 +633,14 @@ bool load_png(// out
            (color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA) &&
            bit_depth <= 8)
             png_set_gray_to_rgb(png_ptr);
+        // If caller requests 8bpp grayscale from an RGB or palette file, convert
+        // using stbi-compatible weights (r*77 + g*150 + b*29) / 256
+        if(*bits_per_pixel == 8 &&
+           (color_type == PNG_COLOR_TYPE_RGB      ||
+            color_type == PNG_COLOR_TYPE_RGB_ALPHA ||
+            color_type == PNG_COLOR_TYPE_PALETTE) &&
+           bit_depth <= 8)
+            png_set_rgb_to_gray(png_ptr, 1, 77./256., 150./256.);
 
         // Re-read after registering transforms: e.g. palette→RGB changes
         // color_type, expand_gray_1_2_4_to_8 changes bit_depth
