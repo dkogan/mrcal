@@ -210,6 +210,12 @@ _CHOLMOD_factorization_init_from_cholmod_sparse(CHOLMOD_factorization* self, cho
         BARF("Got singular JtJ!");
         return false;
     }
+    const double rcond = cholmod_rcond( self->factorization, &self->common );
+    if(rcond < 1e-14)
+    {
+        BARF("JtJ is too poorly conditioned: rcond = %g", rcond);
+        return false;
+    }
     return true;
 }
 
