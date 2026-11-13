@@ -10,6 +10,17 @@ import numpy as np
 import numpysane as nps
 import gnuplotlib as gp
 
+
+
+
+
+doceres = False
+try:
+    doceres = bool(int(sys.argv[1]))
+except:
+    pass
+
+
 # I import the LOCAL mrcal
 scriptdir = os.path.dirname(os.path.realpath(__file__))
 testdir  = f"{scriptdir}/../../test"
@@ -180,7 +191,10 @@ optimization_inputs = \
         do_optimize_intrinsics_distortions  = True,
         do_optimize_extrinsics              = True,
         do_optimize_frames                  = True,
+        ceres                               = doceres,
     )
+
+
 imeas_regularization = mrcal.measurement_index_regularization(**optimization_inputs)
 b,x = mrcal.optimizer_callback(**optimization_inputs,
                                no_factorization = True,
