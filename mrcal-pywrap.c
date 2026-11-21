@@ -213,7 +213,9 @@ _CHOLMOD_factorization_init_from_cholmod_sparse(CHOLMOD_factorization* self, cho
     const double rcond = cholmod_rcond( self->factorization, &self->common );
     if(rcond < 1e-14)
     {
-        BARF("JtJ is too poorly conditioned: rcond = %g", rcond);
+        char buf[64];
+        PyOS_snprintf(buf, sizeof(buf), "%g", rcond);
+        BARF("JtJ is too poorly conditioned, not reporting the factorization: rcond = %s", buf);
         return false;
     }
     return true;
