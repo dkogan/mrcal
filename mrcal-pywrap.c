@@ -1986,7 +1986,9 @@ PyObject* _optimize(optimizemode_t optimizemode,
                         // factorization to None
                         factorization = Py_None;
                         Py_INCREF(factorization);
-                        PyErr_Clear();
+                        if(PyErr_Occurred())
+                            // print and clear the error
+                            PyErr_Print();
                     }
                 }
 
